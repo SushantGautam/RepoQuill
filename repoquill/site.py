@@ -149,11 +149,15 @@ def build_llms_txt(cfg, pages: List[dict], reference_modules: List[str]) -> None
 
     lines.append("## API Reference")
     lines.append("")
+    seen_modules = set()
     for section_name, _ in _reference_sections(cfg):
         mods = _section_modules(cfg, section_name, reference_modules)
         if not mods:
             continue
         for m in mods:
+            if m in seen_modules:
+                continue
+            seen_modules.add(m)
             slug = m.replace(".", "_")
             desc = _module_descriptions(cfg).get(m, "")
             url = f"{base}/reference/{slug}/" if base else f"reference/{slug}/"
@@ -218,19 +222,40 @@ def build_llms_full_txt(cfg, pages: List[dict], reference_modules: List[str]) ->
                 parts.append(_read_file(path))
                 parts.append("")
 
-    # API reference
+    # API reference — include module docstrings and a link to the full page.
+    # Raw mkdocstrings directives (::: module) are not rendered in plain text,
+    # so we extract the module docstring and provide a URL instead.
+    seen_modules = set()
     for section_name, _ in _reference_sections(cfg):
         mods = _section_modules(cfg, section_name, reference_modules)
         if not mods:
             continue
         for m in mods:
+            if m in seen_modules:
+                continue
+            seen_modules.add(m)
             slug = m.replace(".", "_")
             path = os.path.join(cfg.ref_dir, f"{slug}.md")
             if os.path.exists(path):
+                content = _read_file(path)
+                # Strip raw mkdocstrings directives — they don't render in plain text.
+                # Keep the module docstring (text before the first ::: directive).
+                lines = content.split("\n")
+                doc_lines = []
+                for line in lines:
+                    if line.startswith(":::"):
+                        break
+                    doc_lines.append(line)
+                doc_text = "\n".join(doc_lines).strip()
+                base = cfg.site_url.rstrip("/") if cfg.site_url else ""
+                url = f"{base}/reference/{slug}/" if base else f"reference/{slug}/"
                 parts.append(f"{'=' * 60}")
                 parts.append(f"## {m}")
                 parts.append("")
-                parts.append(_read_file(path))
+                if doc_text:
+                    parts.append(doc_text)
+                    parts.append("")
+                parts.append(f"Full API docs: {url}")
                 parts.append("")
 
     content = "\n".join(parts)
@@ -523,6 +548,16 @@ def build_mkdocs_yml(cfg, nav: List) -> None:
     if site_author:
         extra_site_lines.append(f"site_author: {site_author}")
     if copyright:
+        # Make relative links in copyright root-absolute so they work
+        # on all pages (not just the index).
+        if cfg.site_url:
+            base = cfg.site_url.rstrip("/")
+            # Convert href="SKILL.md" → href="https://.../SKILL.md"
+            copyright = re.sub(
+                r'href="([^/h][^"]*)"',
+                lambda m: f'href="{base}/{m.group(1)}"',
+                copyright,
+            )
         extra_site_lines.append(f"copyright: {copyright}")
     extra_site_block = "\n".join(extra_site_lines) + "\n" if extra_site_lines else ""
 
