@@ -18,53 +18,63 @@ on:
         description: "Path to repoquill.yml"
         required: false
         default: "repoquill.yml"
+        type: string
       # Name of the GitHub secret that holds the LLM API key.
       api_key_secret:
         description: "Name of the secret containing the LLM API key"
         required: false
         default: "LLM_API_KEY"
+        type: string
       # Name of the environment variable the LLM client reads the key from.
       # Must match `api_key_env` in repoquill.yml.
       api_key_env:
         description: "Env var name the LLM client reads (must match repoquill.yml api_key_env)"
         required: false
         default: "OPENAI_API_KEY"
+        type: string
       # Set to "true" to skip LLM narrative generation (deterministic reference only).
       no_llm:
         description: "Skip LLM narrative pages (reference only)"
         required: false
         default: "false"
+        type: string
       # Python version for the runner.
       python_version:
         description: "Python version"
         required: false
         default: "3.11"
+        type: string
       # Install the optional local-RAG extra (sentence-transformers).
       install_rag:
         description: "Install the [rag] extra (local embeddings)"
         required: false
         default: "false"
+        type: string
       # Branch to deploy the built site to (empty = no deploy).
       deploy_branch:
         description: "Branch to deploy site/ to (e.g. gh-pages). Empty to skip deploy."
         required: false
         default: ""
+        type: string
       # Folder in the consuming repo where the built site should be published
       # from (e.g. "docs" if the site is built into docs/site).
       deploy_path:
         description: "Path to the built site/ folder for deployment"
         required: false
         default: "site"
+        type: string
       # Optional: check out a separate source repo (for docs-only repos where
       # the package source lives in a different repository).
       source_repo:
         description: "Source repo to check out (e.g. owner/repo). Empty = use the calling repo."
         required: false
         default: ""
+        type: string
       source_ref:
         description: "Branch/tag/commit of the source repo. Empty = default branch."
         required: false
         default: ""
+        type: string
 
 jobs:
   generate-and-build:
