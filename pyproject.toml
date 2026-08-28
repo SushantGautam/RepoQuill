@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "repoquill"
-version = "0.1.7"
+version = "0.1.8"
 description = "Generic two-layer developer-docs generator: deterministic API reference (Griffe) + LLM narrative guides (LiteLLM) + MkDocs Material site."
 readme = "README.md"
 requires-python = ">=3.9"
