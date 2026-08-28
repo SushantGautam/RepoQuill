@@ -1,15 +1,8 @@
-name: Test Minimal Reusable
+name: Test Minimal
 on:
   workflow_call:
-    inputs:
-      test_input:
-        description: "Test input"
-        required: false
-        default: "hello"
-        type: string
 jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - name: Show input
-        run: echo "Input: ${{ inputs.test_input }}"
+      - run: echo "hello"
