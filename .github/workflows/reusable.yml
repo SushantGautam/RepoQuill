@@ -75,6 +75,10 @@ on:
         required: false
         default: ""
         type: string
+    secrets:
+      LLM_API_KEY:
+        description: "LLM API key (wired into the env var named by api_key_env)"
+        required: true
 
 jobs:
   generate-and-build:
