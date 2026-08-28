@@ -126,12 +126,12 @@ def load_config(config_path: Optional[str] = None) -> RepoQuillConfig:
 
     # --- Build block ---
     build = cfg_dict.get("build", {}) or {}
-    docs_dir = build.get("docs_dir", "site_src")
+    docs_dir = build.get("docs_dir", "docs")
 
     # site_src resolution (priority high to low):
     #   1. Explicit `site_src:` key in YAML
     #   2. `output_dir:` key (same-repo integration: all artifacts in one folder)
-    #   3. <config_dir>/<docs_dir> (default: <config_dir>/site_src)
+    #   3. <config_dir>/<docs_dir> (default: <config_dir>/docs)
     if cfg_dict.get("site_src"):
         site_src = os.path.abspath(cfg_dict["site_src"])
     elif cfg_dict.get("output_dir"):

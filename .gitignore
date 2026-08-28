@@ -10,7 +10,7 @@ venv/
 
 # RepoQuill output (generated into the consuming repo, not here)
 site/
-site_src/
+docs/
 mkdocs.yml
 *.plan.json
 

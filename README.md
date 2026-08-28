@@ -173,7 +173,7 @@ package_dir: mypackage
 output_dir: docs          # everything goes into docs/
 ```
 
-This puts `site_src/`, `mkdocs.yml`, and the built `site/` all inside `docs/`:
+This puts the generated content (`index.md`, `guides/`, `reference/`), `mkdocs.yml`, and the built `site/` all inside `docs/`:
 
 ```
 myrepo/
