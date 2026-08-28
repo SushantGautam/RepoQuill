@@ -73,6 +73,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Checkout RepoQuill
+        uses: actions/checkout@v4
+        with:
+          repository: SushantGautam/RepoQuill
+          ref: main
+          path: _repoquill
+
       - name: Checkout source repo
         if: inputs.source_repo != ''
         uses: actions/checkout@v4
@@ -90,9 +97,9 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           if [ "${{ inputs.install_rag }}" = "true" ]; then
-            pip install "repoquill[rag]"
+            pip install "./_repoquill[rag]"
           else
-            pip install repoquill
+            pip install ./_repoquill
           fi
 
       - name: Generate docs
