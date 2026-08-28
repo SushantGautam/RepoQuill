@@ -1109,7 +1109,7 @@ def _cmd_generate(args) -> int:
     print()
 
     # Scaffold missing config sections via LLM (minimal config → full config)
-    if not args.no_llm:
+    if not args.no_llm and not getattr(args, "no_scaffold", False):
         client = LLMClient(cfg.llm)
         if _scaffold_config(cfg, client):
             print()
@@ -1276,15 +1276,18 @@ def main(argv=None) -> int:
     sub.add_parser("plan", parents=[common], help="Show the page plan")
     gen = sub.add_parser("generate", parents=[common], help="Generate docs")
     gen.add_argument("--no-llm", action="store_true", help="Skip LLM layer")
+    gen.add_argument("--no-scaffold", action="store_true", help="Skip LLM config scaffolding")
     gen.add_argument("--force", action="store_true", help="Full regenerate")
     gen.add_argument("--build", action="store_true", help="Also run mkdocs build")
 
     build = sub.add_parser("build", parents=[common], help="Generate + mkdocs build")
     build.add_argument("--no-llm", action="store_true", help="Skip LLM layer")
+    build.add_argument("--no-scaffold", action="store_true", help="Skip LLM config scaffolding")
     build.add_argument("--force", action="store_true", help="Full regenerate")
 
     serve = sub.add_parser("serve", parents=[common], help="Generate + local preview")
     serve.add_argument("--no-llm", action="store_true", help="Skip LLM layer")
+    serve.add_argument("--no-scaffold", action="store_true", help="Skip LLM config scaffolding")
     serve.add_argument("--force", action="store_true", help="Full regenerate")
     serve.add_argument("--port", type=int, default=8000, help="Port (default 8000)")
 
