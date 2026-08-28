@@ -11,4 +11,5 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - run: echo "Input: ${{ inputs.test_input }}"
+      - name: Show input
+        run: echo "Input: ${{ inputs.test_input }}"
