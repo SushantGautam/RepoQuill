@@ -1,4 +1,8 @@
-# RepoQuill
+<p align="center">
+  <img src="assets/repoquill-logo.svg" width="180" alt="RepoQuill logo">
+</p>
+
+<h1 align="center">RepoQuill</h1>
 
 Generic two-layer developer-docs generator. Point it at any Python package and it produces a complete, always-accurate documentation site:
 
