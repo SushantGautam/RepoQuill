@@ -4,6 +4,13 @@
 
 <h1 align="center">RepoQuill</h1>
 
+<p align="center">
+  <a href="https://pypi.org/project/repoquill/"><img src="https://img.shields.io/pypi/v/repoquill?logo=pypi&logoColor=white" alt="PyPI version"></a>
+  <a href="https://pypi.org/project/repoquill/"><img src="https://img.shields.io/pypi/dm/repoquill?logo=pypi&logoColor=white" alt="PyPI downloads"></a>
+  <a href="https://pypi.org/project/repoquill/"><img src="https://img.shields.io/pypi/pyversions/repoquill" alt="Python versions"></a>
+  <a href="https://pypi.org/project/repoquill/"><img src="https://img.shields.io/pypi/license/repoquill" alt="License"></a>
+</p>
+
 Generic two-layer developer-docs generator. Point it at any Python package and it produces a complete, always-accurate documentation site:
 
 - **Layer 1 — API reference (deterministic, no LLM).** Griffe parses your source; mkdocstrings renders classes, functions, signatures, and docstrings. This layer is fast, free, and never hallucinates.
