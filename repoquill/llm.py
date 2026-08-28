@@ -11,10 +11,12 @@ Providers:
     ``repoquill.yml`` under the ``llm:`` block.
 
 Secrets:
-    The API key is NEVER stored in the config file. The config names the
-    environment variable that holds the key (``api_key_env``); the key
-    itself is read from the environment at call time (e.g. a GitHub
-    Actions secret).
+    The API key is NEVER stored in the config file. For standard providers
+    the key is resolved by LiteLLM from the provider's standard env var
+    (``OPENAI_API_KEY``, ``ANTHROPIC_API_KEY``, ``GROQ_API_KEY``, ...) —
+    set it in your environment or as a GitHub Actions secret. The
+    ``api_key_env`` config is only consulted for custom ``base_url``
+    (OpenAI-compatible) endpoints.
 
 RAG (optional):
     When ``llm.rag.enabled`` is true, RepoQuill builds a local vector
@@ -73,27 +75,28 @@ class LLMClient:
 
         Args:
             messages: OpenAI-style message list.
-            max_tokens: Override the configured max tokens.
-            temperature: Override the configured temperature.
+            max_tokens: Max tokens for the response.
+            temperature: Sampling temperature.
             retries: Number of attempts with exponential backoff.
 
         Returns:
             The model's text response.
 
         Raises:
-            RuntimeError: If the API key env var is not set, or all
-                retries are exhausted.
+            RuntimeError: If all retries are exhausted.
+
+        Note:
+            API-key resolution is delegated to LiteLLM. For standard
+            providers LiteLLM reads the key from the provider's standard
+            env var (``OPENAI_API_KEY``, ``ANTHROPIC_API_KEY``,
+            ``GROQ_API_KEY``, ...) — no explicit key is passed. Local and
+            OAuth providers (e.g. github_copilot) need no key. The
+            ``api_key_env`` config is only consulted for custom
+            ``base_url`` (OpenAI-compatible) endpoints.
         """
         import litellm
 
         cfg = self.llm_cfg
-        api_key = self._resolve_api_key()
-        if api_key is None and cfg.provider not in _LOCAL_PROVIDERS:
-            raise RuntimeError(
-                f"API key not found: set the environment variable "
-                f"{cfg.api_key_env!r} (named by llm.api_key_env in "
-                f"repoquill.yml) before running RepoQuill."
-            )
 
         # Custom OpenAI-compatible endpoint: use the OpenAI client directly
         # with a custom user-agent. Some servers (e.g. behind Cloudflare)
@@ -102,22 +105,23 @@ class LLMClient:
         if cfg.base_url:
             return self._chat_openai_direct(
                 messages=messages,
-                api_key=api_key,
+                api_key=self._resolve_api_key(),
                 max_tokens=max_tokens,
                 temperature=temperature,
                 retries=retries,
             )
 
+        # Standard providers: let LiteLLM resolve the API key itself.
+        # LiteLLM reads each provider's key from its standard env var
+        # (OPENAI_API_KEY, ANTHROPIC_API_KEY, GROQ_API_KEY, ...), so we
+        # do NOT pass api_key explicitly — that would force a single
+        # env-var name and defeat generic per-provider auth.
         kwargs: Dict[str, Any] = {
             "model": self._litellm_model(),
             "messages": messages,
-            "max_tokens": max_tokens if max_tokens is not None else cfg.max_tokens,
-            "temperature": (
-                temperature if temperature is not None else cfg.temperature
-            ),
+            "max_tokens": max_tokens,
+            "temperature": temperature,
         }
-        if api_key is not None:
-            kwargs["api_key"] = api_key
 
         last_error: Optional[Exception] = None
         for attempt in range(retries):
@@ -165,10 +169,8 @@ class LLMClient:
                 response = client.chat.completions.create(
                     model=cfg.model,
                     messages=messages,
-                    max_tokens=max_tokens if max_tokens is not None else cfg.max_tokens,
-                    temperature=(
-                        temperature if temperature is not None else cfg.temperature
-                    ),
+                    max_tokens=max_tokens,
+                    temperature=temperature,
                 )
                 return response.choices[0].message.content
             except Exception as e:  # noqa: BLE001
@@ -182,7 +184,12 @@ class LLMClient:
         ) from last_error
 
     def _resolve_api_key(self) -> Optional[str]:
-        """Read the API key from the env var named in the config."""
+        """Read the API key from the env var named in the config.
+
+        Only used for custom ``base_url`` (OpenAI-compatible) endpoints,
+        where LiteLLM's per-provider resolution doesn't apply. Standard
+        providers resolve their key via LiteLLM directly.
+        """
         return os.environ.get(self.llm_cfg.api_key_env)
 
 

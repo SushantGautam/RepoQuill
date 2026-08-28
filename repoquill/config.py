@@ -28,8 +28,6 @@ class LLMConfig:
     model: str = "gpt-4o"
     api_key_env: str = "OPENAI_API_KEY"
     base_url: Optional[str] = None
-    temperature: float = 0.3
-    max_tokens: int = 8192
     rag: Dict[str, Any] = field(default_factory=dict)
 
 
@@ -123,8 +121,6 @@ def load_config(config_path: Optional[str] = None) -> RepoQuillConfig:
         model=llm_raw.get("model", "gpt-4o"),
         api_key_env=llm_raw.get("api_key_env", "OPENAI_API_KEY"),
         base_url=llm_raw.get("base_url"),
-        temperature=float(llm_raw.get("temperature", 0.3)),
-        max_tokens=int(llm_raw.get("max_tokens", 8192)),
         rag=llm_raw.get("rag", {}) or {},
     )
 

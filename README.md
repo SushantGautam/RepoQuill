@@ -56,10 +56,12 @@ cd your-repo
 repoquill init
 ```
 
-`repoquill init` auto-detects your package name, project name, and GitHub repo, then creates:
+`repoquill init` auto-detects your package name, project name, and GitHub repo, then **asks which LLM provider you want** (OpenAI, Anthropic, GitHub Copilot, OpenRouter, Groq, Ollama, …) and fills in the matching model + auth. It creates:
 
-- `repoquill.yml` — the config (edit to taste)
+- `repoquill.yml` — the config (provider, model, and auth already set)
 - `.github/workflows/docs.yml` — the CI workflow that calls RepoQuill's reusable workflow
+
+You can skip the prompts with flags: `repoquill init --provider anthropic --model claude-sonnet-4-5`.
 
 ### 2. Add your LLM API key as a GitHub secret
 
@@ -68,6 +70,8 @@ Settings → Secrets and variables → Actions → New repository secret:
 | Name | Value |
 |------|-------|
 | `LLM_API_KEY` | `sk-...` (your provider's key) |
+
+> **No API key needed** for `github_copilot` (device-code login) or local providers (`ollama`, `lm_studio`, `vllm`).
 
 ### 3. Push and go
 
@@ -116,6 +120,33 @@ Flags:
 | `--build` | Run `mkdocs build` after generating. |
 | `--source-root PATH` | Override the source repo root. |
 | `--port PORT` | Port for `serve` (default `8000`). |
+
+### `init` flags
+
+| Flag | Description |
+|------|-------------|
+| `--name NAME` | Project name (default: from `pyproject.toml`). |
+| `--package DIR` | Package directory (default: auto-detected). |
+| `--description TEXT` | One-line description. |
+| `--provider NAME` | LLM provider (default: interactive prompt). |
+| `--model NAME` | LLM model (default: provider's default). |
+| `--trigger MODE` | When the docs workflow runs: `manual` (default), `push_main`, `push_all`, `release`. |
+| `--test` | Test the LLM connection after init. |
+| `--force` | Overwrite existing files. |
+
+`init` asks which LLM provider to use (a catalog derived from LiteLLM's own
+model list) and when the GitHub Actions workflow should run:
+
+| Trigger | `on:` block |
+|---------|-------------|
+| `manual` (default) | `workflow_dispatch` only — dormant, run from the Actions UI |
+| `push_main` | `push` on `main` + `workflow_dispatch` |
+| `push_all` | `push` (all branches) + `pull_request` + `workflow_dispatch` |
+| `release` | `push` on `v*` tags + `workflow_dispatch` |
+
+You can build docs **locally** (`repoquill build` / `repoquill serve`) or via
+**GitHub Actions** (cloud runner). For the Actions path, set `LLM_API_KEY` as a
+repository secret so the runner can call the LLM.
 
 ### Multiple configs
 
@@ -178,10 +209,9 @@ output_dir: docs                # optional: keep all artifacts in one folder (sa
 llm:
   provider: openai              # openai | anthropic | openrouter | groq | ollama | ...
   model: gpt-4o
-  api_key_env: OPENAI_API_KEY   # env var NAME holding the key (never the key itself)
+  api_key_env: OPENAI_API_KEY   # env var name the workflow exports your secret under
+                                # (matches the provider: OPENAI_API_KEY, ANTHROPIC_API_KEY, ...)
   base_url: null                # null = provider default; set for custom endpoints
-  temperature: 0.3
-  max_tokens: 8192
 
 site:
   name: MyProject
@@ -214,15 +244,23 @@ module_descriptions:
 
 RepoQuill uses [LiteLLM](https://github.com/BerriAI/litellm), so any provider works:
 
-| `provider` | `model` example | `api_key_env` |
-|------------|-----------------|---------------|
+| `provider` | `model` example | key env var (set this) |
+|------------|-----------------|------------------------|
 | `openai` | `gpt-4o` | `OPENAI_API_KEY` |
 | `anthropic` | `claude-sonnet-4-5` | `ANTHROPIC_API_KEY` |
+| `github_copilot` | `gpt-4o` | _(none — device-code login)_ |
 | `openrouter` | `openai/gpt-4o` | `OPENROUTER_API_KEY` |
 | `groq` | `llama-3.3-70b-versatile` | `GROQ_API_KEY` |
 | `ollama` | `llama3.1` | _(none — local)_ |
 
-For a custom OpenAI-compatible endpoint, set `base_url` and use `provider: openai`.
+Auth is fully generic: **LiteLLM resolves each provider's key from its standard
+env var automatically** — just set the env var in the "key env var" column (or
+as a GitHub Actions secret) and you're done. You don't need to set
+`api_key_env` in `repoquill.yml` for standard providers. Any provider in
+LiteLLM's catalog works — no RepoQuill changes needed.
+
+`api_key_env` is only consulted for a custom OpenAI-compatible endpoint
+(`base_url` set, `provider: openai`).
 
 ### Local RAG (optional)
 
@@ -272,8 +310,11 @@ jobs:
       api_key_env: OPENAI_API_KEY       # must match repoquill.yml
       deploy_branch: gh-pages           # empty to skip deploy
       deploy_path: site
-    secrets: inherit
+    secrets:
+      LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
 ```
+
+> **Note:** `secrets: inherit` only works for same-org/enterprise callers. For cross-org use (the common case), pass secrets explicitly as shown above. `repoquill init` generates this correctly.
 
 That's it. Pushing to `main` regenerates the docs and deploys the site to `gh-pages`.
 
@@ -285,7 +326,7 @@ That's it. Pushing to `main` regenerates the docs and deploys the site to `gh-pa
 |-------|---------|-------------|
 | `config` | `repoquill.yml` | Path to your config. |
 | `api_key_secret` | `LLM_API_KEY` | Name of the secret holding the LLM key. |
-| `api_key_env` | `OPENAI_API_KEY` | Env var name the LLM client reads (must match `api_key_env` in your config). |
+| `api_key_env` | `OPENAI_API_KEY` | Env var name the secret is exported under (e.g. `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`). Must match your provider — LiteLLM reads the key from this env var. |
 | `no_llm` | `false` | Set `true` for reference-only (no API key needed). |
 | `python_version` | `3.11` | Runner Python version. |
 | `install_rag` | `false` | Install the `[rag]` extra. |

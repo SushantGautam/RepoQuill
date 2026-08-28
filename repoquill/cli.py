@@ -21,6 +21,7 @@ Flags:
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import shutil
 import subprocess
@@ -193,14 +194,163 @@ def _resolve_configs(config_arg: str | None) -> list[str]:
 # init
 # ---------------------------------------------------------------------------
 
+# Providers that run locally and never need an API key.
+_LOCAL_PROVIDERS = {"ollama", "lm_studio", "vllm", "local"}
+
+# Providers that authenticate via OAuth / device-code instead of an API key.
+# LiteLLM handles the login and caches the token locally.
+_OAUTH_PROVIDERS = {"github_copilot"}
+
+# Providers offered in the interactive picker, in display order.
+# Everything else in litellm.provider_list is still usable by typing it.
+_FEATURED_PROVIDERS = [
+    "openai",
+    "anthropic",
+    "github_copilot",
+    "openrouter",
+    "groq",
+    "together_ai",
+    "mistral",
+    "xai",
+    "deepseek",
+    "huggingface",
+    "cohere",
+    "ollama",
+]
+
+
+def _litellm_catalog() -> dict:
+    """Build a provider -> {models, default} catalog from LiteLLM data.
+
+    Derived entirely from ``litellm.model_cost`` (no curation). For each
+    provider, collects the chat-mode models, strips any provider prefix,
+    and picks a sensible default (short, non-fine-tuned, non-dated).
+
+    Returns:
+        Dict mapping provider name to ``{"models": [...], "default": str}``.
+    """
+    try:
+        import litellm
+    except ImportError:
+        return {}
+
+    from collections import defaultdict
+
+    prov_models: dict = defaultdict(list)
+    for model, info in litellm.model_cost.items():
+        if not isinstance(info, dict) or info.get("mode") != "chat":
+            continue
+        provider = info.get("litellm_provider")
+        if not provider:
+            continue
+        name = model
+        for pref in (provider + "/", provider.replace("_", "-") + "/"):
+            if name.startswith(pref):
+                name = name[len(pref):]
+                break
+        prov_models[provider].append(name)
+
+    catalog: dict = {}
+    for provider, models in prov_models.items():
+        catalog[provider] = {
+            "models": sorted(set(models)),
+            "default": _pick_default_model(models),
+        }
+    return catalog
+
+
+def _pick_default_model(models: list) -> str:
+    """Pick a sensible default model from a provider's chat-model list.
+
+    Prefers short, non-fine-tuned, non-dated names.
+    """
+    if not models:
+        return ""
+
+    def score(m: str) -> int:
+        s = 0
+        if m.startswith("ft:"):
+            s += 1000
+        parts = m.split("-")
+        if len(parts) >= 2 and parts[-1].isdigit() and len(parts[-1]) >= 8:
+            s += 500  # dated snapshot
+        s += len(m)  # prefer short
+        return s
+
+    return sorted(set(models), key=score)[0]
+
+
+def _provider_api_key_env(provider: str) -> str:
+    """Derive the API-key env var name for a provider.
+
+    Convention: ``{PROVIDER.upper()}_API_KEY`` (e.g. openai -> OPENAI_API_KEY,
+    together_ai -> TOGETHER_AI_API_KEY). LiteLLM reads this automatically.
+    """
+    return f"{provider.upper()}_API_KEY"
+
+
+def _needs_api_key(provider: str) -> bool:
+    """True if the provider requires an API key (not local, not OAuth)."""
+    return provider not in _LOCAL_PROVIDERS and provider not in _OAUTH_PROVIDERS
+
+
+def _prompt_choice(prompt: str, options: list, default: str) -> str:
+    """Interactive numbered picker. Returns the chosen option string.
+
+    Falls back to ``default`` on EOF / non-interactive stdin.
+    """
+    if not options:
+        return default
+    print(prompt)
+    for i, opt in enumerate(options, 1):
+        marker = " (default)" if opt == default else ""
+        print(f"  {i}. {opt}{marker}")
+    try:
+        raw = input(f"Select [1-{len(options)}] (default: {options.index(default) + 1 if default in options else 1}): ").strip()
+    except (EOFError, KeyboardInterrupt):
+        return default
+    if not raw:
+        return default
+    if raw.isdigit() and 1 <= int(raw) <= len(options):
+        return options[int(raw) - 1]
+    # Allow typing a value not in the list (e.g. a custom provider)
+    return raw
+
+
+def _prompt_text(prompt: str, default: str) -> str:
+    """Interactive text input with a default. Falls back to default on EOF."""
+    try:
+        raw = input(f"{prompt} [{default}]: ").strip()
+    except (EOFError, KeyboardInterrupt):
+        return default
+    return raw or default
+
+
+def _test_llm_connection(provider: str, model: str, api_key_env: str) -> bool:
+    """Fire one tiny completion to verify the configured provider works.
+
+    Returns True on success, False on failure (prints the reason).
+    """
+    import litellm
+
+    model_str = model if provider == "openai" else f"{provider}/{model}"
+    kwargs = {"model": model_str, "messages": [{"role": "user", "content": "ping"}], "max_tokens": 5}
+    if api_key_env and _needs_api_key(provider):
+        key = os.environ.get(api_key_env)
+        if key:
+            kwargs["api_key"] = key
+    try:
+        litellm.completion(**kwargs)
+        return True
+    except Exception as e:  # noqa: BLE001
+        print(f"  connection test failed: {e}")
+        return False
+
+
 _WORKFLOW_TEMPLATE = """\
 name: Docs
 
-on:
-  push:
-    branches: [main]
-  workflow_dispatch:
-
+{on_block}
 jobs:
   docs:
     uses: SushantGautam/RepoQuill/.github/workflows/reusable.yml@main
@@ -210,8 +360,54 @@ jobs:
       api_key_env: {api_key_env}
       deploy_branch: gh-pages
       deploy_path: site
-    secrets: inherit
+    secrets:
+      LLM_API_KEY: ${{{{ secrets.LLM_API_KEY }}}}
 """
+
+
+def _workflow_on_block(trigger: str, branch: str = "main") -> str:
+    """Build the ``on:`` block for the generated workflow.
+
+    Args:
+        trigger: One of ``manual``, ``push_main``, ``push_all``, ``release``.
+        branch: Branch name for ``push_main`` (default ``main``).
+
+    Returns:
+        The indented ``on:`` block (no trailing newline).
+    """
+    if trigger == "push_all":
+        return (
+            "on:\n"
+            "  push:\n"
+            "  pull_request:\n"
+            "  workflow_dispatch:\n"
+        )
+    if trigger == "release":
+        return (
+            "on:\n"
+            "  push:\n"
+            "    tags:\n"
+            "      - 'v*'\n"
+            "  workflow_dispatch:\n"
+        )
+    if trigger == "push_main":
+        return (
+            "on:\n"
+            f"  push:\n"
+            f"    branches: [{branch}]\n"
+            "  workflow_dispatch:\n"
+        )
+    # manual (default): dormant — only runs when triggered from the UI
+    return (
+        "on:\n"
+        "  # Auto-run disabled. To enable, uncomment one of:\n"
+        "  #   push:\n"
+        "  #     branches: [main]\n"
+        "  #   push:            # all branches\n"
+        "  #   push:\n"
+        "  #     tags: ['v*']   # on release\n"
+        "  workflow_dispatch:\n"
+    )
 
 _CONFIG_TEMPLATE = """\
 # RepoQuill configuration
@@ -221,12 +417,9 @@ project_name: {project_name}
 package_dir: {package_dir}
 
 llm:
-  provider: openai
-  model: gpt-4o
-  api_key_env: OPENAI_API_KEY
-  temperature: 0.3
-  max_tokens: 8192
-
+  provider: {provider}
+  model: {model}
+{api_key_env_line}
 site:
   name: {project_name}
   description: "{description}"
@@ -241,13 +434,11 @@ narrative_sections:
     slugs: [architecture, key-ideas]
 
 reference_sections:
-  - title: Core
-    modules: [{package_dir}]
+{reference_block}
 
 index:
   tagline: "{description}"
-  quick_start:
-    install: "pip install {package_dir}"
+{index_block}
 """
 
 
@@ -302,23 +493,283 @@ def _detect_repo_name() -> str:
     return os.path.basename(os.getcwd())
 
 
+def _load_existing_config(config_path: str) -> dict:
+    """Load an existing repoquill.yml and return its raw dict (or {})."""
+    try:
+        import yaml
+        with open(config_path, "r", encoding="utf-8") as f:
+            return yaml.safe_load(f) or {}
+    except Exception:
+        return {}
+
+
+def _prompt_existing_config(config_path: str, args) -> dict:
+    """Show existing config values and let the user choose what to do.
+
+    Returns a dict with keys:
+        project_name, package_dir, description, provider, model,
+        api_key_env, trigger, site (dict), narrative_sections (list),
+        reference_sections (list), index (dict)
+    """
+    raw = _load_existing_config(config_path)
+    llm_raw = raw.get("llm", {}) or {}
+    site_raw = raw.get("site", {}) or {}
+
+    print(f"\nExisting {config_path} found:")
+    print(f"  project_name:   {raw.get('project_name', '(not set)')}")
+    print(f"  package_dir:    {raw.get('package_dir', '(not set)')}")
+    print(f"  provider:       {llm_raw.get('provider', '(not set)')}")
+    print(f"  model:          {llm_raw.get('model', '(not set)')}")
+    print(f"  api_key_env:    {llm_raw.get('api_key_env', '(not set)')}")
+    if site_raw:
+        print(f"  site.url:       {site_raw.get('url', '(not set)')}")
+        print(f"  site.repo_name: {site_raw.get('repo_name', '(not set)')}")
+    if raw.get("narrative_sections"):
+        print(f"  narrative:      {len(raw['narrative_sections'])} section(s)")
+    if raw.get("reference_sections"):
+        print(f"  reference:      {len(raw['reference_sections'])} section(s)")
+    print()
+
+    # If not interactive, just keep everything
+    if not sys.stdin.isatty():
+        return {
+            "project_name": raw.get("project_name", ""),
+            "package_dir": raw.get("package_dir", ""),
+            "description": site_raw.get("description", ""),
+            "provider": llm_raw.get("provider", "openai"),
+            "model": llm_raw.get("model", "gpt-4o"),
+            "api_key_env": llm_raw.get("api_key_env", ""),
+            "trigger": "manual",
+            "site": site_raw,
+            "narrative_sections": raw.get("narrative_sections", []),
+            "reference_sections": raw.get("reference_sections", []),
+            "index": raw.get("index", {}),
+        }
+
+    print("  [1] Keep all existing values")
+    print("  [2] Change some values")
+    print("  [3] Reset all (start fresh)")
+    choice = input("  Choose [1/2/3] (default: 1): ").strip() or "1"
+
+    if choice == "3":
+        # Reset: use detected defaults, re-prompt everything
+        return None  # Signal: start fresh
+
+    if choice == "2":
+        # Change some: show each value, ask to keep or change
+        project_name = raw.get("project_name", _detect_project_name())
+        package_dir = raw.get("package_dir", _detect_package_dir())
+        provider = llm_raw.get("provider", "openai")
+        model = llm_raw.get("model", "gpt-4o")
+        api_key_env = llm_raw.get("api_key_env", "")
+        description = site_raw.get("description", f"Documentation for {project_name}")
+
+        print()
+        print("  For each value, press Enter to keep, or type a new value:")
+        print()
+
+        new_name = input(f"  project_name  [{project_name}]: ").strip()
+        if new_name:
+            project_name = new_name
+
+        new_pkg = input(f"  package_dir   [{package_dir}]: ").strip()
+        if new_pkg:
+            package_dir = new_pkg
+
+        new_prov = input(f"  provider      [{provider}]: ").strip()
+        if new_prov:
+            provider = new_prov
+            # Re-derive api_key_env if provider changed
+            if provider not in _LOCAL_PROVIDERS and provider not in _OAUTH_PROVIDERS:
+                api_key_env = _provider_api_key_env(provider)
+
+        new_model = input(f"  model         [{model}]: ").strip()
+        if new_model:
+            model = new_model
+
+        new_key_env = input(f"  api_key_env   [{api_key_env or '(none)'}]: ").strip()
+        if new_key_env:
+            api_key_env = new_key_env
+
+        new_desc = input(f"  description   [{description}]: ").strip()
+        if new_desc:
+            description = new_desc
+
+        # Trigger
+        trigger = _capture_trigger(args)
+
+        return {
+            "project_name": project_name,
+            "package_dir": package_dir,
+            "description": description,
+            "provider": provider,
+            "model": model,
+            "api_key_env": api_key_env,
+            "trigger": trigger,
+            "site": site_raw,
+            "narrative_sections": raw.get("narrative_sections", []),
+            "reference_sections": raw.get("reference_sections", []),
+            "index": raw.get("index", {}),
+        }
+
+    # Default: keep all
+    return {
+        "project_name": raw.get("project_name", ""),
+        "package_dir": raw.get("package_dir", ""),
+        "description": site_raw.get("description", ""),
+        "provider": llm_raw.get("provider", "openai"),
+        "model": llm_raw.get("model", "gpt-4o"),
+        "api_key_env": llm_raw.get("api_key_env", ""),
+        "trigger": "manual",
+        "site": site_raw,
+        "narrative_sections": raw.get("narrative_sections", []),
+        "reference_sections": raw.get("reference_sections", []),
+        "index": raw.get("index", {}),
+    }
+
+
 def _cmd_init(args) -> int:
     """Scaffold repoquill.yml and a GitHub Actions workflow."""
+    config_path = os.path.join(os.getcwd(), "repoquill.yml")
+
+    # --- Check for existing config ---
+    existing = None
+    if os.path.exists(config_path):
+        if args.force:
+            print(f"  --force: overwriting {config_path}")
+        else:
+            existing = _prompt_existing_config(config_path, args)
+            if existing is None:
+                # User chose "reset all" — fall through to fresh init
+                existing = None
+            else:
+                # User kept or changed values — use them
+                project_name = existing["project_name"] or _detect_project_name()
+                package_dir = existing["package_dir"] or _detect_package_dir()
+                provider = existing["provider"]
+                model = existing["model"]
+                api_key_env = existing["api_key_env"]
+                trigger = existing["trigger"]
+                description = existing["description"] or f"Documentation for {project_name}"
+
+                # Write config with existing values
+                repo_name = _detect_repo_name()
+                repo_owner, _, repo_slug = repo_name.partition("/")
+                if not repo_slug:
+                    repo_owner, repo_slug = "", repo_name
+
+                if api_key_env:
+                    api_key_env_line = f"  api_key_env: {api_key_env}\n"
+                else:
+                    api_key_env_line = "  # api_key_env: (not needed — " + (
+                        "local provider" if provider in _LOCAL_PROVIDERS else "OAuth login"
+                    ) + ")\n"
+
+                # Build config content, preserving existing sections
+                site = existing.get("site") or {}
+                site_name = site.get("name", project_name)
+                site_url = site.get("url", f"https://{repo_owner}.github.io/{repo_slug}/")
+                site_repo_url = site.get("repo_url", f"https://github.com/{repo_name}")
+                site_repo_name = site.get("repo_name", repo_name)
+                site_desc = site.get("description", description)
+
+                narrative = existing.get("narrative_sections") or [
+                    {"title": "Getting Started", "slugs": ["quickstart", "installation"]},
+                    {"title": "Core Concepts", "slugs": ["architecture", "key-ideas"]},
+                ]
+                if existing.get("reference_sections"):
+                    reference = existing["reference_sections"]
+                elif package_dir:
+                    reference = [{"title": "Core", "modules": [package_dir]}]
+                else:
+                    reference = []
+                if existing.get("index"):
+                    index = existing["index"]
+                elif package_dir:
+                    index = {"tagline": description, "quick_start": {"install": f"pip install {package_dir}"}}
+                else:
+                    index = {"tagline": description}
+
+                # Serialize sections to YAML
+                import yaml
+                narrative_yaml = yaml.dump(narrative, default_flow_style=False, sort_keys=False).strip()
+                reference_yaml = yaml.dump(reference, default_flow_style=False, sort_keys=False).strip()
+                index_yaml = yaml.dump(index, default_flow_style=False, sort_keys=False).strip()
+
+                config_content = (
+                    f"# RepoQuill configuration\n"
+                    f"# Docs: https://github.com/SushantGautam/RepoQuill#config\n"
+                    f"\n"
+                    f"project_name: {project_name}\n"
+                    f"package_dir: {package_dir}\n"
+                    f"\n"
+                    f"llm:\n"
+                    f"  provider: {provider}\n"
+                    f"  model: {model}\n"
+                    f"{api_key_env_line}"
+                    f"site:\n"
+                    f"  name: {site_name}\n"
+                    f"  description: \"{site_desc}\"\n"
+                    f"  url: {site_url}\n"
+                    f"  repo_url: {site_repo_url}\n"
+                    f"  repo_name: {site_repo_name}\n"
+                    f"\n"
+                    f"narrative_sections:\n"
+                    f"{narrative_yaml}\n"
+                    f"\n"
+                    f"reference_sections:\n"
+                    f"{reference_yaml}\n"
+                    f"\n"
+                    f"index:\n"
+                    f"{index_yaml}\n"
+                )
+                with open(config_path, "w", encoding="utf-8") as f:
+                    f.write(config_content)
+                print(f"  updated {config_path}")
+
+                # Write workflow if it doesn't exist
+                wf_dir = os.path.join(os.getcwd(), ".github", "workflows")
+                wf_path = os.path.join(wf_dir, "docs.yml")
+                if not os.path.exists(wf_path):
+                    os.makedirs(wf_dir, exist_ok=True)
+                    on_block = _workflow_on_block(trigger)
+                    wf_content = _WORKFLOW_TEMPLATE.format(
+                        api_key_env=api_key_env or "LLM_API_KEY",
+                        on_block=on_block,
+                    )
+                    with open(wf_path, "w", encoding="utf-8") as f:
+                        f.write(wf_content)
+                    print(f"  created {wf_path}")
+                else:
+                    print(f"  kept existing {wf_path}")
+
+                print()
+                print("Next steps:")
+                print("  1. Edit repoquill.yml — set site.url, narrative_sections, etc.")
+                print("  2. Run: repoquill build")
+                print("  3. Local preview: repoquill serve")
+                return 0
+
+    # --- Fresh init (no existing config, or user chose reset) ---
     project_name = args.name or _detect_project_name()
     package_dir = args.package or _detect_package_dir()
     repo_name = _detect_repo_name()
     description = args.description or f"Documentation for {project_name}"
 
-    if not package_dir:
-        print(
-            "error: could not detect a Python package. "
-            "Pass --package NAME or create a package with __init__.py.",
-            file=sys.stderr,
-        )
-        return 1
+    # --- Capture LLM config (provider / model / auth) ---
+    provider, model, api_key_env = _capture_llm_config(args)
+
+    # --- Capture workflow trigger mode ---
+    trigger = _capture_trigger(args)
+
+    # --- Summary of auto-detected values ---
+    print(f"  project:  {project_name}")
+    print(f"  package:  {package_dir or '(none — non-Python project)'}")
+    print(f"  repo:     {repo_name}")
+    print(f"  llm:      {provider}/{model}")
+    print(f"  trigger:  {trigger}")
 
     # --- Write repoquill.yml ---
-    config_path = os.path.join(os.getcwd(), "repoquill.yml")
     if os.path.exists(config_path) and not args.force:
         print(f"error: {config_path} already exists (use --force to overwrite)", file=sys.stderr)
         return 1
@@ -327,6 +778,21 @@ def _cmd_init(args) -> int:
     if not repo_slug:
         repo_owner, repo_slug = "", repo_name
 
+    if api_key_env:
+        api_key_env_line = f"  api_key_env: {api_key_env}\n"
+    else:
+        api_key_env_line = "  # api_key_env: (not needed — " + (
+            "local provider" if provider in _LOCAL_PROVIDERS else "OAuth login"
+        ) + ")\n"
+
+    # Build conditional blocks based on whether package_dir is set
+    if package_dir:
+        reference_block = f"  - title: Core\n    modules: [{package_dir}]"
+        index_block = f'  quick_start:\n    install: "pip install {package_dir}"'
+    else:
+        reference_block = "  # Add reference sections here (e.g. for Python packages)"
+        index_block = "  # Add quick_start here (e.g. install command)"
+
     config_content = _CONFIG_TEMPLATE.format(
         project_name=project_name,
         package_dir=package_dir,
@@ -334,6 +800,11 @@ def _cmd_init(args) -> int:
         repo_name=repo_name,
         repo_owner=repo_owner,
         repo_slug=repo_slug,
+        provider=provider,
+        model=model,
+        api_key_env_line=api_key_env_line,
+        reference_block=reference_block,
+        index_block=index_block,
     )
     with open(config_path, "w", encoding="utf-8") as f:
         f.write(config_content)
@@ -346,20 +817,259 @@ def _cmd_init(args) -> int:
         print(f"  skipped {wf_path} (already exists)")
     else:
         os.makedirs(wf_dir, exist_ok=True)
-        wf_content = _WORKFLOW_TEMPLATE.format(api_key_env="OPENAI_API_KEY")
+        on_block = _workflow_on_block(trigger)
+        wf_content = _WORKFLOW_TEMPLATE.format(
+            api_key_env=api_key_env or "LLM_API_KEY",
+            on_block=on_block,
+        )
         with open(wf_path, "w", encoding="utf-8") as f:
             f.write(wf_content)
         print(f"  created {wf_path}")
 
+    # --- Optional connection test ---
+    if args.test:
+        print("\n[init] Testing LLM connection...")
+        ok = _test_llm_connection(provider, model, api_key_env)
+        print(f"  {'OK' if ok else 'FAILED'} — {provider}/{model}")
+
     print()
     print("Next steps:")
-    print(f"  1. Edit repoquill.yml — set site.url, narrative_sections, etc.")
-    print("  2. Add your LLM API key as a GitHub secret:")
-    print("     Settings → Secrets and variables → Actions → New repository secret")
-    print("     Name: LLM_API_KEY   Value: sk-...")
-    print("  3. Push to main — docs will build automatically.")
-    print("  4. Local preview:  repoquill serve")
+    print("  1. Edit repoquill.yml — set site.url, narrative_sections, etc.")
+
+    # Auth setup (path A: local, path B: GitHub Actions)
+    if provider in _OAUTH_PROVIDERS:
+        print("  2. Log in once (device-code flow) — happens automatically on the")
+        print("     first `repoquill generate`. No API key needed.")
+    elif provider in _LOCAL_PROVIDERS:
+        print(f"  2. Make sure your local model server is running ({provider}).")
+    else:
+        local_key = os.environ.get(api_key_env, "")
+        if local_key and shutil.which("gh") and sys.stdin.isatty():
+            print("  2. Your local " + api_key_env + " is set.")
+            answer = input(
+                "     Set the LLM_API_KEY GitHub secret now (via gh)? [y/N] "
+            ).strip().lower()
+            if answer in ("y", "yes"):
+                result = subprocess.run(
+                    ["gh", "secret", "set", "LLM_API_KEY"],
+                    input=local_key, text=True, capture_output=True,
+                )
+                if result.returncode == 0:
+                    print("     ✓ Done — LLM_API_KEY GitHub secret is set.")
+                else:
+                    err = (result.stderr or result.stdout or "").strip()
+                    print("     ✗ Failed to set the GitHub secret.")
+                    if err:
+                        print("       " + err.splitlines()[0])
+                    print("     Set it manually: Settings → Secrets → Actions")
+                    print("       → New repository secret → Name: LLM_API_KEY")
+            else:
+                print("     Set it later: Settings → Secrets → Actions")
+                print("       → New repository secret → Name: LLM_API_KEY")
+        else:
+            print("  2. Set your LLM API key:")
+            print("     • Local:  export " + api_key_env + "=sk-...")
+            print("     • GitHub Actions: Settings → Secrets → New repository secret")
+            print("       Name: LLM_API_KEY   Value: sk-...")
+
+    # Trigger / deploy
+    if trigger == "manual":
+        print("  3. Build locally:  repoquill build   (or `repoquill serve` to preview)")
+        print("     Or run the workflow from the Actions UI (it's set to manual).")
+    elif trigger == "push_main":
+        print("  3. Push to main — docs build + deploy to GitHub Pages automatically.")
+    elif trigger == "push_all":
+        print("  3. Push to any branch / open a PR — docs build automatically.")
+    else:  # release
+        print("  3. Tag a release (v*) — docs build + deploy automatically.")
+
+    print("  4. Local preview anytime:  repoquill serve")
     return 0
+
+
+def _capture_llm_config(args):
+    """Capture provider / model / api_key_env.
+
+    Minimal by default: uses sensible defaults (openai/gpt-4o) unless the
+    user passes --provider/--model or is in an interactive TTY where they
+    want to choose. Returns a (provider, model, api_key_env) tuple.
+    """
+    catalog = _litellm_catalog()
+
+    # --- Provider ---
+    if getattr(args, "provider", None):
+        provider = args.provider
+    elif sys.stdin.isatty():
+        featured = [p for p in _FEATURED_PROVIDERS if p in catalog or p in _LOCAL_PROVIDERS or p in _OAUTH_PROVIDERS]
+        provider = _prompt_choice("Which LLM provider?", featured, "openai")
+    else:
+        provider = "openai"
+
+    # --- Model ---
+    default_model = catalog.get(provider, {}).get("default", "")
+    if not default_model:
+        default_model = {"ollama": "llama3.1", "lm_studio": "local-model", "vllm": "local-model", "local": "local-model"}.get(provider, "gpt-4o")
+    if getattr(args, "model", None):
+        model = args.model
+    elif sys.stdin.isatty():
+        model = _prompt_text("Model", default_model)
+    else:
+        model = default_model
+
+    # --- Auth ---
+    if provider in _LOCAL_PROVIDERS or provider in _OAUTH_PROVIDERS:
+        api_key_env = ""
+    else:
+        api_key_env = _provider_api_key_env(provider)
+        if os.environ.get(api_key_env):
+            print(f"  (detected {api_key_env} in your environment)")
+
+    return provider, model, api_key_env
+
+
+def _capture_trigger(args) -> str:
+    """Capture the workflow trigger mode.
+
+    Minimal by default: uses ``manual`` unless the user passes --trigger
+    or is in an interactive TTY. Returns one of: ``manual``, ``push_main``,
+    ``push_all``, ``release``.
+    """
+    if getattr(args, "trigger", None):
+        return args.trigger
+    if not sys.stdin.isatty():
+        return "manual"
+    options = [
+        "manual",       # default: only via Actions UI (dormant on:)
+        "push_main",    # on every push to main
+        "push_all",     # on every push (all branches) + PRs
+        "release",      # on version tags (v*)
+    ]
+    labels = {
+        "manual": "manual (default — run from the Actions UI)",
+        "push_main": "on every push to main",
+        "push_all": "on every push (all branches) + pull requests",
+        "release": "on release (version tags v*)",
+    }
+    # Show friendly labels but return the key
+    display = [labels[o] for o in options]
+    choice = _prompt_choice("When should the docs workflow run?", display, labels["manual"])
+    # Map the label back to the key
+    for key, label in labels.items():
+        if choice == label:
+            return key
+    return "manual"
+
+
+def _scaffold_config(cfg, client) -> bool:
+    """Ask the LLM to fill in missing config sections (narrative_sections,
+    reference_sections, index) for a minimal config.
+
+    Returns True if the config was updated and written back.
+    """
+    import yaml
+
+    # Check if config is minimal (missing key sections)
+    needs_narrative = not cfg.narrative_sections
+    needs_reference = not cfg.raw.get("reference_sections")
+    needs_index = not cfg.index or not cfg.index.get("tagline")
+
+    if not (needs_narrative or needs_reference or needs_index):
+        return False  # Config is already complete
+
+    # Gather context for the LLM
+    from repoquill.reference import get_file_tree
+    tree = ""
+    if cfg.package_dir and os.path.isdir(cfg.pkg_path):
+        tree = get_file_tree(cfg.pkg_path)
+    readme_path = os.path.join(cfg.root, "README.md")
+    readme = ""
+    if os.path.exists(readme_path):
+        with open(readme_path, "r", encoding="utf-8", errors="replace") as f:
+            readme = f.read()[:2000]
+
+    # List available modules for reference_sections
+    modules = []
+    if cfg.package_dir and os.path.isdir(cfg.pkg_path):
+        for dirpath, _, filenames in os.walk(cfg.pkg_path):
+            for f in filenames:
+                if f.endswith(".py"):
+                    rel = os.path.relpath(os.path.join(dirpath, f), cfg.root)
+                    mod = rel[:-3].replace(os.sep, ".")
+                    if mod.endswith(".__init__"):
+                        mod = mod[:-9]
+                    modules.append(mod)
+        modules.sort()
+
+    prompt = f"""You are a documentation architect. Given this project's structure, generate the missing documentation config sections.
+
+PROJECT: {cfg.project_name}
+PACKAGE: {cfg.package_dir or '(non-Python project)'}
+README (excerpt):
+{readme or '(no README found)'}
+
+FILE TREE:
+{tree or '(no Python package)'}
+
+AVAILABLE MODULES:
+{', '.join(modules) if modules else '(none)'}
+
+Return a JSON object with these keys (only include keys that are needed):
+{{
+  "narrative_sections": [{{"title": "Section Title", "slugs": ["slug1", "slug2"]}}],
+  "reference_sections": [{{"title": "Section Title", "modules": ["module.name"]}}],
+  "index": {{"tagline": "One-line description", "quick_start": {{"install": "pip install pkg"}}}}
+}}
+
+Rules:
+- narrative_sections: 2-4 sections grouping the narrative guide pages (e.g. "Getting Started", "Core Concepts", "Advanced Usage")
+- reference_sections: group the available modules into logical sections (e.g. "Core", "CLI", "Utilities")
+- index.tagline: a concise one-line description of the project
+- index.quick_start: only include if this is an installable package
+- Return ONLY the JSON object, no markdown fences"""
+
+    result = client.chat(
+        [{"role": "user", "content": prompt}],
+        max_tokens=1024, temperature=0.1,
+    )
+    from repoquill.llm import strip_code_fences
+    data = json.loads(strip_code_fences(result))
+
+    # Merge into existing config
+    updated = False
+    if needs_narrative and data.get("narrative_sections"):
+        cfg.raw["narrative_sections"] = data["narrative_sections"]
+        cfg.narrative_sections = data["narrative_sections"]
+        updated = True
+    if needs_reference and data.get("reference_sections"):
+        cfg.raw["reference_sections"] = data["reference_sections"]
+        updated = True
+    if needs_index and data.get("index"):
+        # Merge index fields
+        existing_index = cfg.raw.get("index", {}) or {}
+        existing_index.update(data["index"])
+        cfg.raw["index"] = existing_index
+        cfg.index = existing_index
+        updated = True
+
+    if updated:
+        # Write back to config file
+        config_path = os.path.join(cfg.config_dir, "repoquill.yml")
+        with open(config_path, "r", encoding="utf-8") as f:
+            raw_config = yaml.safe_load(f) or {}
+
+        if "narrative_sections" in cfg.raw:
+            raw_config["narrative_sections"] = cfg.raw["narrative_sections"]
+        if "reference_sections" in cfg.raw:
+            raw_config["reference_sections"] = cfg.raw["reference_sections"]
+        if "index" in cfg.raw:
+            raw_config["index"] = cfg.raw["index"]
+
+        with open(config_path, "w", encoding="utf-8") as f:
+            yaml.dump(raw_config, f, default_flow_style=False, sort_keys=False)
+
+        print(f"  ✓ Scaffolded config sections from LLM")
+        return True
+    return False
 
 
 def _cmd_plan(args) -> int:
@@ -397,6 +1107,12 @@ def _cmd_generate(args) -> int:
     if not args.no_llm:
         print(f"LLM backend: {cfg.llm.provider}/{cfg.llm.model}")
     print()
+
+    # Scaffold missing config sections via LLM (minimal config → full config)
+    if not args.no_llm:
+        client = LLMClient(cfg.llm)
+        if _scaffold_config(cfg, client):
+            print()
 
     print("[1/6] Loading source files...")
     source_files = get_source_files(cfg.pkg_path)
@@ -547,6 +1263,14 @@ def main(argv=None) -> int:
     init.add_argument("--name", default=None, help="Project name (default: from pyproject.toml)")
     init.add_argument("--package", default=None, help="Python package directory (default: auto-detect)")
     init.add_argument("--description", default=None, help="One-line project description")
+    init.add_argument("--provider", default=None, help="LLM provider (default: interactive prompt)")
+    init.add_argument("--model", default=None, help="LLM model (default: provider's default)")
+    init.add_argument(
+        "--trigger", default=None,
+        choices=["manual", "push_main", "push_all", "release"],
+        help="When the docs workflow runs (default: interactive prompt; 'manual' = Actions UI only)",
+    )
+    init.add_argument("--test", action="store_true", help="Test the LLM connection after init")
     init.add_argument("--force", action="store_true", help="Overwrite existing files")
 
     sub.add_parser("plan", parents=[common], help="Show the page plan")

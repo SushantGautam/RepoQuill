@@ -7,9 +7,7 @@ package_dir: repoquill
 llm:
   provider: openai
   model: gpt-4o
-  api_key_env: OPENAI_API_KEY
-  temperature: 0.3
-  max_tokens: 8192
+  api_key_env: OPENAI_API_KEY   # env var name the workflow exports your secret under
 
 site:
   name: repoquill

@@ -164,10 +164,13 @@ REQUIREMENTS:
 
 Return ONLY the markdown content, no preamble."""
 
+    # Temperature: conservative for updates (preserve existing content),
+    # more creative for new pages. max_tokens: enough for a full doc page.
+    temp = 0.3 if old_content else 0.7
     content = client.chat(
         [{"role": "user", "content": prompt}],
         max_tokens=8192,
-        temperature=0.3 if old_content else 0.7,
+        temperature=temp,
     )
     return content
 
