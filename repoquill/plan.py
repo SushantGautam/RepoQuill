@@ -64,7 +64,8 @@ def store_plan(plan_file: str, pages: List[dict], file_hashes: Dict[str, str]) -
 
 
 def page_needs_regeneration(
-    page: dict, old_hashes: Dict[str, str], new_hashes: Dict[str, str]
+    page: dict, old_hashes: Dict[str, str], new_hashes: Dict[str, str],
+    out_path: Optional[str] = None,
 ) -> bool:
     """Determine whether a page's source files have changed.
 
@@ -72,10 +73,16 @@ def page_needs_regeneration(
         page: Page dict with a ``source_files`` list.
         old_hashes: Hashes from the previous plan.
         new_hashes: Hashes of the current source files.
+        out_path: Optional path to the output .md file. If provided and
+            the file is missing, regeneration is forced.
 
     Returns:
-        True if any of the page's source files changed (or are new).
+        True if any of the page's source files changed (or are new),
+        or if the output file is missing.
     """
+    # Force regeneration if the output file doesn't exist
+    if out_path is not None and not os.path.exists(out_path):
+        return True
     for f in page.get("source_files", []):
         old = old_hashes.get(f)
         new = new_hashes.get(f)

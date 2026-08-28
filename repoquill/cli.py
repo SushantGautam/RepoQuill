@@ -77,6 +77,24 @@ def _copy_images(cfg) -> None:
         print(f"  images/ ({len(os.listdir(img_dst))} files)")
 
 
+def _copy_theme_assets(cfg) -> None:
+    """Copy theme logo/favicon from config_dir into site_src/ if specified.
+
+    Updates the theme config to use the basename (relative to docs_dir)
+    so mkdocs.yml references the file correctly.
+    """
+    theme_cfg = cfg.theme
+    for key in ("logo", "favicon"):
+        val = theme_cfg.get(key)
+        if val and not val.startswith("http"):
+            src = os.path.join(cfg.config_dir, val)
+            if os.path.isfile(src):
+                dst = os.path.join(cfg.site_src, os.path.basename(val))
+                shutil.copy2(src, dst)
+                theme_cfg[key] = os.path.basename(val)
+                print(f"  {key}: {os.path.basename(val)}")
+
+
 def _mkdocs_cwd(cfg) -> str:
     """Return the working directory for mkdocs commands.
 
@@ -274,6 +292,7 @@ def _cmd_generate(args) -> int:
 
     print()
     print("[6/6] Assembling MkDocs site...")
+    _copy_theme_assets(cfg)
     build_index_md(cfg, pages, reference_modules)
     print("  index.md")
 
