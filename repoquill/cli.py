@@ -507,7 +507,7 @@ llm:
 site:
   name: {project_name}
   description: "{description}"
-  url: https://{repo_owner}.github.io/{repo_slug}/
+  url: https://{site_owner}.github.io/{site_slug}/
   repo_url: https://github.com/{repo_name}
   repo_name: {repo_name}
 
@@ -876,9 +876,12 @@ def _cmd_init(args) -> int:
         print(f"error: {config_path} already exists (use --force to overwrite)", file=sys.stderr)
         return 1
 
-    repo_owner, _, repo_slug = repo_name.partition("/")
-    if not repo_slug:
-        repo_owner, repo_slug = "", repo_name
+    # site.url is derived from the CURRENT repo's git remote (where the site
+    # is published), NOT from the target repo being documented.
+    site_repo = _detect_repo_name()
+    site_owner, _, site_slug = site_repo.partition("/")
+    if not site_slug:
+        site_owner, site_slug = "", site_repo
 
     if api_key_env:
         api_key_env_line = f"  api_key_env: {api_key_env}\n"
@@ -900,8 +903,8 @@ def _cmd_init(args) -> int:
         package_dir=package_dir,
         description=description,
         repo_name=repo_name,
-        repo_owner=repo_owner,
-        repo_slug=repo_slug,
+        site_owner=site_owner,
+        site_slug=site_slug,
         provider=provider,
         model=model,
         api_key_env_line=api_key_env_line,
