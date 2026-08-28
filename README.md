@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/SushantGautam/RepoQuill/main/assets/repoquill-logo-flat.svg" width="180" alt="RepoQuill logo">
+  <img src="https://raw.githubusercontent.com/SushantGautam/RepoQuill/main/assets/repoquill-logo-512.png" width="180" alt="RepoQuill logo">
 </p>
 
 <h1 align="center">RepoQuill</h1>
