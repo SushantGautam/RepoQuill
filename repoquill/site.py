@@ -160,6 +160,12 @@ def build_llms_txt(cfg, pages: List[dict], reference_modules: List[str]) -> None
             lines.append(f"- [{m}]({url}): {desc}" if desc else f"- [{m}]({url})")
     lines.append("")
 
+    lines.append("## Agent Skill")
+    lines.append("")
+    skill_url = f"{base}/SKILL.md" if base else "SKILL.md"
+    lines.append(f"- [SKILL.md]({skill_url}): Agent skill for generating, maintaining, and validating this project's documentation.")
+    lines.append("")
+
     content = "\n".join(lines)
     with open(os.path.join(cfg.site_src, "llms.txt"), "w") as f:
         f.write(content)
