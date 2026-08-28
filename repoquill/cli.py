@@ -88,7 +88,7 @@ def _mkdocs_cwd(cfg) -> str:
     return cfg.config_dir
 
 
-def _run_mkdocs_build(cfg) -> None:
+def _run_mkdocs_build(cfg, skill_content: str | None = None) -> None:
     """Run `mkdocs build` in the correct directory."""
     print("\n[build] Running mkdocs build...")
     subprocess.run(
@@ -98,18 +98,13 @@ def _run_mkdocs_build(cfg) -> None:
     site_dir = cfg.build.get("site_dir", "site")
     site_path = os.path.join(_mkdocs_cwd(cfg), site_dir)
 
-    # Copy SKILL.md as a raw plain-text file into the site output.
-    # MkDocs renders .md files to HTML, so we copy it after the build
-    # to serve it as raw text (e.g. /SKILL.md on GitHub Pages).
-    skill_src = os.path.join(cfg.site_src, "SKILL.md")
-    if os.path.isfile(skill_src):
+    # Write SKILL.md as a raw plain-text file into the site output.
+    # We don't put it in site_src because MkDocs would render it to HTML.
+    if skill_content:
         skill_dst = os.path.join(site_path, "SKILL.md")
-        shutil.copy2(skill_src, skill_dst)
-        # Remove the HTML-rendered version if MkDocs created one
-        skill_html_dir = os.path.join(site_path, "SKILL")
-        if os.path.isdir(skill_html_dir):
-            shutil.rmtree(skill_html_dir)
-        print("  SKILL.md copied as raw text ✓")
+        with open(skill_dst, "w") as f:
+            f.write(skill_content)
+        print("  SKILL.md written as raw text ✓")
 
     print(f"  Site built to {site_dir}/ ✓")
 
@@ -289,7 +284,10 @@ def _cmd_generate(args) -> int:
     build_llms_txt(cfg, pages, reference_modules)
     build_llms_full_txt(cfg, pages, reference_modules)
 
-    build_skill_md(cfg)
+    # Build SKILL.md content (don't write to site_src — MkDocs would
+    # render it to HTML). We'll write it to the site output after build.
+    skill_content = build_skill_md(cfg)
+    print(f"  SKILL.md ({len(skill_content)} chars)")
 
     _copy_images(cfg)
 
@@ -298,7 +296,7 @@ def _cmd_generate(args) -> int:
     print(f"\nDone. {n_guides} guide pages + {n_ref} reference pages in {cfg.site_src}")
 
     if args.build:
-        _run_mkdocs_build(cfg)
+        _run_mkdocs_build(cfg, skill_content)
     return 0
 
 

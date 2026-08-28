@@ -575,16 +575,19 @@ nav:
         f.write(content)
 
 
-def build_skill_md(cfg) -> None:
-    """Write ``SKILL.md`` — an agent skill for using the docs.
+def build_skill_md(cfg) -> str:
+    """Build ``SKILL.md`` content — an agent skill for using the docs.
 
-    Written into the site source directory so it is published with the
-    built site (e.g. at ``/SKILL.md`` on GitHub Pages).
+    Returns the content as a string. The caller is responsible for
+    writing it to the site output (NOT to site_src, because MkDocs
+    would render it to HTML).
 
     Args:
         cfg: A :class:`repoquill.config.RepoQuillConfig`.
+
+    Returns:
+        The SKILL.md content as a string.
     """
-    os.makedirs(cfg.site_src, exist_ok=True)
 
     # Build module list from reference sections
     module_lines = []
@@ -819,7 +822,4 @@ After any docs change, verify:
 - [ ] No doc-vs-code conflicts (flag any found)
 '''
 
-    skill_path = os.path.join(cfg.site_src, "SKILL.md")
-    with open(skill_path, "w") as f:
-        f.write(content)
-    print(f"  SKILL.md ({len(content)} chars)")
+    return content
