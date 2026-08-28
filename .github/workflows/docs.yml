@@ -1,0 +1,17 @@
+name: Docs
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  docs:
+    uses: SushantGautam/RepoQuill/.github/workflows/reusable.yml@main
+    with:
+      config: repoquill.yml
+      api_key_secret: LLM_API_KEY
+      api_key_env: OPENAI_API_KEY
+      deploy_branch: gh-pages
+      deploy_path: site
+    secrets: inherit

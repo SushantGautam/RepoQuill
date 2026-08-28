@@ -46,23 +46,50 @@ pip install repoquill
 pip install "repoquill[rag]"
 ```
 
-## Quick start (local)
+## Quick start
 
-1. Create a `repoquill.yml` at your repo root (see [Config](#config)).
-2. Set your LLM API key in the environment:
-   ```bash
-   export OPENAI_API_KEY=sk-...
-   ```
-3. Generate + build + preview in one command:
-   ```bash
-   repoquill serve
-   ```
-   This generates the docs and starts a live-reload server at `http://localhost:8000`.
+### 1. Scaffold your repo (one command)
 
-   Or, for a one-shot build:
-   ```bash
-   repoquill build
-   ```
+```bash
+pip install repoquill
+cd your-repo
+repoquill init
+```
+
+`repoquill init` auto-detects your package name, project name, and GitHub repo, then creates:
+
+- `repoquill.yml` — the config (edit to taste)
+- `.github/workflows/docs.yml` — the CI workflow that calls RepoQuill's reusable workflow
+
+### 2. Add your LLM API key as a GitHub secret
+
+Settings → Secrets and variables → Actions → New repository secret:
+
+| Name | Value |
+|------|-------|
+| `LLM_API_KEY` | `sk-...` (your provider's key) |
+
+### 3. Push and go
+
+```bash
+git add repoquill.yml .github/workflows/docs.yml
+git commit -m "docs: add RepoQuill"
+git push
+```
+
+Docs build on every push to `main` and deploy to GitHub Pages (`https://<you>.github.io/<repo>/`).
+
+### Local preview
+
+```bash
+export OPENAI_API_KEY=sk-...
+repoquill serve          # live-reload at http://localhost:8000
+```
+
+Or, for a one-shot build:
+```bash
+repoquill build
+```
 
 To generate only the deterministic reference (no LLM, no API key):
 ```bash
@@ -73,6 +100,7 @@ repoquill build --no-llm
 
 | Command | Description |
 |---------|-------------|
+| `repoquill init` | Scaffold `repoquill.yml` + GitHub Actions workflow (auto-detects package, name, repo). |
 | `repoquill plan` | Show the planned page structure (which guides, which sources). |
 | `repoquill generate` | Run Layer 1 + Layer 2, assemble the site. |
 | `repoquill build` | Same as `generate`, always runs `mkdocs build`. |
@@ -214,7 +242,7 @@ Requires `pip install "repoquill[rag]"`. Runs fully offline on the GitHub runner
 
 ## Use in your repo (GitHub Actions)
 
-RepoQuill ships a **reusable workflow**. Your repo adds a thin wrapper that calls it.
+RepoQuill ships a **reusable workflow**. The fastest path is `repoquill init` (see [Quick start](#quick-start)), which scaffolds both files for you. Here's what it generates, if you prefer to do it by hand:
 
 ### 1. Add `repoquill.yml` to your repo
 
@@ -248,6 +276,8 @@ jobs:
 ```
 
 That's it. Pushing to `main` regenerates the docs and deploys the site to `gh-pages`.
+
+> **Tip:** Pin `@main` to a release tag (e.g. `@v0.1`) or commit SHA for reproducible builds. GitHub's security guidance recommends pinning third-party workflows to a SHA; use a tag for convenience, a SHA for maximum safety.
 
 ### Reusable workflow inputs
 

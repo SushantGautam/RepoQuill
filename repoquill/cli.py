@@ -1,6 +1,7 @@
 """RepoQuill command-line interface.
 
 Commands:
+    repoquill init      Scaffold repoquill.yml + GitHub Actions workflow.
     repoquill plan      Show the page plan (which pages, which sources).
     repoquill generate  Run Layer 1 (reference) + Layer 2 (narrative).
     repoquill build     Generate + run ``mkdocs build`` to produce site/.
@@ -188,6 +189,179 @@ def _resolve_configs(config_arg: str | None) -> list[str]:
     )
 
 
+# ---------------------------------------------------------------------------
+# init
+# ---------------------------------------------------------------------------
+
+_WORKFLOW_TEMPLATE = """\
+name: Docs
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  docs:
+    uses: SushantGautam/RepoQuill/.github/workflows/reusable.yml@main
+    with:
+      config: repoquill.yml
+      api_key_secret: LLM_API_KEY
+      api_key_env: {api_key_env}
+      deploy_branch: gh-pages
+      deploy_path: site
+    secrets: inherit
+"""
+
+_CONFIG_TEMPLATE = """\
+# RepoQuill configuration
+# Docs: https://github.com/SushantGautam/RepoQuill#config
+
+project_name: {project_name}
+package_dir: {package_dir}
+
+llm:
+  provider: openai
+  model: gpt-4o
+  api_key_env: OPENAI_API_KEY
+  temperature: 0.3
+  max_tokens: 8192
+
+site:
+  name: {project_name}
+  description: "{description}"
+  url: https://{repo_owner}.github.io/{repo_slug}/
+  repo_url: https://github.com/{repo_name}
+  repo_name: {repo_name}
+
+narrative_sections:
+  - title: Getting Started
+    slugs: [quickstart, installation]
+  - title: Core Concepts
+    slugs: [architecture, key-ideas]
+
+reference_sections:
+  - title: Core
+    modules: [{package_dir}]
+
+index:
+  tagline: "{description}"
+  quick_start:
+    install: "pip install {package_dir}"
+"""
+
+
+def _detect_package_dir() -> str:
+    """Find the top-level Python package in the current directory."""
+    for entry in sorted(os.listdir(".")):
+        if (
+            os.path.isdir(entry)
+            and not entry.startswith((".", "_"))
+            and os.path.isfile(os.path.join(entry, "__init__.py"))
+        ):
+            return entry
+    return ""
+
+
+def _detect_project_name() -> str:
+    """Read the project name from pyproject.toml if present."""
+    for toml in ("pyproject.toml", "setup.cfg"):
+        if os.path.isfile(toml):
+            try:
+                with open(toml, "r", encoding="utf-8") as f:
+                    for line in f:
+                        line = line.strip()
+                        if line.startswith("name") and "=" in line:
+                            val = line.split("=", 1)[1].strip().strip('"').strip("'")
+                            if val:
+                                return val
+            except OSError:
+                pass
+    return os.path.basename(os.getcwd())
+
+
+def _detect_repo_name() -> str:
+    """Detect owner/repo from the git remote, falling back to cwd name."""
+    try:
+        result = subprocess.run(
+            ["git", "remote", "get-url", "origin"],
+            capture_output=True, text=True, timeout=5,
+        )
+        if result.returncode == 0:
+            url = result.stdout.strip()
+            # Handle both https://github.com/owner/repo.git and git@github.com:owner/repo.git
+            if "github.com" in url:
+                path = url.split("github.com", 1)[1].lstrip("/").rstrip("/")
+                if path.endswith(".git"):
+                    path = path[:-4]
+                parts = path.split("/")
+                if len(parts) >= 2:
+                    return f"{parts[0]}/{parts[1]}"
+    except (OSError, subprocess.SubprocessError):
+        pass
+    return os.path.basename(os.getcwd())
+
+
+def _cmd_init(args) -> int:
+    """Scaffold repoquill.yml and a GitHub Actions workflow."""
+    project_name = args.name or _detect_project_name()
+    package_dir = args.package or _detect_package_dir()
+    repo_name = _detect_repo_name()
+    description = args.description or f"Documentation for {project_name}"
+
+    if not package_dir:
+        print(
+            "error: could not detect a Python package. "
+            "Pass --package NAME or create a package with __init__.py.",
+            file=sys.stderr,
+        )
+        return 1
+
+    # --- Write repoquill.yml ---
+    config_path = os.path.join(os.getcwd(), "repoquill.yml")
+    if os.path.exists(config_path) and not args.force:
+        print(f"error: {config_path} already exists (use --force to overwrite)", file=sys.stderr)
+        return 1
+
+    repo_owner, _, repo_slug = repo_name.partition("/")
+    if not repo_slug:
+        repo_owner, repo_slug = "", repo_name
+
+    config_content = _CONFIG_TEMPLATE.format(
+        project_name=project_name,
+        package_dir=package_dir,
+        description=description,
+        repo_name=repo_name,
+        repo_owner=repo_owner,
+        repo_slug=repo_slug,
+    )
+    with open(config_path, "w", encoding="utf-8") as f:
+        f.write(config_content)
+    print(f"  created {config_path}")
+
+    # --- Write GitHub Actions workflow ---
+    wf_dir = os.path.join(os.getcwd(), ".github", "workflows")
+    wf_path = os.path.join(wf_dir, "docs.yml")
+    if os.path.exists(wf_path) and not args.force:
+        print(f"  skipped {wf_path} (already exists)")
+    else:
+        os.makedirs(wf_dir, exist_ok=True)
+        wf_content = _WORKFLOW_TEMPLATE.format(api_key_env="OPENAI_API_KEY")
+        with open(wf_path, "w", encoding="utf-8") as f:
+            f.write(wf_content)
+        print(f"  created {wf_path}")
+
+    print()
+    print("Next steps:")
+    print(f"  1. Edit repoquill.yml — set site.url, narrative_sections, etc.")
+    print("  2. Add your LLM API key as a GitHub secret:")
+    print("     Settings → Secrets and variables → Actions → New repository secret")
+    print("     Name: LLM_API_KEY   Value: sk-...")
+    print("  3. Push to main — docs will build automatically.")
+    print("  4. Local preview:  repoquill serve")
+    return 0
+
+
 def _cmd_plan(args) -> int:
     cfg = load_config(args.config)
     if args.source_root:
@@ -369,6 +543,12 @@ def main(argv=None) -> int:
         "--source-root", default=None, help="Override the source repo root"
     )
 
+    init = sub.add_parser("init", help="Scaffold repoquill.yml + GitHub Actions workflow")
+    init.add_argument("--name", default=None, help="Project name (default: from pyproject.toml)")
+    init.add_argument("--package", default=None, help="Python package directory (default: auto-detect)")
+    init.add_argument("--description", default=None, help="One-line project description")
+    init.add_argument("--force", action="store_true", help="Overwrite existing files")
+
     sub.add_parser("plan", parents=[common], help="Show the page plan")
     gen = sub.add_parser("generate", parents=[common], help="Generate docs")
     gen.add_argument("--no-llm", action="store_true", help="Skip LLM layer")
@@ -387,7 +567,9 @@ def main(argv=None) -> int:
     args = parser.parse_args(argv)
 
     try:
-        if args.command == "plan":
+        if args.command == "init":
+            return _cmd_init(args)
+        elif args.command == "plan":
             return _cmd_plan(args)
         elif args.command == "generate":
             return _cmd_generate_multi(args)

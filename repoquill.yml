@@ -1,0 +1,34 @@
+# RepoQuill configuration
+# Docs: https://github.com/SushantGautam/RepoQuill#config
+
+project_name: repoquill
+package_dir: repoquill
+
+llm:
+  provider: openai
+  model: gpt-4o
+  api_key_env: OPENAI_API_KEY
+  temperature: 0.3
+  max_tokens: 8192
+
+site:
+  name: repoquill
+  description: "Documentation for repoquill"
+  url: https://SushantGautam.github.io/RepoQuill/
+  repo_url: https://github.com/SushantGautam/RepoQuill
+  repo_name: SushantGautam/RepoQuill
+
+narrative_sections:
+  - title: Getting Started
+    slugs: [quickstart, installation]
+  - title: Core Concepts
+    slugs: [architecture, key-ideas]
+
+reference_sections:
+  - title: Core
+    modules: [repoquill]
+
+index:
+  tagline: "Documentation for repoquill"
+  quick_start:
+    install: "pip install repoquill"
