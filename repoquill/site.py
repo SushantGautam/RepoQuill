@@ -572,11 +572,13 @@ nav:
 def build_skill_md(cfg) -> None:
     """Write ``SKILL.md`` — an agent skill for using the docs.
 
+    Written into the site source directory so it is published with the
+    built site (e.g. at ``/SKILL.md`` on GitHub Pages).
+
     Args:
         cfg: A :class:`repoquill.config.RepoQuillConfig`.
     """
-    skill_dir = os.path.join(cfg.root, ".agents", "skills", "documentation")
-    os.makedirs(skill_dir, exist_ok=True)
+    os.makedirs(cfg.site_src, exist_ok=True)
 
     # Build module list from reference sections
     module_lines = []
@@ -811,7 +813,7 @@ After any docs change, verify:
 - [ ] No doc-vs-code conflicts (flag any found)
 '''
 
-    skill_path = os.path.join(skill_dir, "SKILL.md")
+    skill_path = os.path.join(cfg.site_src, "SKILL.md")
     with open(skill_path, "w") as f:
         f.write(content)
     print(f"  SKILL.md ({len(content)} chars)")
