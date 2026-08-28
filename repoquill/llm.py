@@ -49,8 +49,10 @@ class LLMClient:
         """Build the LiteLLM model string for the configured provider.
 
         Rules:
-            - If ``base_url`` is set, the endpoint is treated as
-              OpenAI-compatible and the model is passed as-is.
+            - If ``base_url`` is set, the endpoint is OpenAI-compatible and
+              the model is passed as-is (the server expects the bare model
+              name). Routing is handled via ``custom_llm_provider`` in
+              :meth:`chat`, not by prefixing the model string.
             - If the provider is "openai", the model is passed as-is.
             - Otherwise, prefix with ``{provider}/`` (e.g.
               ``anthropic/claude-...``, ``openrouter/...``).
@@ -93,6 +95,19 @@ class LLMClient:
                 f"repoquill.yml) before running RepoQuill."
             )
 
+        # Custom OpenAI-compatible endpoint: use the OpenAI client directly
+        # with a custom user-agent. Some servers (e.g. behind Cloudflare)
+        # block the default "OpenAI/Python" user-agent that LiteLLM's
+        # wrapper sends, so we set our own.
+        if cfg.base_url:
+            return self._chat_openai_direct(
+                messages=messages,
+                api_key=api_key,
+                max_tokens=max_tokens,
+                temperature=temperature,
+                retries=retries,
+            )
+
         kwargs: Dict[str, Any] = {
             "model": self._litellm_model(),
             "messages": messages,
@@ -103,13 +118,58 @@ class LLMClient:
         }
         if api_key is not None:
             kwargs["api_key"] = api_key
-        if cfg.base_url:
-            kwargs["api_base"] = cfg.base_url
 
         last_error: Optional[Exception] = None
         for attempt in range(retries):
             try:
                 response = litellm.completion(**kwargs)
+                return response.choices[0].message.content
+            except Exception as e:  # noqa: BLE001
+                last_error = e
+                if attempt < retries - 1:
+                    wait = 2 ** attempt
+                    print(f"  retry {attempt + 1}/{retries} in {wait}s ({e})")
+                    time.sleep(wait)
+        raise RuntimeError(
+            f"LLM request failed after {retries} attempts: {last_error}"
+        ) from last_error
+
+    def _chat_openai_direct(
+        self,
+        *,
+        messages: List[Dict[str, str]],
+        api_key: Optional[str],
+        max_tokens: Optional[int],
+        temperature: Optional[float],
+        retries: int,
+    ) -> str:
+        """Call a custom OpenAI-compatible endpoint directly.
+
+        Uses the ``openai`` Python client with a custom user-agent, because
+        some OpenAI-compatible servers (e.g. behind Cloudflare) block the
+        default ``OpenAI/Python`` user-agent that LiteLLM's wrapper sends.
+        """
+        from openai import OpenAI
+
+        cfg = self.llm_cfg
+        client = OpenAI(
+            api_key=api_key,
+            base_url=cfg.base_url,
+            default_headers={
+                "User-Agent": "repoquill/0.1.0 (+https://github.com/SushantGautam/RepoQuill)"
+            },
+        )
+        last_error: Optional[Exception] = None
+        for attempt in range(retries):
+            try:
+                response = client.chat.completions.create(
+                    model=cfg.model,
+                    messages=messages,
+                    max_tokens=max_tokens if max_tokens is not None else cfg.max_tokens,
+                    temperature=(
+                        temperature if temperature is not None else cfg.temperature
+                    ),
+                )
                 return response.choices[0].message.content
             except Exception as e:  # noqa: BLE001
                 last_error = e
