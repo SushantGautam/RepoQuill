@@ -162,7 +162,7 @@ def build_llms_txt(cfg, pages: List[dict], reference_modules: List[str]) -> None
 
     lines.append("## Agent Skill")
     lines.append("")
-    skill_url = f"{base}/SKILL/" if base else "/SKILL/"
+    skill_url = f"{base}/SKILL.md" if base else "SKILL.md"
     lines.append(f"- [SKILL.md]({skill_url}): Agent skill for generating, maintaining, and validating this project's documentation.")
     lines.append("")
 
@@ -392,9 +392,6 @@ def build_nav(cfg, pages: List[dict], reference_modules: List[str]) -> List:
             ref_nav.append([section_name, [f"reference/{m.replace('.', '_')}.md" for m in mods]])
     if ref_nav:
         nav.append(["API Reference", ref_nav])
-
-    # --- Agent skill (always included so it's published with the site) ---
-    nav.append("SKILL.md")
 
     return nav
 

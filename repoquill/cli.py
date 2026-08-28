@@ -96,6 +96,21 @@ def _run_mkdocs_build(cfg) -> None:
         cwd=_mkdocs_cwd(cfg), check=True,
     )
     site_dir = cfg.build.get("site_dir", "site")
+    site_path = os.path.join(_mkdocs_cwd(cfg), site_dir)
+
+    # Copy SKILL.md as a raw plain-text file into the site output.
+    # MkDocs renders .md files to HTML, so we copy it after the build
+    # to serve it as raw text (e.g. /SKILL.md on GitHub Pages).
+    skill_src = os.path.join(cfg.site_src, "SKILL.md")
+    if os.path.isfile(skill_src):
+        skill_dst = os.path.join(site_path, "SKILL.md")
+        shutil.copy2(skill_src, skill_dst)
+        # Remove the HTML-rendered version if MkDocs created one
+        skill_html_dir = os.path.join(site_path, "SKILL")
+        if os.path.isdir(skill_html_dir):
+            shutil.rmtree(skill_html_dir)
+        print("  SKILL.md copied as raw text ✓")
+
     print(f"  Site built to {site_dir}/ ✓")
 
 
