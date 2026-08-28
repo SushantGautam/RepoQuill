@@ -1092,6 +1092,31 @@ def _cmd_plan(args) -> int:
 
 
 def _cmd_generate(args) -> int:
+    # --- Determine target repo ---
+    repo_path = getattr(args, "repo", None)
+    if not repo_path and sys.stdin.isatty():
+        print("Generate docs for which repo?")
+        print(f"  [1] Current directory ({os.getcwd()})")
+        print("  [2] Provide a different path")
+        choice = input("Choose [1/2] (default: 1): ").strip() or "1"
+        if choice == "2":
+            repo_path = input("  Path to repo: ").strip()
+            if not repo_path:
+                print("  No path provided — using current directory.")
+    if repo_path:
+        repo_path = os.path.abspath(repo_path)
+        if not os.path.isdir(repo_path):
+            print(f"error: {repo_path} is not a directory", file=sys.stderr)
+            return 1
+        # Look for repoquill.yml in the target repo
+        target_config = os.path.join(repo_path, "repoquill.yml")
+        if os.path.isfile(target_config):
+            args.config = target_config
+        else:
+            print(f"error: no repoquill.yml found in {repo_path}", file=sys.stderr)
+            print("  Run `repoquill init` in that directory first.", file=sys.stderr)
+            return 1
+
     cfg = load_config(args.config)
     if args.source_root:
         cfg.root = os.path.abspath(args.source_root)
@@ -1275,17 +1300,20 @@ def main(argv=None) -> int:
 
     sub.add_parser("plan", parents=[common], help="Show the page plan")
     gen = sub.add_parser("generate", parents=[common], help="Generate docs")
+    gen.add_argument("--repo", default=None, help="Path to the repo to generate docs for (default: current directory)")
     gen.add_argument("--no-llm", action="store_true", help="Skip LLM layer")
     gen.add_argument("--no-scaffold", action="store_true", help="Skip LLM config scaffolding")
     gen.add_argument("--force", action="store_true", help="Full regenerate")
     gen.add_argument("--build", action="store_true", help="Also run mkdocs build")
 
     build = sub.add_parser("build", parents=[common], help="Generate + mkdocs build")
+    build.add_argument("--repo", default=None, help="Path to the repo to generate docs for (default: current directory)")
     build.add_argument("--no-llm", action="store_true", help="Skip LLM layer")
     build.add_argument("--no-scaffold", action="store_true", help="Skip LLM config scaffolding")
     build.add_argument("--force", action="store_true", help="Full regenerate")
 
     serve = sub.add_parser("serve", parents=[common], help="Generate + local preview")
+    serve.add_argument("--repo", default=None, help="Path to the repo to generate docs for (default: current directory)")
     serve.add_argument("--no-llm", action="store_true", help="Skip LLM layer")
     serve.add_argument("--no-scaffold", action="store_true", help="Skip LLM config scaffolding")
     serve.add_argument("--force", action="store_true", help="Full regenerate")
