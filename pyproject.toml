@@ -1,0 +1,52 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "repoquill"
+version = "0.1.0"
+description = "Generic two-layer developer-docs generator: deterministic API reference (Griffe) + LLM narrative guides (LiteLLM) + MkDocs Material site."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [{ name = "Sushant Gautam" }]
+keywords = ["documentation", "mkdocs", "griffe", "llm", "litellm", "api-reference"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "License :: OSI Approved :: MIT License",
+    "Topic :: Documentation",
+    "Topic :: Software Development :: Documentation",
+]
+dependencies = [
+    "griffe>=0.36",
+    "litellm>=1.40",
+    "requests>=2.28",
+    "PyYAML>=6.0",
+    "mkdocs>=1.5",
+    "mkdocs-material>=9.0",
+    "mkdocstrings>=0.25",
+    "mkdocstrings-python>=1.0",
+]
+
+[project.optional-dependencies]
+# Optional local RAG (runs fully offline on the GitHub runner, no API key).
+rag = [
+    "sentence-transformers>=2.6",
+    "numpy>=1.24",
+]
+dev = [
+    "pytest>=7.0",
+]
+
+[project.scripts]
+repoquill = "repoquill.cli:main"
+
+[tool.setuptools]
+packages = ["repoquill"]
+
+[tool.setuptools.package-data]
+repoquill = ["*.yml", "*.yaml"]

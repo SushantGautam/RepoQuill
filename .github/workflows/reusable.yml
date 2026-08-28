@@ -1,0 +1,138 @@
+# ============================================================================
+# RepoQuill — reusable docs-generation workflow
+#
+# Any repository can call this workflow to generate + build its docs with
+# RepoQuill. The consuming repo provides:
+#   - a `repoquill.yml` config (at repo root or docs/)
+#   - the LLM API key as a secret (name configurable via `api_key_secret`)
+#
+# See README.md for the full "how to use this in your repo" guide.
+# ============================================================================
+name: RepoQuill Docs
+
+on:
+  workflow_call:
+    inputs:
+      # Path to the repoquill.yml config file (relative to repo root).
+      config:
+        description: "Path to repoquill.yml"
+        required: false
+        default: "repoquill.yml"
+      # Name of the GitHub secret that holds the LLM API key.
+      api_key_secret:
+        description: "Name of the secret containing the LLM API key"
+        required: false
+        default: "LLM_API_KEY"
+      # Name of the environment variable the LLM client reads the key from.
+      # Must match `api_key_env` in repoquill.yml.
+      api_key_env:
+        description: "Env var name the LLM client reads (must match repoquill.yml api_key_env)"
+        required: false
+        default: "OPENAI_API_KEY"
+      # Set to "true" to skip LLM narrative generation (deterministic reference only).
+      no_llm:
+        description: "Skip LLM narrative pages (reference only)"
+        required: false
+        default: "false"
+      # Python version for the runner.
+      python_version:
+        description: "Python version"
+        required: false
+        default: "3.11"
+      # Install the optional local-RAG extra (sentence-transformers).
+      install_rag:
+        description: "Install the [rag] extra (local embeddings)"
+        required: false
+        default: "false"
+      # Branch to deploy the built site to (empty = no deploy).
+      deploy_branch:
+        description: "Branch to deploy site/ to (e.g. gh-pages). Empty to skip deploy."
+        required: false
+        default: ""
+      # Folder in the consuming repo where the built site should be published
+      # from (e.g. "docs" if the site is built into docs/site).
+      deploy_path:
+        description: "Path to the built site/ folder for deployment"
+        required: false
+        default: "site"
+      # Optional: check out a separate source repo (for docs-only repos where
+      # the package source lives in a different repository).
+      source_repo:
+        description: "Source repo to check out (e.g. owner/repo). Empty = use the calling repo."
+        required: false
+        default: ""
+      source_ref:
+        description: "Branch/tag/commit of the source repo. Empty = default branch."
+        required: false
+        default: ""
+
+jobs:
+  generate-and-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Checkout source repo
+        if: inputs.source_repo != ''
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.source_repo }}
+          ref: ${{ inputs.source_ref }}
+          path: source
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ inputs.python_version }}
+
+      - name: Install RepoQuill
+        run: |
+          python -m pip install --upgrade pip
+          if [ "${{ inputs.install_rag }}" = "true" ]; then
+            pip install "repoquill[rag]"
+          else
+            pip install repoquill
+          fi
+
+      - name: Generate docs
+        env:
+          # Expose the secret under the env var name the LLM client expects.
+          LLM_API_KEY: ${{ secrets[inputs.api_key_secret] }}
+          # Point RepoQuill at the checked-out source repo (docs-only repos).
+          SOURCE_ROOT: ${{ inputs.source_repo != '' && format('{0}/source', github.workspace) || '' }}
+        run: |
+          # Wire the secret into the env var named in repoquill.yml.
+          export ${{ inputs.api_key_env }}="${LLM_API_KEY}"
+          NO_LLM_FLAG=""
+          if [ "${{ inputs.no_llm }}" = "true" ]; then
+            NO_LLM_FLAG="--no-llm"
+          fi
+          repoquill generate $NO_LLM_FLAG --config ${{ inputs.config }} --build
+
+      - name: Upload site artifact
+        if: inputs.deploy_branch != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: docs-site
+          path: ${{ inputs.deploy_path }}
+
+  deploy:
+    if: inputs.deploy_branch != ''
+    needs: generate-and-build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download site artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: docs-site
+          path: site
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./site
+          publish_branch: ${{ inputs.deploy_branch }}
