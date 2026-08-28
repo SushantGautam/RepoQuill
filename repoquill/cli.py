@@ -4,13 +4,17 @@ Commands:
     repoquill plan      Show the page plan (which pages, which sources).
     repoquill generate  Run Layer 1 (reference) + Layer 2 (narrative).
     repoquill build     Generate + run ``mkdocs build`` to produce site/.
+    repoquill serve     Generate + run ``mkdocs serve`` for local preview.
 
 Flags:
-    --config PATH       Path to repoquill.yml (default: ./repoquill.yml).
+    --config PATH       Path to repoquill.yml, a directory of configs, or a
+                        comma-separated list of config paths.
+                        Default: ./repoquill.yml (or ./configs/ if it exists).
     --no-llm            Skip Layer 2 (deterministic reference only).
     --force             Full re-plan + regenerate everything.
     --build             Also run ``mkdocs build`` after generating.
     --source-root PATH  Override the source repo root.
+    --port PORT         Port for ``mkdocs serve`` (default: 8000).
 """
 
 from __future__ import annotations
@@ -73,14 +77,87 @@ def _copy_images(cfg) -> None:
         print(f"  images/ ({len(os.listdir(img_dst))} files)")
 
 
+def _mkdocs_cwd(cfg) -> str:
+    """Return the working directory for mkdocs commands.
+
+    When output_dir is set (same-repo integration), mkdocs.yml lives in
+    site_src/. Otherwise it's in config_dir/.
+    """
+    if cfg.raw.get("output_dir"):
+        return cfg.site_src
+    return cfg.config_dir
+
+
 def _run_mkdocs_build(cfg) -> None:
-    """Run `mkdocs build` in the config directory."""
+    """Run `mkdocs build` in the correct directory."""
     print("\n[build] Running mkdocs build...")
     subprocess.run(
         [sys.executable, "-m", "mkdocs", "build"],
-        cwd=cfg.config_dir, check=True,
+        cwd=_mkdocs_cwd(cfg), check=True,
     )
-    print("  Site built to site/ ✓")
+    site_dir = cfg.build.get("site_dir", "site")
+    print(f"  Site built to {site_dir}/ ✓")
+
+
+def _run_mkdocs_serve(cfg, port: int = 8000) -> None:
+    """Run `mkdocs serve` for local preview."""
+    print(f"\n[serve] Starting mkdocs serve on http://localhost:{port} ...")
+    print("  Press Ctrl+C to stop.\n")
+    subprocess.run(
+        [sys.executable, "-m", "mkdocs", "serve", "-p", str(port)],
+        cwd=_mkdocs_cwd(cfg),
+    )
+
+
+def _resolve_configs(config_arg: str | None) -> list[str]:
+    """Resolve the --config argument into a list of config file paths.
+
+    Accepts:
+      - A single file path: ``repoquill.yml``
+      - A directory: ``configs/`` (all ``*.yml`` / ``*.yaml`` inside)
+      - A comma-separated list: ``a.yml,b.yml``
+      - None: looks for ``./repoquill.yml``, then ``./configs/``
+    """
+    if config_arg:
+        # Comma-separated list
+        if "," in config_arg:
+            paths = [p.strip() for p in config_arg.split(",") if p.strip()]
+            for p in paths:
+                if not os.path.isfile(p):
+                    raise FileNotFoundError(f"Config file not found: {p}")
+            return paths
+        # Directory
+        if os.path.isdir(config_arg):
+            files = sorted(
+                f for f in os.listdir(config_arg)
+                if f.endswith((".yml", ".yaml"))
+            )
+            if not files:
+                raise FileNotFoundError(
+                    f"No .yml/.yaml files found in {config_arg}/"
+                )
+            return [os.path.join(config_arg, f) for f in files]
+        # Single file
+        if not os.path.isfile(config_arg):
+            raise FileNotFoundError(f"Config file not found: {config_arg}")
+        return [os.path.abspath(config_arg)]
+
+    # Default: look for repoquill.yml, then configs/
+    default = os.path.join(os.getcwd(), "repoquill.yml")
+    if os.path.isfile(default):
+        return [default]
+    configs_dir = os.path.join(os.getcwd(), "configs")
+    if os.path.isdir(configs_dir):
+        files = sorted(
+            f for f in os.listdir(configs_dir)
+            if f.endswith((".yml", ".yaml"))
+        )
+        if files:
+            return [os.path.join(configs_dir, f) for f in files]
+    raise FileNotFoundError(
+        "No config found. Create repoquill.yml in the repo root, "
+        "create a configs/ directory, or pass --config PATH."
+    )
 
 
 def _cmd_plan(args) -> int:
@@ -215,6 +292,26 @@ def _cmd_build(args) -> int:
     return _cmd_generate(args)
 
 
+def _cmd_serve(args) -> int:
+    """Generate docs and start a local preview server."""
+    config_paths = _resolve_configs(args.config)
+    if len(config_paths) > 1:
+        print(
+            f"warning: serve works with a single config; using first: {config_paths[0]}",
+            file=sys.stderr,
+        )
+    args.config = config_paths[0]
+    # Generate without building (serve will handle the build)
+    _cmd_generate(args)
+    # Reload config to get the correct paths for mkdocs serve
+    cfg = load_config(args.config)
+    if args.source_root:
+        cfg.root = os.path.abspath(args.source_root)
+        cfg.pkg_path = os.path.join(cfg.root, cfg.package_dir)
+    _run_mkdocs_serve(cfg, port=args.port)
+    return 0
+
+
 def main(argv=None) -> int:
     """Entry point for the ``repoquill`` console script.
 
@@ -231,7 +328,11 @@ def main(argv=None) -> int:
     sub = parser.add_subparsers(dest="command", required=True)
 
     common = argparse.ArgumentParser(add_help=False)
-    common.add_argument("--config", default=None, help="Path to repoquill.yml")
+    common.add_argument(
+        "--config", default=None,
+        help="Path to repoquill.yml, a directory of configs, or "
+             "comma-separated list. Default: ./repoquill.yml or ./configs/",
+    )
     common.add_argument(
         "--source-root", default=None, help="Override the source repo root"
     )
@@ -246,15 +347,22 @@ def main(argv=None) -> int:
     build.add_argument("--no-llm", action="store_true", help="Skip LLM layer")
     build.add_argument("--force", action="store_true", help="Full regenerate")
 
+    serve = sub.add_parser("serve", parents=[common], help="Generate + local preview")
+    serve.add_argument("--no-llm", action="store_true", help="Skip LLM layer")
+    serve.add_argument("--force", action="store_true", help="Full regenerate")
+    serve.add_argument("--port", type=int, default=8000, help="Port (default 8000)")
+
     args = parser.parse_args(argv)
 
     try:
         if args.command == "plan":
             return _cmd_plan(args)
         elif args.command == "generate":
-            return _cmd_generate(args)
+            return _cmd_generate_multi(args)
         elif args.command == "build":
-            return _cmd_build(args)
+            return _cmd_build_multi(args)
+        elif args.command == "serve":
+            return _cmd_serve(args)
         else:
             parser.error(f"Unknown command: {args.command}")
             return 2
@@ -264,6 +372,37 @@ def main(argv=None) -> int:
     except subprocess.CalledProcessError as e:
         print(f"error: mkdocs build failed (exit {e.returncode})", file=sys.stderr)
         return 1
+
+
+def _cmd_generate_multi(args) -> int:
+    """Run generate for one or more config files."""
+    config_paths = _resolve_configs(args.config)
+    if len(config_paths) == 1:
+        args.config = config_paths[0]
+        return _cmd_generate(args)
+    # Multiple configs: run each in sequence
+    exit_code = 0
+    for i, cp in enumerate(config_paths, 1):
+        print(f"\n{'=' * 60}")
+        print(f"Config {i}/{len(config_paths)}: {cp}")
+        print(f"{'=' * 60}\n")
+        args.config = cp
+        try:
+            _cmd_generate(args)
+        except Exception as e:
+            print(f"error: {cp}: {e}", file=sys.stderr)
+            exit_code = 1
+    if len(config_paths) > 1:
+        print(f"\n{'=' * 60}")
+        print(f"Processed {len(config_paths)} configs "
+              f"({'all OK' if exit_code == 0 else 'with errors'})")
+    return exit_code
+
+
+def _cmd_build_multi(args) -> int:
+    """Run build (generate + mkdocs build) for one or more config files."""
+    args.build = True
+    return _cmd_generate_multi(args)
 
 
 if __name__ == "__main__":

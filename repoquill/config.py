@@ -132,9 +132,19 @@ def load_config(config_path: Optional[str] = None) -> RepoQuillConfig:
     build = cfg_dict.get("build", {}) or {}
     docs_dir = build.get("docs_dir", "site_src")
 
-    # site_src: explicit `site_src:` key, else <config_dir>/<docs_dir>
-    site_src = cfg_dict.get("site_src") or os.path.join(config_dir, docs_dir)
-    site_src = os.path.abspath(site_src)
+    # site_src resolution (priority high to low):
+    #   1. Explicit `site_src:` key in YAML
+    #   2. `output_dir:` key (same-repo integration: all artifacts in one folder)
+    #   3. <config_dir>/<docs_dir> (default: <config_dir>/site_src)
+    if cfg_dict.get("site_src"):
+        site_src = os.path.abspath(cfg_dict["site_src"])
+    elif cfg_dict.get("output_dir"):
+        # Same-repo integration: everything (site_src, site, plan) lives
+        # inside output_dir/. The mkdocs.yml is written to output_dir/ and
+        # the built site goes to output_dir/site/.
+        site_src = os.path.abspath(os.path.join(config_dir, cfg_dict["output_dir"]))
+    else:
+        site_src = os.path.abspath(os.path.join(config_dir, docs_dir))
 
     cfg = RepoQuillConfig(
         raw=cfg_dict,

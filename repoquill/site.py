@@ -521,7 +521,15 @@ def build_mkdocs_yml(cfg, nav: List) -> None:
     extra_site_block = "\n".join(extra_site_lines) + "\n" if extra_site_lines else ""
 
     build_cfg = cfg.build
-    docs_dir = build_cfg.get("docs_dir", "site_src")
+    # When output_dir is used (same-repo integration), mkdocs.yml lives
+    # inside site_src/ and docs_dir is "." (content is co-located).
+    # Otherwise, mkdocs.yml is in config_dir/ and docs_dir points to site_src/.
+    if cfg.raw.get("output_dir"):
+        docs_dir = "."
+        mkdocs_path = os.path.join(cfg.site_src, "mkdocs.yml")
+    else:
+        docs_dir = build_cfg.get("docs_dir", "site_src")
+        mkdocs_path = os.path.join(cfg.config_dir, "mkdocs.yml")
     site_dir = build_cfg.get("site_dir", "site")
     use_directory_urls = build_cfg.get("use_directory_urls", True)
 
@@ -556,7 +564,8 @@ nav:
         "format: pymdownx.superfences.fence_code_format",
         "format: !!python/name:pymdownx.superfences.fence_code_format",
     )
-    with open(os.path.join(cfg.config_dir, "mkdocs.yml"), "w") as f:
+    os.makedirs(os.path.dirname(mkdocs_path), exist_ok=True)
+    with open(mkdocs_path, "w") as f:
         f.write(content)
 
 

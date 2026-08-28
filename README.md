@@ -42,18 +42,20 @@ pip install "repoquill[rag]"
    ```bash
    export OPENAI_API_KEY=sk-...
    ```
-3. Generate + build:
+3. Generate + build + preview in one command:
    ```bash
-   repoquill generate --config repoquill.yml --build
+   repoquill serve
    ```
-4. Preview:
+   This generates the docs and starts a live-reload server at `http://localhost:8000`.
+
+   Or, for a one-shot build:
    ```bash
-   mkdocs serve -f mkdocs.yml
+   repoquill build
    ```
 
 To generate only the deterministic reference (no LLM, no API key):
 ```bash
-repoquill generate --no-llm --config repoquill.yml --build
+repoquill build --no-llm
 ```
 
 ## CLI
@@ -63,16 +65,67 @@ repoquill generate --no-llm --config repoquill.yml --build
 | `repoquill plan` | Show the planned page structure (which guides, which sources). |
 | `repoquill generate` | Run Layer 1 + Layer 2, assemble the site. |
 | `repoquill build` | Same as `generate`, always runs `mkdocs build`. |
+| `repoquill serve` | Generate + start `mkdocs serve` for local live-reload preview. |
 
 Flags:
 
 | Flag | Description |
 |------|-------------|
-| `--config PATH` | Path to `repoquill.yml` (default `./repoquill.yml`). |
+| `--config PATH` | Path to `repoquill.yml`, a **directory** of configs, or a **comma-separated list**. Default: `./repoquill.yml` or `./configs/`. |
 | `--no-llm` | Skip Layer 2 (deterministic reference only). |
 | `--force` | Re-plan and regenerate everything (ignore the change cache). |
 | `--build` | Run `mkdocs build` after generating. |
 | `--source-root PATH` | Override the source repo root. |
+| `--port PORT` | Port for `serve` (default `8000`). |
+
+### Multiple configs
+
+Point `--config` at a directory to process all `*.yml`/`*.yaml` files inside:
+
+```bash
+# Process all configs in configs/
+repoquill build --config configs/
+
+# Or a specific list
+repoquill build --config "configs/api.yml,configs/guides.yml"
+```
+
+If no `--config` is given, RepoQuill looks for `./repoquill.yml` first, then `./configs/`.
+
+### Same-repo integration
+
+When your docs live in the **same repo** as your code, use `output_dir` to keep all generated artifacts in one folder:
+
+```yaml
+# repoquill.yml (at repo root, same repo as your package)
+project_name: MyProject
+package_dir: mypackage
+output_dir: docs          # everything goes into docs/
+```
+
+This puts `site_src/`, `mkdocs.yml`, and the built `site/` all inside `docs/`:
+
+```
+myrepo/
+├── mypackage/
+├── repoquill.yml
+└── docs/                 # ← all RepoQuill output lives here
+    ├── mkdocs.yml
+    ├── index.md
+    ├── guides/
+    ├── reference/
+    ├── llms.txt
+    ├── llms-full.txt
+    ├── SKILL.md
+    └── site/             # built site (gitignore this)
+```
+
+Add `docs/site/` to your `.gitignore`. Then:
+
+```bash
+repoquill serve --port 8000   # live preview
+repoquill build                # one-shot build
+```
 
 ## Config
 
@@ -81,6 +134,7 @@ Flags:
 ```yaml
 project_name: MyProject
 package_dir: mypackage          # the Python package to document
+output_dir: docs                # optional: keep all artifacts in one folder (same-repo)
 
 llm:
   provider: openai              # openai | anthropic | openrouter | groq | ollama | ...
