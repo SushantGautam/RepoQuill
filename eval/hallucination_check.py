@@ -63,11 +63,10 @@ _KNOWN_NON_PROJECT = {
     "pathlib", "dataclasses", "enum", "abc",
     "json", "os.path", "sys", "re",
     "matplotlib.pyplot", "numpy", "pandas",
-    "simpleaudit",  # handled specially: project root
 }
 
 
-def _is_project_module(mod: str, idx: SymbolIndex) -> bool:
+def _is_project_module(mod: str, idx: SymbolIndex, pkg_name: str = "") -> bool:
     """True if mod (or a prefix of it) is a project module."""
     if mod in idx.modules:
         return True
@@ -76,6 +75,18 @@ def _is_project_module(mod: str, idx: SymbolIndex) -> bool:
     for i in range(len(parts), 0, -1):
         if ".".join(parts[:i]) in idx.modules:
             return True
+    # Also check with package prefix stripped: simpleaudit.model_auditor -> model_auditor
+    if pkg_name and mod.startswith(pkg_name + "."):
+        stripped = mod[len(pkg_name) + 1:]
+        if stripped in idx.modules:
+            return True
+        s_parts = stripped.split(".")
+        for i in range(len(s_parts), 0, -1):
+            if ".".join(s_parts[:i]) in idx.modules:
+                return True
+    # The package root itself (e.g. "simpleaudit") is a valid module
+    if pkg_name and mod == pkg_name:
+        return True
     return False
 
 
@@ -88,9 +99,9 @@ def check_page(page_md: str, idx: SymbolIndex, pkg_name: str) -> dict:
     for mod, name in extract_imports(page_md):
         # skip stdlib / third-party
         top = mod.split(".")[0]
-        if top in _KNOWN_NON_PROJECT and not _is_project_module(mod, idx):
+        if top in _KNOWN_NON_PROJECT and not _is_project_module(mod, idx, pkg_name):
             continue
-        if not _is_project_module(mod, idx):
+        if not _is_project_module(mod, idx, pkg_name):
             # unknown module — could be hallucinated project module
             if top == pkg_name or mod.startswith(pkg_name):
                 hallucinations.append({
@@ -101,7 +112,7 @@ def check_page(page_md: str, idx: SymbolIndex, pkg_name: str) -> dict:
                 })
             continue
         # module exists — check the name
-        # resolve to the deepest known module
+        # resolve to the deepest known module (strip package prefix if needed)
         parts = mod.split(".")
         target_mod = None
         for i in range(len(parts), 0, -1):
@@ -109,13 +120,28 @@ def check_page(page_md: str, idx: SymbolIndex, pkg_name: str) -> dict:
             if cand in idx.module_symbols:
                 target_mod = cand
                 break
+        # If not found, try stripping the package prefix
+        if target_mod is None and pkg_name and mod.startswith(pkg_name + "."):
+            stripped = mod[len(pkg_name) + 1:]
+            s_parts = stripped.split(".")
+            for i in range(len(s_parts), 0, -1):
+                cand = ".".join(s_parts[:i])
+                if cand in idx.module_symbols:
+                    target_mod = cand
+                    break
+        # The package root itself maps to __init__
+        if target_mod is None and mod == pkg_name:
+            target_mod = "__init__"
         if target_mod is None:
             continue
         syms = idx.module_symbols.get(target_mod, set())
         if name not in syms:
-            # maybe it's a submodule
-            if mod in idx.modules:
-                grounded.append(f"import {mod}")
+            # maybe it's a submodule — check if mod.name is a known module
+            full_sub = f"{mod}.{name}" if mod != pkg_name else name
+            # For root package: "from simpleaudit import judges" → check if "judges" is a module
+            # For submodules: "from simpleaudit.scenarios import health" → check if "simpleaudit.scenarios.health" is a module
+            if full_sub in idx.modules or name in idx.modules:
+                grounded.append(f"import {mod}.{name}")
                 continue
             hallucinations.append({
                 "type": "import_name",
