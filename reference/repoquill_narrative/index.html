@@ -1436,7 +1436,13 @@ structure (title, slug, description, source_files) as before.</p>
 <span class="normal">253</span>
 <span class="normal">254</span>
 <span class="normal">255</span>
-<span class="normal">256</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">determine_structure</span><span class="p">(</span><span class="n">cfg</span><span class="p">,</span> <span class="n">client</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">dict</span><span class="p">]:</span>
+<span class="normal">256</span>
+<span class="normal">257</span>
+<span class="normal">258</span>
+<span class="normal">259</span>
+<span class="normal">260</span>
+<span class="normal">261</span>
+<span class="normal">262</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">determine_structure</span><span class="p">(</span><span class="n">cfg</span><span class="p">,</span> <span class="n">client</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">dict</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">"""Plan the narrative documentation structure.</span>
 
 <span class="sd">    When ``cfg.narrative_sections`` is defined, the page slugs are taken</span>
@@ -1482,7 +1488,7 @@ structure (title, slug, description, source_files) as before.</p>
             <span class="sa">f</span><span class="s1">'  - slug: "</span><span class="si">{</span><span class="n">p</span><span class="p">[</span><span class="s2">"slug"</span><span class="p">]</span><span class="si">}</span><span class="s1">" (title: </span><span class="si">{</span><span class="n">p</span><span class="p">[</span><span class="s2">"title"</span><span class="p">]</span><span class="si">}</span><span class="s1">)'</span>
             <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">fixed_pages</span>
         <span class="p">)</span>
-        <span class="n">prompt</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"""You are a technical documentation architect. Given this Python project's file tree and README, assign source files to each documentation page below.</span>
+        <span class="n">prompt</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"""You are a technical documentation architect. Given this Python project's file tree and README, assign source files and a one-line description to each documentation page below.</span>
 
 <span class="s2">FILE TREE:</span>
 <span class="si">{</span><span class="n">tree</span><span class="si">}</span>
@@ -1493,13 +1499,17 @@ structure (title, slug, description, source_files) as before.</p>
 <span class="s2">FIXED PAGES (these are the exact pages that will be generated — do NOT add or remove any):</span>
 <span class="si">{</span><span class="n">slug_lines</span><span class="si">}</span>
 
-<span class="s2">For each page, list the source files (relative paths) that page should cover.</span>
+<span class="s2">For each page, provide:</span>
+<span class="s2">1. source_files: the source files (relative paths) that page should cover</span>
+<span class="s2">2. description: a one-line description (max 80 chars) that tells a developer what they'll learn on this page</span>
+
 <span class="s2">Return a JSON array with one entry per page, in the same order:</span>
-<span class="se">{{</span><span class="s2">"slug": "kebab-case-slug", "source_files": ["relative/path.py", ...]</span><span class="se">}}</span>
+<span class="se">{{</span><span class="s2">"slug": "kebab-case-slug", "source_files": ["relative/path.py", ...], "description": "One-line description"</span><span class="se">}}</span>
 
 <span class="s2">Rules:</span>
 <span class="s2">- Return exactly </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">fixed_pages</span><span class="p">)</span><span class="si">}</span><span class="s2"> entries, one per page listed above</span>
 <span class="s2">- source_files lists which files each page should draw from</span>
+<span class="s2">- description should be specific and useful (e.g. "Set up your first audit in 5 minutes"), not generic (e.g. "Getting started guide")</span>
 <span class="s2">- Be specific and practical for developers who need to USE this library</span>
 <span class="s2">- Return ONLY the JSON array, no markdown fences"""</span>
 
@@ -1513,10 +1523,12 @@ structure (title, slug, description, source_files) as before.</p>
         <span class="k">except</span> <span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">JSONDecodeError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">):</span>
             <span class="n">assignments</span> <span class="o">=</span> <span class="p">[]</span>
 
-        <span class="c1"># Merge LLM-assigned source_files into the fixed page list</span>
-        <span class="n">by_slug</span> <span class="o">=</span> <span class="p">{</span><span class="n">a</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"slug"</span><span class="p">,</span> <span class="s2">""</span><span class="p">):</span> <span class="n">a</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"source_files"</span><span class="p">,</span> <span class="p">[])</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">assignments</span><span class="p">}</span>
+        <span class="c1"># Merge LLM-assigned source_files and descriptions into the fixed page list</span>
+        <span class="n">by_slug</span> <span class="o">=</span> <span class="p">{</span><span class="n">a</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"slug"</span><span class="p">,</span> <span class="s2">""</span><span class="p">):</span> <span class="n">a</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">assignments</span><span class="p">}</span>
         <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">fixed_pages</span><span class="p">:</span>
-            <span class="n">p</span><span class="p">[</span><span class="s2">"source_files"</span><span class="p">]</span> <span class="o">=</span> <span class="n">by_slug</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">p</span><span class="p">[</span><span class="s2">"slug"</span><span class="p">],</span> <span class="p">[])</span>
+            <span class="n">a</span> <span class="o">=</span> <span class="n">by_slug</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">p</span><span class="p">[</span><span class="s2">"slug"</span><span class="p">],</span> <span class="p">{})</span>
+            <span class="n">p</span><span class="p">[</span><span class="s2">"source_files"</span><span class="p">]</span> <span class="o">=</span> <span class="n">a</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"source_files"</span><span class="p">,</span> <span class="p">[])</span>
+            <span class="n">p</span><span class="p">[</span><span class="s2">"description"</span><span class="p">]</span> <span class="o">=</span> <span class="n">a</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"description"</span><span class="p">,</span> <span class="s2">""</span><span class="p">)</span>
             <span class="c1"># Give each page a better title (human-readable from slug)</span>
             <span class="n">p</span><span class="p">[</span><span class="s2">"title"</span><span class="p">]</span> <span class="o">=</span> <span class="n">p</span><span class="p">[</span><span class="s2">"slug"</span><span class="p">]</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">"-"</span><span class="p">,</span> <span class="s2">" "</span><span class="p">)</span><span class="o">.</span><span class="n">title</span><span class="p">()</span>
 
@@ -1700,13 +1712,7 @@ structure (title, slug, description, source_files) as before.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>repoquill/narrative.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">572</span>
-<span class="normal">573</span>
-<span class="normal">574</span>
-<span class="normal">575</span>
-<span class="normal">576</span>
-<span class="normal">577</span>
-<span class="normal">578</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">578</span>
 <span class="normal">579</span>
 <span class="normal">580</span>
 <span class="normal">581</span>
@@ -1772,7 +1778,13 @@ structure (title, slug, description, source_files) as before.</p>
 <span class="normal">641</span>
 <span class="normal">642</span>
 <span class="normal">643</span>
-<span class="normal">644</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">generate_all_pages</span><span class="p">(</span>
+<span class="normal">644</span>
+<span class="normal">645</span>
+<span class="normal">646</span>
+<span class="normal">647</span>
+<span class="normal">648</span>
+<span class="normal">649</span>
+<span class="normal">650</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">generate_all_pages</span><span class="p">(</span>
     <span class="n">pages</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">dict</span><span class="p">],</span>
     <span class="n">source_files</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span>
     <span class="n">client</span><span class="p">,</span>
@@ -1969,13 +1981,7 @@ context), calls the LLM, and returns the markdown.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>repoquill/narrative.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">259</span>
-<span class="normal">260</span>
-<span class="normal">261</span>
-<span class="normal">262</span>
-<span class="normal">263</span>
-<span class="normal">264</span>
-<span class="normal">265</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">265</span>
 <span class="normal">266</span>
 <span class="normal">267</span>
 <span class="normal">268</span>
@@ -2260,7 +2266,13 @@ context), calls the LLM, and returns the markdown.</p>
 <span class="normal">547</span>
 <span class="normal">548</span>
 <span class="normal">549</span>
-<span class="normal">550</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">generate_page</span><span class="p">(</span>
+<span class="normal">550</span>
+<span class="normal">551</span>
+<span class="normal">552</span>
+<span class="normal">553</span>
+<span class="normal">554</span>
+<span class="normal">555</span>
+<span class="normal">556</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">generate_page</span><span class="p">(</span>
     <span class="n">page</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
     <span class="n">source_files</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span>
     <span class="n">client</span><span class="p">,</span>
