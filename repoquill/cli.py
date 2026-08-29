@@ -1177,11 +1177,18 @@ def _cmd_init(args) -> int:
         print(f"  2. Make sure your local model server is running ({provider}).")
     else:
         local_key = os.environ.get(api_key_env, "")
-        if local_key and shutil.which("gh") and sys.stdin.isatty() and not args.yes:
-            print("  2. Your local " + api_key_env + " is set.")
-            answer = input(
-                "     Set the LLM_API_KEY GitHub secret now (via gh)? [y/N] "
-            ).strip().lower()
+        interactive = sys.stdin.isatty() and not args.yes
+        gh_available = shutil.which("gh") is not None
+
+        # If no local key, offer to capture one (hidden input) so we can push it.
+        if not local_key and interactive:
+            answer = input("  2. Paste your LLM API key to set the GitHub secret? [y/N] ").strip().lower()
+            if answer in ("y", "yes"):
+                import getpass
+                local_key = getpass.getpass("     API key (hidden): ").strip()
+
+        if local_key and gh_available and interactive:
+            answer = input("     Set the LLM_API_KEY GitHub secret now (via gh)? [y/N] ").strip().lower()
             if answer in ("y", "yes"):
                 result = subprocess.run(
                     ["gh", "secret", "set", "LLM_API_KEY"],
