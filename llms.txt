@@ -6,13 +6,21 @@ Documentation for repoquill
 
 ## Guides
 
-- [Quickstart](https://SushantGautam.github.io/RepoQuill/guides/quickstart/): A minimal example to get the library running in under 5 minutes.
-- [Installation](https://SushantGautam.github.io/RepoQuill/guides/installation/): Instructions for installing the library via pip, from source, and managing dependencies.
-- [Architecture](https://SushantGautam.github.io/RepoQuill/guides/architecture/): High-level overview of the system design, module interactions, and data flow.
-- [Key Ideas](https://SushantGautam.github.io/RepoQuill/guides/key-ideas/): Explanation of the core abstractions, design patterns, and fundamental concepts.
+- [Quickstart](https://SushantGautam.github.io/RepoQuill/guides/quickstart/): Scaffold your repository and generate your first documentation site in under five minutes.
+- [Installation](https://SushantGautam.github.io/RepoQuill/guides/installation/): Install RepoQuill via uvx, uv tool, or pip and configure your environment.
+- [Architecture](https://SushantGautam.github.io/RepoQuill/guides/architecture/): Understand the two-layer generation system: deterministic API reference vs. LLM-driven narrative guides.
+- [Key Ideas](https://SushantGautam.github.io/RepoQuill/guides/key-ideas/): Core concepts including incremental regeneration, source grounding, and AI-agent compatibility.
 
 ## API Reference
 
+- [repoquill](https://SushantGautam.github.io/RepoQuill/reference/repoquill/)
+- [repoquill.cli](https://SushantGautam.github.io/RepoQuill/reference/repoquill_cli/)
+- [repoquill.config](https://SushantGautam.github.io/RepoQuill/reference/repoquill_config/)
+- [repoquill.llm](https://SushantGautam.github.io/RepoQuill/reference/repoquill_llm/)
+- [repoquill.narrative](https://SushantGautam.github.io/RepoQuill/reference/repoquill_narrative/)
+- [repoquill.plan](https://SushantGautam.github.io/RepoQuill/reference/repoquill_plan/)
+- [repoquill.reference](https://SushantGautam.github.io/RepoQuill/reference/repoquill_reference/)
+- [repoquill.site](https://SushantGautam.github.io/RepoQuill/reference/repoquill_site/)
 
 ## Agent Skill
 

@@ -10,13 +10,13 @@
       
       
       
-        <link rel="canonical" href="https://SushantGautam.github.io/RepoQuill/guides/key-ideas/">
+        <link rel="canonical" href="https://SushantGautam.github.io/RepoQuill/guides/ci-cd/">
       
       
-        <link rel="prev" href="../architecture/">
+        <link rel="prev" href="../cli-commands/">
       
       
-        <link rel="next" href="../configuration/">
+        <link rel="next" href="../../reference/repoquill/">
       
       
         
@@ -27,7 +27,7 @@
     
     
       
-        <title>Key ideas - repoquill</title>
+        <title>Ci cd - repoquill</title>
       
     
     
@@ -78,7 +78,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#key-ideas" class="md-skip">
+        <a href="#cicd-integration" class="md-skip">
           Skip to content
         </a>
       
@@ -114,7 +114,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Key ideas
+              Ci cd
             
           </span>
         </div>
@@ -411,8 +411,6 @@
                 
   
   
-    
-  
   
   
     
@@ -422,11 +420,11 @@
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_2" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_2" >
         
           
           <label class="md-nav__link" for="__nav_2_2" id="__nav_2_2_label" tabindex="0">
@@ -447,7 +445,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_2_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_2_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_2_2">
             <span class="md-nav__icon md-icon"></span>
             
@@ -490,35 +488,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Key ideas
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../key-ideas/" class="md-nav__link">
         
   
   
@@ -534,157 +507,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#key-ideas" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Key Ideas
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Key Ideas">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#1-source-abstraction" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        1. Source Abstraction
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#2-transformation-pipelines" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        2. Transformation Pipelines
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="2. Transformation Pipelines">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#the-document-model" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        The Document Model
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#building-a-pipeline" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Building a Pipeline
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#3-artifact-management" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        3. Artifact Management
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#core-workflow" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Core Workflow
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#configuration-and-context" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Configuration and Context
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#error-handling-and-logging" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Error Handling and Logging
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#summary-of-key-classes" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Summary of Key Classes
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#see-also" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        See Also
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -702,6 +524,8 @@
                 
   
   
+    
+  
   
   
     
@@ -711,11 +535,11 @@
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_3" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_3" checked>
         
           
           <label class="md-nav__link" for="__nav_2_3" id="__nav_2_3_label" tabindex="0">
@@ -736,7 +560,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_3_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_3_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_2_3">
             <span class="md-nav__icon md-icon"></span>
             
@@ -835,10 +659,35 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../ci-cd/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Ci cd
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -854,6 +703,129 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#cicd-integration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CI/CD Integration
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="CI/CD Integration">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#prerequisites" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Prerequisites
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#basic-github-actions-workflow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Basic GitHub Actions Workflow
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#configuration-options-for-ci" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Configuration Options for CI
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#advanced-deploying-to-github-pages" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Advanced: Deploying to GitHub Pages
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#handling-versioning-and-tags" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Handling Versioning and Tags
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#best-practices" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Best Practices
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#troubleshooting" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Troubleshooting
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#see-also" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        See Also
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -1239,22 +1211,22 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#key-ideas" class="md-nav__link">
+  <a href="#cicd-integration" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Key Ideas
+        CI/CD Integration
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Key Ideas">
+    <nav class="md-nav" aria-label="CI/CD Integration">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#1-source-abstraction" class="md-nav__link">
+  <a href="#prerequisites" class="md-nav__link">
     <span class="md-ellipsis">
       
-        1. Source Abstraction
+        Prerequisites
       
     </span>
   </a>
@@ -1262,22 +1234,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#2-transformation-pipelines" class="md-nav__link">
+  <a href="#basic-github-actions-workflow" class="md-nav__link">
     <span class="md-ellipsis">
       
-        2. Transformation Pipelines
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="2. Transformation Pipelines">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#the-document-model" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        The Document Model
+        Basic GitHub Actions Workflow
       
     </span>
   </a>
@@ -1285,26 +1245,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#building-a-pipeline" class="md-nav__link">
+  <a href="#configuration-options-for-ci" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Building a Pipeline
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#3-artifact-management" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        3. Artifact Management
+        Configuration Options for CI
       
     </span>
   </a>
@@ -1312,10 +1256,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#core-workflow" class="md-nav__link">
+  <a href="#advanced-deploying-to-github-pages" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Core Workflow
+        Advanced: Deploying to GitHub Pages
       
     </span>
   </a>
@@ -1323,10 +1267,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#configuration-and-context" class="md-nav__link">
+  <a href="#handling-versioning-and-tags" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Configuration and Context
+        Handling Versioning and Tags
       
     </span>
   </a>
@@ -1334,10 +1278,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#error-handling-and-logging" class="md-nav__link">
+  <a href="#best-practices" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Error Handling and Logging
+        Best Practices
       
     </span>
   </a>
@@ -1345,10 +1289,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#summary-of-key-classes" class="md-nav__link">
+  <a href="#troubleshooting" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Summary of Key Classes
+        Troubleshooting
       
     </span>
   </a>
@@ -1391,215 +1335,187 @@
   
 
 
-  <h1>Key ideas</h1>
+  <h1>Ci cd</h1>
 
-<h2 id="key-ideas">Key Ideas</h2>
-<p><strong>repoquill</strong> is a Python library designed to streamline the process of generating, managing, and versioning technical documentation directly from source code repositories. Its core philosophy centers on treating documentation as a first-class citizen in the software development lifecycle, ensuring that documentation remains synchronized with the code it describes.</p>
-<p>The library is built upon three fundamental abstractions: <strong>Source Abstraction</strong>, <strong>Transformation Pipelines</strong>, and <strong>Artifact Management</strong>. These concepts work together to decouple the source of truth (the code) from the final output format (Markdown, HTML, PDF, etc.), allowing developers to maintain a single source of documentation logic while targeting multiple distribution channels.</p>
-<h3 id="1-source-abstraction">1. Source Abstraction</h3>
-<p>At the heart of <code>repoquill</code> is the <code>Source</code> interface. This abstraction allows the library to ingest documentation content from various origins without coupling the core engine to specific file systems or version control systems.</p>
-<p>The primary implementation is <code>FileSource</code>, which reads documentation templates and metadata from local files or directories. However, the architecture supports custom sources, enabling integration with remote APIs or database-backed documentation stores.</p>
-<pre><code class="language-python">from repoquill.source import FileSource, Source
-
-class FileSource(Source):
-    &quot;&quot;&quot;
-    A source that loads documentation content from the local file system.
-
-    Parameters:
-        root_path (str): The root directory containing documentation files.
-        pattern (str): A glob pattern to match documentation files (default: '*.md').
-    &quot;&quot;&quot;
-    def __init__(self, root_path: str, pattern: str = &quot;*.md&quot;):
-        self.root_path = root_path
-        self.pattern = pattern
-
-    def load(self) -&gt; dict:
-        &quot;&quot;&quot;
-        Loads all matching files and returns a dictionary mapping file paths to content.
-        &quot;&quot;&quot;
-        # Implementation details...
-        pass
-</code></pre>
-<p><strong>Design Pattern:</strong> The <em>Strategy Pattern</em> is employed here. By defining a common <code>Source</code> interface, <code>repoquill</code> can swap out the data retrieval mechanism at runtime without altering the downstream processing logic.</p>
-<h3 id="2-transformation-pipelines">2. Transformation Pipelines</h3>
-<p>Documentation rarely exists in its final form within the source files. It often requires processing steps such as variable substitution, code block execution, or formatting adjustments. <code>repoquill</code> models this process as a <strong>Pipeline</strong> of <strong>Transformers</strong>.</p>
-<p>A <code>Transformer</code> is a callable object that takes a <code>Document</code> object and returns a modified <code>Document</code>. The <code>Pipeline</code> class manages the execution order of these transformers.</p>
-<h4 id="the-document-model">The <code>Document</code> Model</h4>
-<p>The <code>Document</code> class serves as the data carrier through the pipeline. It encapsulates:
-*   <code>content</code>: The raw text or structured data of the document.
-*   <code>metadata</code>: A dictionary containing key-value pairs (e.g., title, author, version).
-*   <code>context</code>: A shared state object available to all transformers in the pipeline.</p>
-<pre><code class="language-python">from repoquill.core import Document, Transformer, Pipeline
-
-class VariableSubstitutionTransformer(Transformer):
-    &quot;&quot;&quot;
-    Replaces {{variable}} placeholders in the document content with values from the context.
-    &quot;&quot;&quot;
-    def transform(self, doc: Document) -&gt; Document:
-        for key, value in doc.context.items():
-            doc.content = doc.content.replace(f&quot;{{{{{key}}}}}&quot;, str(value))
-        return doc
-
-class CodeBlockExecutor(Transformer):
-    &quot;&quot;&quot;
-    Executes Python code blocks marked with ```python and replaces them with their output.
-    &quot;&quot;&quot;
-    def transform(self, doc: Document) -&gt; Document:
-        # Logic to find, execute, and replace code blocks
-        return doc
-</code></pre>
-<h4 id="building-a-pipeline">Building a Pipeline</h4>
-<p>The <code>Pipeline</code> class allows developers to chain transformers together. The order of execution is critical; for example, variable substitution should typically occur before code execution if the code relies on substituted variables.</p>
-<pre><code class="language-python">from repoquill.pipeline import Pipeline
-from repoquill.transformers import MarkdownFormatter, TimestampInjector
-
-def create_default_pipeline():
-    pipeline = Pipeline()
-
-    # 1. Inject current timestamp into metadata
-    pipeline.add(TimestampInjector())
-
-    # 2. Substitute variables
-    pipeline.add(VariableSubstitutionTransformer())
-
-    # 3. Format Markdown for consistent styling
-    pipeline.add(MarkdownFormatter())
-
-    return pipeline
-</code></pre>
-<p><strong>Design Pattern:</strong> The <em>Chain of Responsibility</em> pattern is used here. Each transformer handles a specific aspect of the document processing and passes the result to the next transformer in the chain. This promotes modularity and reusability of individual processing steps.</p>
-<h3 id="3-artifact-management">3. Artifact Management</h3>
-<p>Once a document has passed through the transformation pipeline, it needs to be written to a destination. <code>repoquill</code> abstracts this through the <code>Artifact</code> and <code>Writer</code> interfaces.</p>
-<p>An <code>Artifact</code> represents the final output of a document, including its target file path and format. The <code>Writer</code> is responsible for persisting the artifact to the chosen medium (file system, S3, GitHub Pages, etc.).</p>
-<pre><code class="language-python">from repoquill.writer import FileWriter, Writer
-
-class FileWriter(Writer):
-    &quot;&quot;&quot;
-    Writes artifacts to the local file system.
-
-    Parameters:
-        output_dir (str): The directory where output files will be saved.
-    &quot;&quot;&quot;
-    def __init__(self, output_dir: str):
-        self.output_dir = output_dir
-
-    def write(self, artifact: Artifact) -&gt; None:
-        &quot;&quot;&quot;
-        Writes the artifact content to the specified file path.
-        &quot;&quot;&quot;
-        file_path = os.path.join(self.output_dir, artifact.filename)
-        with open(file_path, 'w', encoding='utf-8') as f:
-            f.write(artifact.content)
-</code></pre>
-<h3 id="core-workflow">Core Workflow</h3>
-<p>The typical usage of <code>repoquill</code> follows a clear, linear workflow:</p>
+<h2 id="cicd-integration">CI/CD Integration</h2>
+<p>Automating documentation generation is essential for maintaining accurate, up-to-date technical documentation in large-scale software projects. The <code>repoquill</code> library provides robust support for Continuous Integration and Continuous Deployment (CI/CD) pipelines, allowing developers to integrate documentation regeneration directly into their build processes. By leveraging GitHub Actions, you can ensure that every code change triggers a verification or regeneration of the documentation, preventing drift between the codebase and its associated docs.</p>
+<p>This section details how to configure GitHub Actions workflows to automatically run <code>repoquill</code> scripts, handle versioning, and deploy generated documentation to static hosting services.</p>
+<h3 id="prerequisites">Prerequisites</h3>
+<p>Before setting up CI/CD integration, ensure the following prerequisites are met in your project:</p>
 <ol>
-<li><strong>Initialize Source</strong>: Create a <code>Source</code> instance to locate raw documentation files.</li>
-<li><strong>Define Pipeline</strong>: Construct a <code>Pipeline</code> with the necessary <code>Transformer</code>s.</li>
-<li><strong>Configure Writer</strong>: Set up a <code>Writer</code> to handle output.</li>
-<li><strong>Execute</strong>: Run the <code>RepoQuill</code> engine to process all documents.</li>
+<li><strong>Python Environment</strong>: The CI runner must have Python 3.8+ installed.</li>
+<li><strong>Dependencies</strong>: Your project must define dependencies in a <code>pyproject.toml</code>, <code>setup.py</code>, or <code>requirements.txt</code> file.</li>
+<li><strong>Repoquill Configuration</strong>: A valid <code>repoquill.toml</code> or equivalent configuration file must exist in the repository root to define documentation sources and output targets.</li>
+<li><strong>Secrets</strong>: If deploying to a private repository or using authenticated APIs, configure the necessary GitHub Secrets (e.g., <code>GITHUB_TOKEN</code>, <code>NPM_TOKEN</code>).</li>
 </ol>
-<pre><code class="language-python">from repoquill import RepoQuill, FileSource, FileWriter
-from repoquill.pipeline import Pipeline
-from repoquill.transformers import MarkdownFormatter
+<h3 id="basic-github-actions-workflow">Basic GitHub Actions Workflow</h3>
+<p>The following workflow example demonstrates a standard CI pipeline that installs dependencies, runs the <code>repoquill</code> generator, and uploads the generated artifacts. This workflow triggers on pushes to the <code>main</code> branch and on pull requests.</p>
+<pre><code class="language-yaml">name: Documentation Build
 
-# 1. Setup Source
-source = FileSource(root_path=&quot;./docs&quot;, pattern=&quot;*.md&quot;)
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
 
-# 2. Setup Pipeline
-pipeline = Pipeline()
-pipeline.add(MarkdownFormatter())
+jobs:
+  build-docs:
+    runs-on: ubuntu-latest
 
-# 3. Setup Writer
-writer = FileWriter(output_dir=&quot;./build/docs&quot;)
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
 
-# 4. Initialize and Run Engine
-engine = RepoQuill(
-    source=source,
-    pipeline=pipeline,
-    writer=writer
-)
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
 
-engine.run()
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e .
+        # If repoquill is not part of the main package, install it explicitly
+        # pip install repoquill
+
+    - name: Generate Documentation
+      run: |
+        # Execute the repoquill CLI to generate docs
+        # The 'generate' command reads from repoquill.toml by default
+        python -m repoquill generate --output ./docs/generated
+
+    - name: Validate Documentation
+      run: |
+        # Optional: Run linting or validation checks on generated markdown
+        # python -m repoquill validate ./docs/generated
+
+    - name: Upload Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: generated-docs
+        path: ./docs/generated
 </code></pre>
-<h3 id="configuration-and-context">Configuration and Context</h3>
-<p>The <code>context</code> parameter in the <code>RepoQuill</code> engine allows global variables to be injected into every document's processing context. This is useful for injecting build information, such as the current version number or build timestamp, into all generated documents.</p>
-<pre><code class="language-python">engine = RepoQuill(
-    source=source,
-    pipeline=pipeline,
-    writer=writer,
-    context={
-        &quot;version&quot;: &quot;1.0.0&quot;,
-        &quot;build_date&quot;: &quot;2023-10-27&quot;
-    }
-)
-</code></pre>
-<p>Within a <code>Transformer</code>, these context variables can be accessed via <code>doc.context</code>, enabling dynamic content generation based on the build environment.</p>
-<h3 id="error-handling-and-logging">Error Handling and Logging</h3>
-<p><code>repoquill</code> employs standard Python exception handling. If a <code>Transformer</code> fails during execution, the <code>Pipeline</code> will raise a <code>TransformationError</code> containing the original exception and the document identifier that caused the failure. This allows developers to identify problematic documents without halting the entire build process if configured to continue on error.</p>
-<pre><code class="language-python">try:
-    engine.run()
-except TransformationError as e:
-    logger.error(f&quot;Failed to process document: {e.document_id}&quot;)
-    logger.error(f&quot;Reason: {e.original_exception}&quot;)
-</code></pre>
-<h3 id="summary-of-key-classes">Summary of Key Classes</h3>
+<h3 id="configuration-options-for-ci">Configuration Options for CI</h3>
+<p>The <code>repoquill</code> CLI supports several flags that are particularly useful in CI environments where determinism and speed are critical.</p>
 <table>
 <thead>
 <tr>
-<th style="text-align: left;">Class</th>
-<th style="text-align: left;">Module</th>
+<th style="text-align: left;">Flag</th>
 <th style="text-align: left;">Description</th>
+<th style="text-align: left;">CI Recommendation</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td style="text-align: left;"><code>Source</code></td>
-<td style="text-align: left;"><code>repoquill.source</code></td>
-<td style="text-align: left;">Abstract base class for data retrieval.</td>
+<td style="text-align: left;"><code>--output &lt;path&gt;</code></td>
+<td style="text-align: left;">Specifies the directory where generated documentation is written.</td>
+<td style="text-align: left;">Use a dedicated directory (e.g., <code>./docs/generated</code>) that is ignored by Git but captured by artifacts.</td>
 </tr>
 <tr>
-<td style="text-align: left;"><code>FileSource</code></td>
-<td style="text-align: left;"><code>repoquill.source</code></td>
-<td style="text-align: left;">Implementation for local file system sources.</td>
+<td style="text-align: left;"><code>--strict</code></td>
+<td style="text-align: left;">Fails the build if any documentation source cannot be parsed or resolved.</td>
+<td style="text-align: left;"><strong>Recommended</strong>. Ensures broken docstrings or missing references fail the CI pipeline immediately.</td>
 </tr>
 <tr>
-<td style="text-align: left;"><code>Document</code></td>
-<td style="text-align: left;"><code>repoquill.core</code></td>
-<td style="text-align: left;">Data model representing a single document.</td>
+<td style="text-align: left;"><code>--no-cache</code></td>
+<td style="text-align: left;">Disables the internal cache mechanism.</td>
+<td style="text-align: left;">Use in CI to ensure fresh generation on every run, avoiding stale data from cached states.</td>
 </tr>
 <tr>
-<td style="text-align: left;"><code>Transformer</code></td>
-<td style="text-align: left;"><code>repoquill.core</code></td>
-<td style="text-align: left;">Abstract base class for document processing steps.</td>
-</tr>
-<tr>
-<td style="text-align: left;"><code>Pipeline</code></td>
-<td style="text-align: left;"><code>repoquill.pipeline</code></td>
-<td style="text-align: left;">Manages the execution order of transformers.</td>
-</tr>
-<tr>
-<td style="text-align: left;"><code>Writer</code></td>
-<td style="text-align: left;"><code>repoquill.writer</code></td>
-<td style="text-align: left;">Abstract base class for output persistence.</td>
-</tr>
-<tr>
-<td style="text-align: left;"><code>FileWriter</code></td>
-<td style="text-align: left;"><code>repoquill.writer</code></td>
-<td style="text-align: left;">Implementation for local file system output.</td>
-</tr>
-<tr>
-<td style="text-align: left;"><code>RepoQuill</code></td>
-<td style="text-align: left;"><code>repoquill</code></td>
-<td style="text-align: left;">Main engine class that orchestrates the workflow.</td>
+<td style="text-align: left;"><code>--verbose</code></td>
+<td style="text-align: left;">Enables detailed logging output.</td>
+<td style="text-align: left;">Useful for debugging generation failures in CI logs.</td>
 </tr>
 </tbody>
 </table>
-<p>By adhering to these abstractions, <code>repoquill</code> provides a flexible, extensible framework for documentation generation that can adapt to diverse project needs while maintaining a consistent and predictable API.</p>
+<h3 id="advanced-deploying-to-github-pages">Advanced: Deploying to GitHub Pages</h3>
+<p>If your project uses GitHub Pages for hosting documentation, you can extend the workflow to deploy the generated output. Note that <code>repoquill</code> generates static files (Markdown, HTML, or JSON depending on your config), which are suitable for static hosting.</p>
+<pre><code class="language-yaml">name: Deploy Documentation
+
+on:
+  push:
+    branches: [ main ]
+
+permissions:
+  contents: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install and Generate
+      run: |
+        pip install -e .
+        python -m repoquill generate --output ./docs/generated --strict
+
+    - name: Deploy to GitHub Pages
+      uses: peaceiris/actions-gh-pages@v3
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        publish_dir: ./docs/generated
+        # Optional: Configure publish_branch if not using 'gh-pages'
+        # publish_branch: gh-pages
+</code></pre>
+<h3 id="handling-versioning-and-tags">Handling Versioning and Tags</h3>
+<p>For projects that release versions, it is often desirable to tag documentation builds with version numbers. <code>repoquill</code> can inject version information into the generated metadata if configured in <code>repoquill.toml</code>.</p>
+<p>In your <code>repoquill.toml</code>, ensure the <code>metadata</code> section includes a placeholder for the version:</p>
+<pre><code class="language-toml">[metadata]
+title = &quot;Project Documentation&quot;
+version = &quot;{{ version }}&quot;  # This will be replaced by the CI environment variable
+</code></pre>
+<p>In your GitHub Actions workflow, you can pass the version via an environment variable or by parsing it from the git tag:</p>
+<pre><code class="language-yaml">    - name: Set Version
+      run: |
+        # Extract version from git tag or use a default
+        VERSION=$(git describe --tags --always --dirty)
+        echo &quot;VERSION=$VERSION&quot; &gt;&gt; $GITHUB_ENV
+
+    - name: Generate Documentation
+      env:
+        REPOQUILL_VERSION: ${{ env.VERSION }}
+      run: |
+        # Some configurations allow environment variable interpolation
+        # Check your repoquill.toml for environment variable support
+        python -m repoquill generate --output ./docs/generated
+</code></pre>
+<p><em>Note: Direct environment variable interpolation depends on your specific <code>repoquill</code> configuration schema. If not natively supported, you may need to use a pre-processing script to update the configuration file before running the generator.</em></p>
+<h3 id="best-practices">Best Practices</h3>
+<ol>
+<li><strong>Fail Fast</strong>: Always use the <code>--strict</code> flag in CI. Documentation errors should block merges to prevent technical debt.</li>
+<li><strong>Cache Dependencies</strong>: Use <code>actions/cache</code> to cache pip packages to reduce workflow execution time.
+    ```yaml<ul>
+<li>name: Cache pip
+  uses: actions/cache@v4
+  with:
+    path: ~/.cache/pip
+    key: ${{ runner.os }}-pip-${{ hashFiles('**/pyproject.toml') }}
+    restore-keys: |
+      ${{ runner.os }}-pip-
+```</li>
+</ul>
+</li>
+<li><strong>Separate Build and Deploy</strong>: Keep documentation generation in a separate job from deployment. This allows you to cache the generated docs and only deploy when the content actually changes.</li>
+<li><strong>Log Output</strong>: Ensure <code>--verbose</code> is enabled in CI logs for easier debugging of generation issues.</li>
+<li><strong>Artifact Retention</strong>: Configure artifact retention policies to avoid storage bloat. For example, keep only the last 5 builds.</li>
+</ol>
+<h3 id="troubleshooting">Troubleshooting</h3>
+<ul>
+<li><strong>Permission Denied</strong>: Ensure the output directory specified in <code>--output</code> is writable by the CI user.</li>
+<li><strong>Missing Sources</strong>: If <code>repoquill</code> fails to find source files, verify that the <code>paths</code> defined in <code>repoquill.toml</code> are relative to the repository root and that the files exist in the CI checkout.</li>
+<li><strong>Version Mismatch</strong>: Ensure the version of <code>repoquill</code> installed in CI matches the version used in local development to avoid schema incompatibilities.</li>
+</ul>
+<p>By integrating <code>repoquill</code> into your CI/CD pipeline, you ensure that documentation remains a first-class citizen in your development workflow, automatically validated and updated with every code change.</p>
 <h3 id="see-also">See Also</h3>
 <ul>
-<li><a href="../architecture/">Architecture</a></li>
-<li><a href="../ci-cd/">CI/CD Integration</a></li>
+<li><a href="../cli-commands/">CLI Commands</a></li>
+<li><a href="../quickstart/">Quickstart</a></li>
 <li><a href="../configuration/">Configuration Reference</a></li>
 <li><a href="../installation/">Installation</a></li>
 </ul>
@@ -1638,7 +1554,7 @@ except TransformationError as e:
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../architecture/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Architecture">
+          <a href="../cli-commands/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Cli commands">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -1648,20 +1564,20 @@ except TransformationError as e:
                 Previous
               </span>
               <div class="md-ellipsis">
-                Architecture
+                Cli commands
               </div>
             </div>
           </a>
         
         
           
-          <a href="../configuration/" class="md-footer__link md-footer__link--next" aria-label="Next: Configuration">
+          <a href="../../reference/repoquill/" class="md-footer__link md-footer__link--next" aria-label="Next: Repoquill">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Configuration
+                Repoquill
               </div>
             </div>
             <div class="md-footer__button md-icon">

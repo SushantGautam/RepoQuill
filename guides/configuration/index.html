@@ -10,13 +10,13 @@
       
       
       
-        <link rel="canonical" href="https://SushantGautam.github.io/RepoQuill/guides/key-ideas/">
+        <link rel="canonical" href="https://SushantGautam.github.io/RepoQuill/guides/configuration/">
       
       
-        <link rel="prev" href="../architecture/">
+        <link rel="prev" href="../key-ideas/">
       
       
-        <link rel="next" href="../configuration/">
+        <link rel="next" href="../llm-providers/">
       
       
         
@@ -27,7 +27,7 @@
     
     
       
-        <title>Key ideas - repoquill</title>
+        <title>Configuration - repoquill</title>
       
     
     
@@ -78,7 +78,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#key-ideas" class="md-skip">
+        <a href="#configuration-reference" class="md-skip">
           Skip to content
         </a>
       
@@ -114,7 +114,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Key ideas
+              Configuration
             
           </span>
         </div>
@@ -411,8 +411,6 @@
                 
   
   
-    
-  
   
   
     
@@ -422,11 +420,11 @@
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_2" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_2" >
         
           
           <label class="md-nav__link" for="__nav_2_2" id="__nav_2_2_label" tabindex="0">
@@ -447,7 +445,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_2_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_2_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_2_2">
             <span class="md-nav__icon md-icon"></span>
             
@@ -490,6 +488,93 @@
                 
   
   
+  
+  
+    <li class="md-nav__item">
+      <a href="../key-ideas/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Key ideas
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_3" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_2_3" id="__nav_2_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    More
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_3_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_2_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    More
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
     
   
   
@@ -507,7 +592,7 @@
   <span class="md-ellipsis">
     
   
-    Key ideas
+    Configuration
   
 
     
@@ -525,7 +610,7 @@
   <span class="md-ellipsis">
     
   
-    Key ideas
+    Configuration
   
 
     
@@ -549,22 +634,22 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#key-ideas" class="md-nav__link">
+  <a href="#configuration-reference" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Key Ideas
+        Configuration Reference
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Key Ideas">
+    <nav class="md-nav" aria-label="Configuration Reference">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#1-source-abstraction" class="md-nav__link">
+  <a href="#file-location-and-syntax" class="md-nav__link">
     <span class="md-ellipsis">
       
-        1. Source Abstraction
+        File Location and Syntax
       
     </span>
   </a>
@@ -572,22 +657,22 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#2-transformation-pipelines" class="md-nav__link">
+  <a href="#global-options" class="md-nav__link">
     <span class="md-ellipsis">
       
-        2. Transformation Pipelines
+        Global Options
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="2. Transformation Pipelines">
+    <nav class="md-nav" aria-label="Global Options">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#the-document-model" class="md-nav__link">
+  <a href="#project_name" class="md-nav__link">
     <span class="md-ellipsis">
       
-        The Document Model
+        project_name
       
     </span>
   </a>
@@ -595,10 +680,32 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#building-a-pipeline" class="md-nav__link">
+  <a href="#version" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Building a Pipeline
+        version
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#output_dir" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        output_dir
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#language" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        language
       
     </span>
   </a>
@@ -611,10 +718,22 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#3-artifact-management" class="md-nav__link">
+  <a href="#source-code-analysis-options" class="md-nav__link">
     <span class="md-ellipsis">
       
-        3. Artifact Management
+        Source Code Analysis Options
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Source Code Analysis Options">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#source_dirs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        source_dirs
       
     </span>
   </a>
@@ -622,10 +741,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#core-workflow" class="md-nav__link">
+  <a href="#exclude_patterns" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Core Workflow
+        exclude_patterns
       
     </span>
   </a>
@@ -633,10 +752,38 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#configuration-and-context" class="md-nav__link">
+  <a href="#include_private" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Configuration and Context
+        include_private
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#output-formatting-options" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Output Formatting Options
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Output Formatting Options">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#template" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        template
       
     </span>
   </a>
@@ -644,10 +791,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#error-handling-and-logging" class="md-nav__link">
+  <a href="#theme" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Error Handling and Logging
+        theme
       
     </span>
   </a>
@@ -655,10 +802,87 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#summary-of-key-classes" class="md-nav__link">
+  <a href="#code_block_style" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Summary of Key Classes
+        code_block_style
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#advanced-configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Advanced Configuration
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Advanced Configuration">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#custom_css" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        custom_css
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#metadata" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        metadata
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#validation-and-errors" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Validation and Errors
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#complete-example" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Complete Example
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#best-practices" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Best Practices
       
     </span>
   </a>
@@ -685,91 +909,6 @@
   
 </nav>
       
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    
-    
-    
-    
-      
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_3" >
-        
-          
-          <label class="md-nav__link" for="__nav_2_3" id="__nav_2_3_label" tabindex="0">
-            
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    More
-  
-
-    
-  </span>
-  
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_3_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_2_3">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    More
-  
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../configuration/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Configuration
-  
-
-    
-  </span>
-  
-  
-
-      </a>
     </li>
   
 
@@ -1239,22 +1378,22 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#key-ideas" class="md-nav__link">
+  <a href="#configuration-reference" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Key Ideas
+        Configuration Reference
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Key Ideas">
+    <nav class="md-nav" aria-label="Configuration Reference">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#1-source-abstraction" class="md-nav__link">
+  <a href="#file-location-and-syntax" class="md-nav__link">
     <span class="md-ellipsis">
       
-        1. Source Abstraction
+        File Location and Syntax
       
     </span>
   </a>
@@ -1262,22 +1401,22 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#2-transformation-pipelines" class="md-nav__link">
+  <a href="#global-options" class="md-nav__link">
     <span class="md-ellipsis">
       
-        2. Transformation Pipelines
+        Global Options
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="2. Transformation Pipelines">
+    <nav class="md-nav" aria-label="Global Options">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#the-document-model" class="md-nav__link">
+  <a href="#project_name" class="md-nav__link">
     <span class="md-ellipsis">
       
-        The Document Model
+        project_name
       
     </span>
   </a>
@@ -1285,10 +1424,32 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#building-a-pipeline" class="md-nav__link">
+  <a href="#version" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Building a Pipeline
+        version
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#output_dir" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        output_dir
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#language" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        language
       
     </span>
   </a>
@@ -1301,10 +1462,22 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#3-artifact-management" class="md-nav__link">
+  <a href="#source-code-analysis-options" class="md-nav__link">
     <span class="md-ellipsis">
       
-        3. Artifact Management
+        Source Code Analysis Options
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Source Code Analysis Options">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#source_dirs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        source_dirs
       
     </span>
   </a>
@@ -1312,10 +1485,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#core-workflow" class="md-nav__link">
+  <a href="#exclude_patterns" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Core Workflow
+        exclude_patterns
       
     </span>
   </a>
@@ -1323,10 +1496,38 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#configuration-and-context" class="md-nav__link">
+  <a href="#include_private" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Configuration and Context
+        include_private
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#output-formatting-options" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Output Formatting Options
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Output Formatting Options">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#template" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        template
       
     </span>
   </a>
@@ -1334,10 +1535,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#error-handling-and-logging" class="md-nav__link">
+  <a href="#theme" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Error Handling and Logging
+        theme
       
     </span>
   </a>
@@ -1345,10 +1546,87 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#summary-of-key-classes" class="md-nav__link">
+  <a href="#code_block_style" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Summary of Key Classes
+        code_block_style
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#advanced-configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Advanced Configuration
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Advanced Configuration">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#custom_css" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        custom_css
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#metadata" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        metadata
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#validation-and-errors" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Validation and Errors
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#complete-example" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Complete Example
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#best-practices" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Best Practices
       
     </span>
   </a>
@@ -1391,217 +1669,222 @@
   
 
 
-  <h1>Key ideas</h1>
+  <h1>Configuration</h1>
 
-<h2 id="key-ideas">Key Ideas</h2>
-<p><strong>repoquill</strong> is a Python library designed to streamline the process of generating, managing, and versioning technical documentation directly from source code repositories. Its core philosophy centers on treating documentation as a first-class citizen in the software development lifecycle, ensuring that documentation remains synchronized with the code it describes.</p>
-<p>The library is built upon three fundamental abstractions: <strong>Source Abstraction</strong>, <strong>Transformation Pipelines</strong>, and <strong>Artifact Management</strong>. These concepts work together to decouple the source of truth (the code) from the final output format (Markdown, HTML, PDF, etc.), allowing developers to maintain a single source of documentation logic while targeting multiple distribution channels.</p>
-<h3 id="1-source-abstraction">1. Source Abstraction</h3>
-<p>At the heart of <code>repoquill</code> is the <code>Source</code> interface. This abstraction allows the library to ingest documentation content from various origins without coupling the core engine to specific file systems or version control systems.</p>
-<p>The primary implementation is <code>FileSource</code>, which reads documentation templates and metadata from local files or directories. However, the architecture supports custom sources, enabling integration with remote APIs or database-backed documentation stores.</p>
-<pre><code class="language-python">from repoquill.source import FileSource, Source
-
-class FileSource(Source):
-    &quot;&quot;&quot;
-    A source that loads documentation content from the local file system.
-
-    Parameters:
-        root_path (str): The root directory containing documentation files.
-        pattern (str): A glob pattern to match documentation files (default: '*.md').
-    &quot;&quot;&quot;
-    def __init__(self, root_path: str, pattern: str = &quot;*.md&quot;):
-        self.root_path = root_path
-        self.pattern = pattern
-
-    def load(self) -&gt; dict:
-        &quot;&quot;&quot;
-        Loads all matching files and returns a dictionary mapping file paths to content.
-        &quot;&quot;&quot;
-        # Implementation details...
-        pass
+<h2 id="configuration-reference">Configuration Reference</h2>
+<p>The <code>repoquill</code> library utilizes a YAML-based configuration file, typically named <code>repoquill.yml</code>, to define project metadata, output preferences, and generation rules. This configuration file serves as the primary interface between the user and the documentation generation engine, allowing for fine-grained control over how source code is analyzed and transformed into readable documentation.</p>
+<p>This page provides a detailed reference for all supported keys, their data types, default values, and behavioral implications.</p>
+<h3 id="file-location-and-syntax">File Location and Syntax</h3>
+<p>By default, <code>repoquill</code> looks for the configuration file in the root directory of the project. You can specify a custom path using the <code>--config</code> command-line argument.</p>
+<p>The file must be valid YAML. Comments are supported using the <code>#</code> symbol.</p>
+<pre><code class="language-yaml"># Example repoquill.yml
+project_name: &quot;My Awesome Library&quot;
+version: &quot;1.0.0&quot;
+output_dir: &quot;./docs&quot;
+language: &quot;python&quot;
 </code></pre>
-<p><strong>Design Pattern:</strong> The <em>Strategy Pattern</em> is employed here. By defining a common <code>Source</code> interface, <code>repoquill</code> can swap out the data retrieval mechanism at runtime without altering the downstream processing logic.</p>
-<h3 id="2-transformation-pipelines">2. Transformation Pipelines</h3>
-<p>Documentation rarely exists in its final form within the source files. It often requires processing steps such as variable substitution, code block execution, or formatting adjustments. <code>repoquill</code> models this process as a <strong>Pipeline</strong> of <strong>Transformers</strong>.</p>
-<p>A <code>Transformer</code> is a callable object that takes a <code>Document</code> object and returns a modified <code>Document</code>. The <code>Pipeline</code> class manages the execution order of these transformers.</p>
-<h4 id="the-document-model">The <code>Document</code> Model</h4>
-<p>The <code>Document</code> class serves as the data carrier through the pipeline. It encapsulates:
-*   <code>content</code>: The raw text or structured data of the document.
-*   <code>metadata</code>: A dictionary containing key-value pairs (e.g., title, author, version).
-*   <code>context</code>: A shared state object available to all transformers in the pipeline.</p>
-<pre><code class="language-python">from repoquill.core import Document, Transformer, Pipeline
-
-class VariableSubstitutionTransformer(Transformer):
-    &quot;&quot;&quot;
-    Replaces {{variable}} placeholders in the document content with values from the context.
-    &quot;&quot;&quot;
-    def transform(self, doc: Document) -&gt; Document:
-        for key, value in doc.context.items():
-            doc.content = doc.content.replace(f&quot;{{{{{key}}}}}&quot;, str(value))
-        return doc
-
-class CodeBlockExecutor(Transformer):
-    &quot;&quot;&quot;
-    Executes Python code blocks marked with ```python and replaces them with their output.
-    &quot;&quot;&quot;
-    def transform(self, doc: Document) -&gt; Document:
-        # Logic to find, execute, and replace code blocks
-        return doc
-</code></pre>
-<h4 id="building-a-pipeline">Building a Pipeline</h4>
-<p>The <code>Pipeline</code> class allows developers to chain transformers together. The order of execution is critical; for example, variable substitution should typically occur before code execution if the code relies on substituted variables.</p>
-<pre><code class="language-python">from repoquill.pipeline import Pipeline
-from repoquill.transformers import MarkdownFormatter, TimestampInjector
-
-def create_default_pipeline():
-    pipeline = Pipeline()
-
-    # 1. Inject current timestamp into metadata
-    pipeline.add(TimestampInjector())
-
-    # 2. Substitute variables
-    pipeline.add(VariableSubstitutionTransformer())
-
-    # 3. Format Markdown for consistent styling
-    pipeline.add(MarkdownFormatter())
-
-    return pipeline
-</code></pre>
-<p><strong>Design Pattern:</strong> The <em>Chain of Responsibility</em> pattern is used here. Each transformer handles a specific aspect of the document processing and passes the result to the next transformer in the chain. This promotes modularity and reusability of individual processing steps.</p>
-<h3 id="3-artifact-management">3. Artifact Management</h3>
-<p>Once a document has passed through the transformation pipeline, it needs to be written to a destination. <code>repoquill</code> abstracts this through the <code>Artifact</code> and <code>Writer</code> interfaces.</p>
-<p>An <code>Artifact</code> represents the final output of a document, including its target file path and format. The <code>Writer</code> is responsible for persisting the artifact to the chosen medium (file system, S3, GitHub Pages, etc.).</p>
-<pre><code class="language-python">from repoquill.writer import FileWriter, Writer
-
-class FileWriter(Writer):
-    &quot;&quot;&quot;
-    Writes artifacts to the local file system.
-
-    Parameters:
-        output_dir (str): The directory where output files will be saved.
-    &quot;&quot;&quot;
-    def __init__(self, output_dir: str):
-        self.output_dir = output_dir
-
-    def write(self, artifact: Artifact) -&gt; None:
-        &quot;&quot;&quot;
-        Writes the artifact content to the specified file path.
-        &quot;&quot;&quot;
-        file_path = os.path.join(self.output_dir, artifact.filename)
-        with open(file_path, 'w', encoding='utf-8') as f:
-            f.write(artifact.content)
-</code></pre>
-<h3 id="core-workflow">Core Workflow</h3>
-<p>The typical usage of <code>repoquill</code> follows a clear, linear workflow:</p>
+<h3 id="global-options">Global Options</h3>
+<h4 id="project_name"><code>project_name</code></h4>
+<ul>
+<li><strong>Type:</strong> <code>string</code></li>
+<li><strong>Required:</strong> Yes</li>
+<li><strong>Description:</strong> The human-readable name of the project. This string is used in the header of the generated documentation and in the metadata of the output files.</li>
+<li><strong>Example:</strong>
+  <code>yaml
+  project_name: "RepoQuill Core"</code></li>
+</ul>
+<h4 id="version"><code>version</code></h4>
+<ul>
+<li><strong>Type:</strong> <code>string</code></li>
+<li><strong>Required:</strong> No</li>
+<li><strong>Default:</strong> <code>"0.0.1"</code></li>
+<li><strong>Description:</strong> The semantic version of the project. This is included in the documentation footer and can be used for version-controlled documentation builds.</li>
+<li><strong>Example:</strong>
+  <code>yaml
+  version: "2.4.1"</code></li>
+</ul>
+<h4 id="output_dir"><code>output_dir</code></h4>
+<ul>
+<li><strong>Type:</strong> <code>string</code></li>
+<li><strong>Required:</strong> No</li>
+<li><strong>Default:</strong> <code>"./docs"</code></li>
+<li><strong>Description:</strong> The relative or absolute path where the generated documentation files will be written. If the directory does not exist, <code>repoquill</code> will create it.</li>
+<li><strong>Example:</strong>
+  <code>yaml
+  output_dir: "/var/www/docs"</code></li>
+</ul>
+<h4 id="language"><code>language</code></h4>
+<ul>
+<li><strong>Type:</strong> <code>string</code></li>
+<li><strong>Required:</strong> No</li>
+<li><strong>Default:</strong> <code>"python"</code></li>
+<li><strong>Description:</strong> Specifies the primary programming language of the codebase. This affects syntax highlighting in code blocks and the parsing strategy used for docstring extraction.</li>
+<li><strong>Supported Values:</strong></li>
+<li><code>"python"</code></li>
+<li><code>"javascript"</code></li>
+<li><code>"typescript"</code></li>
+<li><code>"go"</code></li>
+<li><strong>Example:</strong>
+  <code>yaml
+  language: "python"</code></li>
+</ul>
+<h3 id="source-code-analysis-options">Source Code Analysis Options</h3>
+<h4 id="source_dirs"><code>source_dirs</code></h4>
+<ul>
+<li><strong>Type:</strong> <code>list[string]</code></li>
+<li><strong>Required:</strong> No</li>
+<li><strong>Default:</strong> <code>["."]</code></li>
+<li><strong>Description:</strong> A list of directories to scan for source code files. Paths are relative to the project root. This allows you to exclude specific modules or include multiple packages.</li>
+<li><strong>Example:</strong>
+  ```yaml
+  source_dirs:<ul>
+<li>"src/core"</li>
+<li>"src/utils"</li>
+<li>"tests"
+  ```</li>
+</ul>
+</li>
+</ul>
+<h4 id="exclude_patterns"><code>exclude_patterns</code></h4>
+<ul>
+<li><strong>Type:</strong> <code>list[string]</code></li>
+<li><strong>Required:</strong> No</li>
+<li><strong>Default:</strong> <code>["*.pyc", "__pycache__", "node_modules"]</code></li>
+<li><strong>Description:</strong> A list of glob patterns to exclude from the source scan. This is useful for ignoring test files, generated code, or third-party libraries.</li>
+<li><strong>Example:</strong>
+  ```yaml
+  exclude_patterns:<ul>
+<li>"test_*.py"</li>
+<li>"*.min.js"</li>
+<li>"vendor/*"
+  ```</li>
+</ul>
+</li>
+</ul>
+<h4 id="include_private"><code>include_private</code></h4>
+<ul>
+<li><strong>Type:</strong> <code>boolean</code></li>
+<li><strong>Required:</strong> No</li>
+<li><strong>Default:</strong> <code>false</code></li>
+<li><strong>Description:</strong> If set to <code>true</code>, <code>repoquill</code> will include private methods and classes (those prefixed with an underscore <code>_</code>) in the generated documentation. By default, only public APIs are documented.</li>
+<li><strong>Example:</strong>
+  <code>yaml
+  include_private: true</code></li>
+</ul>
+<h3 id="output-formatting-options">Output Formatting Options</h3>
+<h4 id="template"><code>template</code></h4>
+<ul>
+<li><strong>Type:</strong> <code>string</code></li>
+<li><strong>Required:</strong> No</li>
+<li><strong>Default:</strong> <code>"default"</code></li>
+<li><strong>Description:</strong> Specifies the HTML template to use for rendering the documentation. <code>repoquill</code> ships with several built-in templates.</li>
+<li><strong>Built-in Templates:</strong></li>
+<li><code>"default"</code>: A clean, minimal template.</li>
+<li><code>"sphinx-like"</code>: Mimics the styling of Sphinx-generated docs.</li>
+<li><code>"github"</code>: Optimized for embedding in GitHub READMEs.</li>
+<li><strong>Example:</strong>
+  <code>yaml
+  template: "sphinx-like"</code></li>
+</ul>
+<h4 id="theme"><code>theme</code></h4>
+<ul>
+<li><strong>Type:</strong> <code>string</code></li>
+<li><strong>Required:</strong> No</li>
+<li><strong>Default:</strong> <code>"light"</code></li>
+<li><strong>Description:</strong> The color theme for the generated HTML.</li>
+<li><strong>Supported Values:</strong></li>
+<li><code>"light"</code></li>
+<li><code>"dark"</code></li>
+<li><code>"auto"</code> (uses system preference)</li>
+<li><strong>Example:</strong>
+  <code>yaml
+  theme: "dark"</code></li>
+</ul>
+<h4 id="code_block_style"><code>code_block_style</code></h4>
+<ul>
+<li><strong>Type:</strong> <code>string</code></li>
+<li><strong>Required:</strong> No</li>
+<li><strong>Default:</strong> <code>"fenced"</code></li>
+<li><strong>Description:</strong> Determines how code snippets are rendered in the output.</li>
+<li><strong>Supported Values:</strong></li>
+<li><code>"fenced"</code>: Uses triple backticks (```) for Markdown.</li>
+<li><code>"indented"</code>: Uses 4-space indentation for Markdown.</li>
+<li><strong>Example:</strong>
+  <code>yaml
+  code_block_style: "fenced"</code></li>
+</ul>
+<h3 id="advanced-configuration">Advanced Configuration</h3>
+<h4 id="custom_css"><code>custom_css</code></h4>
+<ul>
+<li><strong>Type:</strong> <code>string</code></li>
+<li><strong>Required:</strong> No</li>
+<li><strong>Description:</strong> Path to a custom CSS file that will be linked in the generated HTML head. This allows for full branding control.</li>
+<li><strong>Example:</strong>
+  <code>yaml
+  custom_css: "./assets/styles.css"</code></li>
+</ul>
+<h4 id="metadata"><code>metadata</code></h4>
+<ul>
+<li><strong>Type:</strong> <code>object</code></li>
+<li><strong>Required:</strong> No</li>
+<li><strong>Description:</strong> A dictionary of key-value pairs that are injected into the HTML <code>&lt;meta&gt;</code> tags. Useful for SEO and social media previews.</li>
+<li><strong>Example:</strong>
+  <code>yaml
+  metadata:
+    author: "Jane Doe"
+    description: "A powerful documentation generator"
+    keywords: "docs, python, automation"</code></li>
+</ul>
+<h3 id="validation-and-errors">Validation and Errors</h3>
+<p><code>repoquill</code> validates the configuration file before processing begins. Common errors include:</p>
 <ol>
-<li><strong>Initialize Source</strong>: Create a <code>Source</code> instance to locate raw documentation files.</li>
-<li><strong>Define Pipeline</strong>: Construct a <code>Pipeline</code> with the necessary <code>Transformer</code>s.</li>
-<li><strong>Configure Writer</strong>: Set up a <code>Writer</code> to handle output.</li>
-<li><strong>Execute</strong>: Run the <code>RepoQuill</code> engine to process all documents.</li>
+<li><strong>Invalid YAML Syntax:</strong> The parser will throw a <code>YAMLError</code> with line and column information.</li>
+<li><strong>Missing Required Fields:</strong> If <code>project_name</code> is missing, a <code>ConfigurationError</code> is raised.</li>
+<li><strong>Unsupported Language:</strong> If <code>language</code> is set to an unsupported value, a <code>ValueError</code> is raised.</li>
+<li><strong>Invalid Path:</strong> If <code>output_dir</code> points to a location where the user does not have write permissions, an <code>IOError</code> is raised.</li>
 </ol>
-<pre><code class="language-python">from repoquill import RepoQuill, FileSource, FileWriter
-from repoquill.pipeline import Pipeline
-from repoquill.transformers import MarkdownFormatter
+<h3 id="complete-example">Complete Example</h3>
+<p>Below is a comprehensive <code>repoquill.yml</code> file demonstrating most options:</p>
+<pre><code class="language-yaml"># Project Metadata
+project_name: &quot;RepoQuill&quot;
+version: &quot;1.2.0&quot;
+language: &quot;python&quot;
 
-# 1. Setup Source
-source = FileSource(root_path=&quot;./docs&quot;, pattern=&quot;*.md&quot;)
+# Source Configuration
+source_dirs:
+  - &quot;src&quot;
+  - &quot;examples&quot;
+exclude_patterns:
+  - &quot;test_*.py&quot;
+  - &quot;conftest.py&quot;
+include_private: false
 
-# 2. Setup Pipeline
-pipeline = Pipeline()
-pipeline.add(MarkdownFormatter())
+# Output Configuration
+output_dir: &quot;./generated_docs&quot;
+template: &quot;default&quot;
+theme: &quot;light&quot;
+code_block_style: &quot;fenced&quot;
 
-# 3. Setup Writer
-writer = FileWriter(output_dir=&quot;./build/docs&quot;)
-
-# 4. Initialize and Run Engine
-engine = RepoQuill(
-    source=source,
-    pipeline=pipeline,
-    writer=writer
-)
-
-engine.run()
+# Customization
+custom_css: &quot;./static/custom.css&quot;
+metadata:
+  author: &quot;RepoQuill Team&quot;
+  description: &quot;Automated documentation for Python projects&quot;
+  keywords: &quot;python, docs, automation, repoquill&quot;
 </code></pre>
-<h3 id="configuration-and-context">Configuration and Context</h3>
-<p>The <code>context</code> parameter in the <code>RepoQuill</code> engine allows global variables to be injected into every document's processing context. This is useful for injecting build information, such as the current version number or build timestamp, into all generated documents.</p>
-<pre><code class="language-python">engine = RepoQuill(
-    source=source,
-    pipeline=pipeline,
-    writer=writer,
-    context={
-        &quot;version&quot;: &quot;1.0.0&quot;,
-        &quot;build_date&quot;: &quot;2023-10-27&quot;
-    }
-)
-</code></pre>
-<p>Within a <code>Transformer</code>, these context variables can be accessed via <code>doc.context</code>, enabling dynamic content generation based on the build environment.</p>
-<h3 id="error-handling-and-logging">Error Handling and Logging</h3>
-<p><code>repoquill</code> employs standard Python exception handling. If a <code>Transformer</code> fails during execution, the <code>Pipeline</code> will raise a <code>TransformationError</code> containing the original exception and the document identifier that caused the failure. This allows developers to identify problematic documents without halting the entire build process if configured to continue on error.</p>
-<pre><code class="language-python">try:
-    engine.run()
-except TransformationError as e:
-    logger.error(f&quot;Failed to process document: {e.document_id}&quot;)
-    logger.error(f&quot;Reason: {e.original_exception}&quot;)
-</code></pre>
-<h3 id="summary-of-key-classes">Summary of Key Classes</h3>
-<table>
-<thead>
-<tr>
-<th style="text-align: left;">Class</th>
-<th style="text-align: left;">Module</th>
-<th style="text-align: left;">Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td style="text-align: left;"><code>Source</code></td>
-<td style="text-align: left;"><code>repoquill.source</code></td>
-<td style="text-align: left;">Abstract base class for data retrieval.</td>
-</tr>
-<tr>
-<td style="text-align: left;"><code>FileSource</code></td>
-<td style="text-align: left;"><code>repoquill.source</code></td>
-<td style="text-align: left;">Implementation for local file system sources.</td>
-</tr>
-<tr>
-<td style="text-align: left;"><code>Document</code></td>
-<td style="text-align: left;"><code>repoquill.core</code></td>
-<td style="text-align: left;">Data model representing a single document.</td>
-</tr>
-<tr>
-<td style="text-align: left;"><code>Transformer</code></td>
-<td style="text-align: left;"><code>repoquill.core</code></td>
-<td style="text-align: left;">Abstract base class for document processing steps.</td>
-</tr>
-<tr>
-<td style="text-align: left;"><code>Pipeline</code></td>
-<td style="text-align: left;"><code>repoquill.pipeline</code></td>
-<td style="text-align: left;">Manages the execution order of transformers.</td>
-</tr>
-<tr>
-<td style="text-align: left;"><code>Writer</code></td>
-<td style="text-align: left;"><code>repoquill.writer</code></td>
-<td style="text-align: left;">Abstract base class for output persistence.</td>
-</tr>
-<tr>
-<td style="text-align: left;"><code>FileWriter</code></td>
-<td style="text-align: left;"><code>repoquill.writer</code></td>
-<td style="text-align: left;">Implementation for local file system output.</td>
-</tr>
-<tr>
-<td style="text-align: left;"><code>RepoQuill</code></td>
-<td style="text-align: left;"><code>repoquill</code></td>
-<td style="text-align: left;">Main engine class that orchestrates the workflow.</td>
-</tr>
-</tbody>
-</table>
-<p>By adhering to these abstractions, <code>repoquill</code> provides a flexible, extensible framework for documentation generation that can adapt to diverse project needs while maintaining a consistent and predictable API.</p>
+<h3 id="best-practices">Best Practices</h3>
+<ul>
+<li><strong>Version Control:</strong> Commit your <code>repoquill.yml</code> file to version control to ensure consistent documentation builds across environments.</li>
+<li><strong>Modularization:</strong> For large projects, consider using <code>source_dirs</code> to separate core libraries from utility modules, allowing for targeted documentation updates.</li>
+<li><strong>Testing:</strong> Run <code>repoquill --validate</code> to check your configuration file for syntax errors before a full build.</li>
+</ul>
+<p>For more information on extending <code>repoquill</code> with custom templates, refer to the <a href="./templates.md">Template Development Guide</a>.</p>
 <h3 id="see-also">See Also</h3>
 <ul>
-<li><a href="../architecture/">Architecture</a></li>
+<li><a href="../cli-commands/">CLI Commands</a></li>
 <li><a href="../ci-cd/">CI/CD Integration</a></li>
-<li><a href="../configuration/">Configuration Reference</a></li>
 <li><a href="../installation/">Installation</a></li>
+<li><a href="../key-ideas/">Key Ideas</a></li>
 </ul>
 
 
@@ -1638,7 +1921,7 @@ except TransformationError as e:
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../architecture/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Architecture">
+          <a href="../key-ideas/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Key ideas">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -1648,20 +1931,20 @@ except TransformationError as e:
                 Previous
               </span>
               <div class="md-ellipsis">
-                Architecture
+                Key ideas
               </div>
             </div>
           </a>
         
         
           
-          <a href="../configuration/" class="md-footer__link md-footer__link--next" aria-label="Next: Configuration">
+          <a href="../llm-providers/" class="md-footer__link md-footer__link--next" aria-label="Next: Llm providers">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Configuration
+                Llm providers
               </div>
             </div>
             <div class="md-footer__button md-icon">

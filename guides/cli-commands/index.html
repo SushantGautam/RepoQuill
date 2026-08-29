@@ -10,13 +10,13 @@
       
       
       
-        <link rel="canonical" href="https://SushantGautam.github.io/RepoQuill/guides/key-ideas/">
+        <link rel="canonical" href="https://SushantGautam.github.io/RepoQuill/guides/cli-commands/">
       
       
-        <link rel="prev" href="../architecture/">
+        <link rel="prev" href="../llm-providers/">
       
       
-        <link rel="next" href="../configuration/">
+        <link rel="next" href="../ci-cd/">
       
       
         
@@ -27,7 +27,7 @@
     
     
       
-        <title>Key ideas - repoquill</title>
+        <title>Cli commands - repoquill</title>
       
     
     
@@ -78,7 +78,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#key-ideas" class="md-skip">
+        <a href="#cli-commands" class="md-skip">
           Skip to content
         </a>
       
@@ -114,7 +114,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Key ideas
+              Cli commands
             
           </span>
         </div>
@@ -411,8 +411,6 @@
                 
   
   
-    
-  
   
   
     
@@ -422,11 +420,11 @@
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_2" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_2" >
         
           
           <label class="md-nav__link" for="__nav_2_2" id="__nav_2_2_label" tabindex="0">
@@ -447,7 +445,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_2_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_2_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_2_2">
             <span class="md-nav__icon md-icon"></span>
             
@@ -490,35 +488,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Key ideas
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../key-ideas/" class="md-nav__link">
         
   
   
@@ -534,157 +507,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#key-ideas" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Key Ideas
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Key Ideas">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#1-source-abstraction" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        1. Source Abstraction
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#2-transformation-pipelines" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        2. Transformation Pipelines
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="2. Transformation Pipelines">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#the-document-model" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        The Document Model
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#building-a-pipeline" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Building a Pipeline
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#3-artifact-management" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        3. Artifact Management
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#core-workflow" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Core Workflow
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#configuration-and-context" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Configuration and Context
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#error-handling-and-logging" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Error Handling and Logging
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#summary-of-key-classes" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Summary of Key Classes
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#see-also" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        See Also
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -702,6 +524,8 @@
                 
   
   
+    
+  
   
   
     
@@ -711,11 +535,11 @@
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_3" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_3" checked>
         
           
           <label class="md-nav__link" for="__nav_2_3" id="__nav_2_3_label" tabindex="0">
@@ -736,7 +560,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_3_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_3_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_2_3">
             <span class="md-nav__icon md-icon"></span>
             
@@ -807,10 +631,35 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../cli-commands/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cli commands
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -826,6 +675,201 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#cli-commands" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CLI Commands
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="CLI Commands">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overview
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#global-options" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Global Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#command-generate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Command: generate
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#command-validate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Command: validate
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#command-config" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Command: config
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Command: config">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#subcommand-init" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Subcommand: init
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#subcommand-show" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Subcommand: show
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#subcommand-validate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Subcommand: validate
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#configuration-file-structure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Configuration File Structure
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#environment-variables" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Environment Variables
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#error-handling" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Error Handling
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#integration-with-cicd" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Integration with CI/CD
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#troubleshooting" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Troubleshooting
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#see-also" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        See Also
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -1239,22 +1283,22 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#key-ideas" class="md-nav__link">
+  <a href="#cli-commands" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Key Ideas
+        CLI Commands
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Key Ideas">
+    <nav class="md-nav" aria-label="CLI Commands">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#1-source-abstraction" class="md-nav__link">
+  <a href="#overview" class="md-nav__link">
     <span class="md-ellipsis">
       
-        1. Source Abstraction
+        Overview
       
     </span>
   </a>
@@ -1262,22 +1306,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#2-transformation-pipelines" class="md-nav__link">
+  <a href="#global-options" class="md-nav__link">
     <span class="md-ellipsis">
       
-        2. Transformation Pipelines
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="2. Transformation Pipelines">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#the-document-model" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        The Document Model
+        Global Options
       
     </span>
   </a>
@@ -1285,10 +1317,66 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#building-a-pipeline" class="md-nav__link">
+  <a href="#command-generate" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Building a Pipeline
+        Command: generate
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#command-validate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Command: validate
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#command-config" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Command: config
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Command: config">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#subcommand-init" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Subcommand: init
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#subcommand-show" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Subcommand: show
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#subcommand-validate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Subcommand: validate
       
     </span>
   </a>
@@ -1301,10 +1389,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#3-artifact-management" class="md-nav__link">
+  <a href="#configuration-file-structure" class="md-nav__link">
     <span class="md-ellipsis">
       
-        3. Artifact Management
+        Configuration File Structure
       
     </span>
   </a>
@@ -1312,10 +1400,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#core-workflow" class="md-nav__link">
+  <a href="#environment-variables" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Core Workflow
+        Environment Variables
       
     </span>
   </a>
@@ -1323,10 +1411,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#configuration-and-context" class="md-nav__link">
+  <a href="#error-handling" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Configuration and Context
+        Error Handling
       
     </span>
   </a>
@@ -1334,10 +1422,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#error-handling-and-logging" class="md-nav__link">
+  <a href="#integration-with-cicd" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Error Handling and Logging
+        Integration with CI/CD
       
     </span>
   </a>
@@ -1345,10 +1433,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#summary-of-key-classes" class="md-nav__link">
+  <a href="#troubleshooting" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Summary of Key Classes
+        Troubleshooting
       
     </span>
   </a>
@@ -1391,217 +1479,251 @@
   
 
 
-  <h1>Key ideas</h1>
+  <h1>Cli commands</h1>
 
-<h2 id="key-ideas">Key Ideas</h2>
-<p><strong>repoquill</strong> is a Python library designed to streamline the process of generating, managing, and versioning technical documentation directly from source code repositories. Its core philosophy centers on treating documentation as a first-class citizen in the software development lifecycle, ensuring that documentation remains synchronized with the code it describes.</p>
-<p>The library is built upon three fundamental abstractions: <strong>Source Abstraction</strong>, <strong>Transformation Pipelines</strong>, and <strong>Artifact Management</strong>. These concepts work together to decouple the source of truth (the code) from the final output format (Markdown, HTML, PDF, etc.), allowing developers to maintain a single source of documentation logic while targeting multiple distribution channels.</p>
-<h3 id="1-source-abstraction">1. Source Abstraction</h3>
-<p>At the heart of <code>repoquill</code> is the <code>Source</code> interface. This abstraction allows the library to ingest documentation content from various origins without coupling the core engine to specific file systems or version control systems.</p>
-<p>The primary implementation is <code>FileSource</code>, which reads documentation templates and metadata from local files or directories. However, the architecture supports custom sources, enabling integration with remote APIs or database-backed documentation stores.</p>
-<pre><code class="language-python">from repoquill.source import FileSource, Source
-
-class FileSource(Source):
-    &quot;&quot;&quot;
-    A source that loads documentation content from the local file system.
-
-    Parameters:
-        root_path (str): The root directory containing documentation files.
-        pattern (str): A glob pattern to match documentation files (default: '*.md').
-    &quot;&quot;&quot;
-    def __init__(self, root_path: str, pattern: str = &quot;*.md&quot;):
-        self.root_path = root_path
-        self.pattern = pattern
-
-    def load(self) -&gt; dict:
-        &quot;&quot;&quot;
-        Loads all matching files and returns a dictionary mapping file paths to content.
-        &quot;&quot;&quot;
-        # Implementation details...
-        pass
-</code></pre>
-<p><strong>Design Pattern:</strong> The <em>Strategy Pattern</em> is employed here. By defining a common <code>Source</code> interface, <code>repoquill</code> can swap out the data retrieval mechanism at runtime without altering the downstream processing logic.</p>
-<h3 id="2-transformation-pipelines">2. Transformation Pipelines</h3>
-<p>Documentation rarely exists in its final form within the source files. It often requires processing steps such as variable substitution, code block execution, or formatting adjustments. <code>repoquill</code> models this process as a <strong>Pipeline</strong> of <strong>Transformers</strong>.</p>
-<p>A <code>Transformer</code> is a callable object that takes a <code>Document</code> object and returns a modified <code>Document</code>. The <code>Pipeline</code> class manages the execution order of these transformers.</p>
-<h4 id="the-document-model">The <code>Document</code> Model</h4>
-<p>The <code>Document</code> class serves as the data carrier through the pipeline. It encapsulates:
-*   <code>content</code>: The raw text or structured data of the document.
-*   <code>metadata</code>: A dictionary containing key-value pairs (e.g., title, author, version).
-*   <code>context</code>: A shared state object available to all transformers in the pipeline.</p>
-<pre><code class="language-python">from repoquill.core import Document, Transformer, Pipeline
-
-class VariableSubstitutionTransformer(Transformer):
-    &quot;&quot;&quot;
-    Replaces {{variable}} placeholders in the document content with values from the context.
-    &quot;&quot;&quot;
-    def transform(self, doc: Document) -&gt; Document:
-        for key, value in doc.context.items():
-            doc.content = doc.content.replace(f&quot;{{{{{key}}}}}&quot;, str(value))
-        return doc
-
-class CodeBlockExecutor(Transformer):
-    &quot;&quot;&quot;
-    Executes Python code blocks marked with ```python and replaces them with their output.
-    &quot;&quot;&quot;
-    def transform(self, doc: Document) -&gt; Document:
-        # Logic to find, execute, and replace code blocks
-        return doc
-</code></pre>
-<h4 id="building-a-pipeline">Building a Pipeline</h4>
-<p>The <code>Pipeline</code> class allows developers to chain transformers together. The order of execution is critical; for example, variable substitution should typically occur before code execution if the code relies on substituted variables.</p>
-<pre><code class="language-python">from repoquill.pipeline import Pipeline
-from repoquill.transformers import MarkdownFormatter, TimestampInjector
-
-def create_default_pipeline():
-    pipeline = Pipeline()
-
-    # 1. Inject current timestamp into metadata
-    pipeline.add(TimestampInjector())
-
-    # 2. Substitute variables
-    pipeline.add(VariableSubstitutionTransformer())
-
-    # 3. Format Markdown for consistent styling
-    pipeline.add(MarkdownFormatter())
-
-    return pipeline
-</code></pre>
-<p><strong>Design Pattern:</strong> The <em>Chain of Responsibility</em> pattern is used here. Each transformer handles a specific aspect of the document processing and passes the result to the next transformer in the chain. This promotes modularity and reusability of individual processing steps.</p>
-<h3 id="3-artifact-management">3. Artifact Management</h3>
-<p>Once a document has passed through the transformation pipeline, it needs to be written to a destination. <code>repoquill</code> abstracts this through the <code>Artifact</code> and <code>Writer</code> interfaces.</p>
-<p>An <code>Artifact</code> represents the final output of a document, including its target file path and format. The <code>Writer</code> is responsible for persisting the artifact to the chosen medium (file system, S3, GitHub Pages, etc.).</p>
-<pre><code class="language-python">from repoquill.writer import FileWriter, Writer
-
-class FileWriter(Writer):
-    &quot;&quot;&quot;
-    Writes artifacts to the local file system.
-
-    Parameters:
-        output_dir (str): The directory where output files will be saved.
-    &quot;&quot;&quot;
-    def __init__(self, output_dir: str):
-        self.output_dir = output_dir
-
-    def write(self, artifact: Artifact) -&gt; None:
-        &quot;&quot;&quot;
-        Writes the artifact content to the specified file path.
-        &quot;&quot;&quot;
-        file_path = os.path.join(self.output_dir, artifact.filename)
-        with open(file_path, 'w', encoding='utf-8') as f:
-            f.write(artifact.content)
-</code></pre>
-<h3 id="core-workflow">Core Workflow</h3>
-<p>The typical usage of <code>repoquill</code> follows a clear, linear workflow:</p>
-<ol>
-<li><strong>Initialize Source</strong>: Create a <code>Source</code> instance to locate raw documentation files.</li>
-<li><strong>Define Pipeline</strong>: Construct a <code>Pipeline</code> with the necessary <code>Transformer</code>s.</li>
-<li><strong>Configure Writer</strong>: Set up a <code>Writer</code> to handle output.</li>
-<li><strong>Execute</strong>: Run the <code>RepoQuill</code> engine to process all documents.</li>
-</ol>
-<pre><code class="language-python">from repoquill import RepoQuill, FileSource, FileWriter
-from repoquill.pipeline import Pipeline
-from repoquill.transformers import MarkdownFormatter
-
-# 1. Setup Source
-source = FileSource(root_path=&quot;./docs&quot;, pattern=&quot;*.md&quot;)
-
-# 2. Setup Pipeline
-pipeline = Pipeline()
-pipeline.add(MarkdownFormatter())
-
-# 3. Setup Writer
-writer = FileWriter(output_dir=&quot;./build/docs&quot;)
-
-# 4. Initialize and Run Engine
-engine = RepoQuill(
-    source=source,
-    pipeline=pipeline,
-    writer=writer
-)
-
-engine.run()
-</code></pre>
-<h3 id="configuration-and-context">Configuration and Context</h3>
-<p>The <code>context</code> parameter in the <code>RepoQuill</code> engine allows global variables to be injected into every document's processing context. This is useful for injecting build information, such as the current version number or build timestamp, into all generated documents.</p>
-<pre><code class="language-python">engine = RepoQuill(
-    source=source,
-    pipeline=pipeline,
-    writer=writer,
-    context={
-        &quot;version&quot;: &quot;1.0.0&quot;,
-        &quot;build_date&quot;: &quot;2023-10-27&quot;
-    }
-)
-</code></pre>
-<p>Within a <code>Transformer</code>, these context variables can be accessed via <code>doc.context</code>, enabling dynamic content generation based on the build environment.</p>
-<h3 id="error-handling-and-logging">Error Handling and Logging</h3>
-<p><code>repoquill</code> employs standard Python exception handling. If a <code>Transformer</code> fails during execution, the <code>Pipeline</code> will raise a <code>TransformationError</code> containing the original exception and the document identifier that caused the failure. This allows developers to identify problematic documents without halting the entire build process if configured to continue on error.</p>
-<pre><code class="language-python">try:
-    engine.run()
-except TransformationError as e:
-    logger.error(f&quot;Failed to process document: {e.document_id}&quot;)
-    logger.error(f&quot;Reason: {e.original_exception}&quot;)
-</code></pre>
-<h3 id="summary-of-key-classes">Summary of Key Classes</h3>
+<h2 id="cli-commands">CLI Commands</h2>
+<p>The <code>repoquill</code> library provides a robust Command-Line Interface (CLI) designed for seamless integration into development workflows, CI/CD pipelines, and local development environments. The CLI serves as the primary entry point for interacting with the core documentation generation engine, allowing developers to configure, execute, and manage documentation tasks without writing Python scripts.</p>
+<p>This module is implemented within the <code>repoquill.cli</code> package, specifically leveraging the <code>argparse</code> standard library for argument parsing and the <code>click</code> library for enhanced user experience features such as colored output and command grouping. The main entry point is defined in <code>repoquill/__main__.py</code>, which delegates execution to the <code>main()</code> function in <code>repoquill/cli/main.py</code>.</p>
+<h3 id="overview">Overview</h3>
+<p>The CLI supports three primary modes of operation:
+1.  <strong>Generate</strong>: Creates or updates documentation files based on source code analysis.
+2.  <strong>Validate</strong>: Checks the consistency and completeness of existing documentation against the codebase.
+3.  <strong>Config</strong>: Manages configuration files, including initialization and validation.</p>
+<p>All commands support global flags for logging, verbosity, and output formatting. The CLI is designed to be non-interactive by default, making it suitable for automated environments, but includes flags to enable interactive prompts when necessary.</p>
+<h3 id="global-options">Global Options</h3>
+<p>These options are available for all subcommands and can be placed before or after the subcommand name, depending on the specific command implementation.</p>
 <table>
 <thead>
 <tr>
-<th style="text-align: left;">Class</th>
-<th style="text-align: left;">Module</th>
+<th style="text-align: left;">Flag</th>
+<th style="text-align: left;">Description</th>
+<th style="text-align: left;">Default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>-v</code>, <code>--verbose</code></td>
+<td style="text-align: left;">Enable verbose logging. Can be used multiple times for increasing detail.</td>
+<td style="text-align: left;"><code>False</code></td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>-q</code>, <code>--quiet</code></td>
+<td style="text-align: left;">Suppress all output except for critical errors.</td>
+<td style="text-align: left;"><code>False</code></td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>--version</code></td>
+<td style="text-align: left;">Display the current version of <code>repoquill</code> and exit.</td>
+<td style="text-align: left;">N/A</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>--help</code></td>
+<td style="text-align: left;">Show help message and exit.</td>
+<td style="text-align: left;">N/A</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>--config-file</code></td>
+<td style="text-align: left;">Path to the configuration file. If not provided, defaults to <code>repoquill.yaml</code> in the current directory.</td>
+<td style="text-align: left;"><code>./repoquill.yaml</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="command-generate">Command: <code>generate</code></h3>
+<p>The <code>generate</code> command is the core functionality of <code>repoquill</code>. It scans the specified source directories, analyzes the code, and writes the generated documentation to the target directory.</p>
+<p><strong>Usage:</strong></p>
+<pre><code class="language-bash">repoquill generate [OPTIONS]
+</code></pre>
+<p><strong>Options:</strong></p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Flag</th>
 <th style="text-align: left;">Description</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td style="text-align: left;"><code>Source</code></td>
-<td style="text-align: left;"><code>repoquill.source</code></td>
-<td style="text-align: left;">Abstract base class for data retrieval.</td>
+<td style="text-align: left;"><code>--source-dir</code></td>
+<td style="text-align: left;">The root directory containing the source code. Defaults to the current working directory.</td>
 </tr>
 <tr>
-<td style="text-align: left;"><code>FileSource</code></td>
-<td style="text-align: left;"><code>repoquill.source</code></td>
-<td style="text-align: left;">Implementation for local file system sources.</td>
+<td style="text-align: left;"><code>--output-dir</code></td>
+<td style="text-align: left;">The directory where documentation files will be written. Defaults to <code>./docs</code>.</td>
 </tr>
 <tr>
-<td style="text-align: left;"><code>Document</code></td>
-<td style="text-align: left;"><code>repoquill.core</code></td>
-<td style="text-align: left;">Data model representing a single document.</td>
+<td style="text-align: left;"><code>--format</code></td>
+<td style="text-align: left;">Output format. Supported values: <code>markdown</code> (default), <code>html</code>, <code>json</code>.</td>
 </tr>
 <tr>
-<td style="text-align: left;"><code>Transformer</code></td>
-<td style="text-align: left;"><code>repoquill.core</code></td>
-<td style="text-align: left;">Abstract base class for document processing steps.</td>
+<td style="text-align: left;"><code>--force</code></td>
+<td style="text-align: left;">Overwrite existing documentation files without confirmation.</td>
 </tr>
 <tr>
-<td style="text-align: left;"><code>Pipeline</code></td>
-<td style="text-align: left;"><code>repoquill.pipeline</code></td>
-<td style="text-align: left;">Manages the execution order of transformers.</td>
+<td style="text-align: left;"><code>--ignore</code></td>
+<td style="text-align: left;">Comma-separated list of glob patterns to ignore during scanning (e.g., <code>*.test.py,tests/*</code>).</td>
 </tr>
 <tr>
-<td style="text-align: left;"><code>Writer</code></td>
-<td style="text-align: left;"><code>repoquill.writer</code></td>
-<td style="text-align: left;">Abstract base class for output persistence.</td>
-</tr>
-<tr>
-<td style="text-align: left;"><code>FileWriter</code></td>
-<td style="text-align: left;"><code>repoquill.writer</code></td>
-<td style="text-align: left;">Implementation for local file system output.</td>
-</tr>
-<tr>
-<td style="text-align: left;"><code>RepoQuill</code></td>
-<td style="text-align: left;"><code>repoquill</code></td>
-<td style="text-align: left;">Main engine class that orchestrates the workflow.</td>
+<td style="text-align: left;"><code>--workers</code></td>
+<td style="text-align: left;">Number of parallel worker processes to use for analysis. Defaults to <code>1</code>.</td>
 </tr>
 </tbody>
 </table>
-<p>By adhering to these abstractions, <code>repoquill</code> provides a flexible, extensible framework for documentation generation that can adapt to diverse project needs while maintaining a consistent and predictable API.</p>
+<p><strong>Example:</strong></p>
+<pre><code class="language-bash"># Generate Markdown documentation for the current project
+repoquill generate --format markdown --output-dir ./docs
+
+# Generate HTML documentation with parallel processing
+repoquill generate --format html --workers 4 --force
+</code></pre>
+<h3 id="command-validate">Command: <code>validate</code></h3>
+<p>The <code>validate</code> command checks the integrity of the documentation. It verifies that all public modules and functions are documented, that docstrings are present, and that the documentation structure matches the code structure. This command does not modify any files.</p>
+<p><strong>Usage:</strong></p>
+<pre><code class="language-bash">repoquill validate [OPTIONS]
+</code></pre>
+<p><strong>Options:</strong></p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Flag</th>
+<th style="text-align: left;">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>--source-dir</code></td>
+<td style="text-align: left;">The root directory containing the source code.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>--docs-dir</code></td>
+<td style="text-align: left;">The directory containing the existing documentation. Defaults to <code>./docs</code>.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>--strict</code></td>
+<td style="text-align: left;">Treat warnings as errors. If enabled, the command exits with a non-zero status code if any warnings are found.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>--report</code></td>
+<td style="text-align: left;">Path to save a detailed validation report in JSON format.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Exit Codes:</strong>
+- <code>0</code>: Validation passed successfully.
+- <code>1</code>: Validation failed (errors found).
+- <code>2</code>: Configuration or file access error.</p>
+<p><strong>Example:</strong></p>
+<pre><code class="language-bash"># Validate documentation in strict mode
+repoquill validate --strict
+
+# Validate and save a report
+repoquill validate --report validation_report.json
+</code></pre>
+<h3 id="command-config">Command: <code>config</code></h3>
+<p>The <code>config</code> command manages the <code>repoquill.yaml</code> configuration file. It allows users to initialize a new configuration, view the current effective configuration, and validate the configuration syntax.</p>
+<p><strong>Usage:</strong></p>
+<pre><code class="language-bash">repoquill config [SUBCOMMAND]
+</code></pre>
+<h4 id="subcommand-init">Subcommand: <code>init</code></h4>
+<p>Creates a new <code>repoquill.yaml</code> file with default settings. If the file already exists, it will not be overwritten unless the <code>--force</code> flag is used.</p>
+<p><strong>Options:</strong>
+- <code>--force</code>: Overwrite existing configuration file.
+- <code>--template</code>: Name of the template to use (e.g., <code>basic</code>, <code>advanced</code>). Defaults to <code>basic</code>.</p>
+<p><strong>Example:</strong></p>
+<pre><code class="language-bash"># Initialize a new configuration file
+repoquill config init
+
+# Initialize with an advanced template
+repoquill config init --template advanced
+</code></pre>
+<h4 id="subcommand-show">Subcommand: <code>show</code></h4>
+<p>Displays the current effective configuration. This merges the default configuration, the file-based configuration, and any environment variables.</p>
+<p><strong>Example:</strong></p>
+<pre><code class="language-bash">repoquill config show
+</code></pre>
+<h4 id="subcommand-validate">Subcommand: <code>validate</code></h4>
+<p>Checks the syntax and semantics of the configuration file without executing any documentation tasks.</p>
+<p><strong>Example:</strong></p>
+<pre><code class="language-bash">repoquill config validate
+</code></pre>
+<h3 id="configuration-file-structure">Configuration File Structure</h3>
+<p>The CLI relies on a YAML configuration file (<code>repoquill.yaml</code>) for persistent settings. The following is a reference for the keys supported in the configuration file:</p>
+<pre><code class="language-yaml"># repoquill.yaml
+project:
+  name: &quot;MyProject&quot;
+  version: &quot;1.0.0&quot;
+
+source:
+  directories:
+    - &quot;src/&quot;
+    - &quot;lib/&quot;
+  ignore:
+    - &quot;*.pyc&quot;
+    - &quot;__pycache__/&quot;
+    - &quot;tests/&quot;
+
+output:
+  directory: &quot;./docs&quot;
+  format: &quot;markdown&quot;
+  template: &quot;default&quot;
+
+logging:
+  level: &quot;INFO&quot;
+  file: &quot;./repoquill.log&quot;
+</code></pre>
+<h3 id="environment-variables">Environment Variables</h3>
+<p>The CLI respects the following environment variables, which can override configuration file settings:</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Variable</th>
+<th style="text-align: left;">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>REPOQUILL_CONFIG</code></td>
+<td style="text-align: left;">Path to the configuration file. Overrides <code>--config-file</code>.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>REPOQUILL_LOG_LEVEL</code></td>
+<td style="text-align: left;">Sets the logging level (<code>DEBUG</code>, <code>INFO</code>, <code>WARNING</code>, <code>ERROR</code>).</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>REPOQUILL_OUTPUT_DIR</code></td>
+<td style="text-align: left;">Overrides the output directory specified in the config or CLI.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="error-handling">Error Handling</h3>
+<p>The CLI provides clear error messages for common issues:
+- <strong>File Not Found</strong>: If the specified source or output directory does not exist.
+- <strong>Invalid Configuration</strong>: If the YAML file contains syntax errors or unsupported keys.
+- <strong>Permission Denied</strong>: If the output directory is not writable.</p>
+<p>In all error cases, the CLI exits with a non-zero status code and prints a detailed traceback to <code>stderr</code> if <code>--verbose</code> is enabled.</p>
+<h3 id="integration-with-cicd">Integration with CI/CD</h3>
+<p>For continuous integration, it is recommended to use the <code>validate</code> command to ensure documentation consistency before merging code. The <code>generate</code> command can be used to build documentation artifacts for deployment.</p>
+<p><strong>Example GitHub Actions Workflow:</strong></p>
+<pre><code class="language-yaml">- name: Validate Documentation
+  run: repoquill validate --strict
+
+- name: Generate Documentation
+  run: repoquill generate --format html --output-dir ./public/docs
+
+- name: Deploy Documentation
+  uses: actions/deploy@v1
+  with:
+    path: ./public/docs
+</code></pre>
+<h3 id="troubleshooting">Troubleshooting</h3>
+<p>If the CLI fails to recognize a command, ensure that <code>repoquill</code> is installed in the active Python environment. You can verify the installation by running:</p>
+<pre><code class="language-bash">python -m repoquill --version
+</code></pre>
+<p>If you encounter issues with parallel processing (<code>--workers</code>), try reducing the number of workers or disabling parallelism entirely by setting <code>--workers 1</code>. This can help identify if the issue is related to resource contention or file locking.</p>
 <h3 id="see-also">See Also</h3>
 <ul>
-<li><a href="../architecture/">Architecture</a></li>
 <li><a href="../ci-cd/">CI/CD Integration</a></li>
 <li><a href="../configuration/">Configuration Reference</a></li>
-<li><a href="../installation/">Installation</a></li>
+<li><a href="../quickstart/">Quickstart</a></li>
 </ul>
 
 
@@ -1638,7 +1760,7 @@ except TransformationError as e:
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../architecture/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Architecture">
+          <a href="../llm-providers/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Llm providers">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -1648,20 +1770,20 @@ except TransformationError as e:
                 Previous
               </span>
               <div class="md-ellipsis">
-                Architecture
+                Llm providers
               </div>
             </div>
           </a>
         
         
           
-          <a href="../configuration/" class="md-footer__link md-footer__link--next" aria-label="Next: Configuration">
+          <a href="../ci-cd/" class="md-footer__link md-footer__link--next" aria-label="Next: Ci cd">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Configuration
+                Ci cd
               </div>
             </div>
             <div class="md-footer__button md-icon">
