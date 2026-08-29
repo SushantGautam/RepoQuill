@@ -134,7 +134,7 @@ def _run_mkdocs_build(cfg, skill_content: str | None = None) -> None:
         [sys.executable, "-m", "mkdocs", "build"],
         cwd=_mkdocs_cwd(cfg), check=True,
     )
-    site_dir = cfg.build.get("site_dir", "docs/site")
+    site_dir = cfg.build.get("site_dir", "site")
     site_path = os.path.join(_mkdocs_cwd(cfg), site_dir)
 
     # Write SKILL.md as a raw plain-text file into the site output.
@@ -471,7 +471,7 @@ jobs:
       api_key_secret: LLM_API_KEY
       api_key_env: {api_key_env}
       deploy_branch: gh-pages
-      deploy_path: docs
+      deploy_path: site
     secrets:
       LLM_API_KEY: ${{{{ secrets.LLM_API_KEY }}}}
 """
@@ -527,11 +527,11 @@ _CONFIG_TEMPLATE = """\
 
 project_name: {project_name}
 package_dir: {package_dir}
-
+{source_repo_block}
 llm:
   provider: {provider}
   model: {model}
-{api_key_env_line}
+{base_url_line}{api_key_env_line}
 site:
   name: {project_name}
   description: "{description}"
@@ -863,10 +863,9 @@ def _cmd_init(args) -> int:
                 return 0
 
     # --- Fresh init (no existing config, or user chose reset) ---
-    repo_source = _prompt_repo_source()
-    if repo_source != "current":
-        # User provided a repo URL (already validated as accessible)
-        url = repo_source.rstrip("/")
+    if getattr(args, "repo", None):
+        # Non-interactive: user provided the target repo directly
+        url = args.repo.rstrip("/")
         if url.endswith(".git"):
             url = url[:-4]
         if "github.com" in url:
@@ -877,17 +876,35 @@ def _cmd_init(args) -> int:
             else:
                 repo_name = _detect_repo_name()
         else:
-            repo_name = _detect_repo_name()
+            # Assume owner/repo format
+            repo_name = url
         print(f"  (documenting remote repo: {repo_name})")
     else:
-        repo_name = _detect_repo_name()
+        repo_source = _prompt_repo_source()
+        if repo_source != "current":
+            # User provided a repo URL (already validated as accessible)
+            url = repo_source.rstrip("/")
+            if url.endswith(".git"):
+                url = url[:-4]
+            if "github.com" in url:
+                path = url.split("github.com", 1)[1].lstrip("/")
+                parts = path.split("/")
+                if len(parts) >= 2:
+                    repo_name = f"{parts[0]}/{parts[1]}"
+                else:
+                    repo_name = _detect_repo_name()
+            else:
+                repo_name = _detect_repo_name()
+            print(f"  (documenting remote repo: {repo_name})")
+        else:
+            repo_name = _detect_repo_name()
 
     project_name = args.name or _detect_project_name()
     package_dir = args.package or _detect_package_dir()
     description = args.description or f"Documentation for {project_name}"
 
-    # --- Capture LLM config (provider / model / auth) ---
-    provider, model, api_key_env = _capture_llm_config(args)
+    # --- Capture LLM config (provider / model / base_url / auth) ---
+    provider, model, base_url, api_key_env = _capture_llm_config(args)
 
     # --- Capture workflow trigger mode ---
     trigger = _capture_trigger(args)
@@ -897,6 +914,8 @@ def _cmd_init(args) -> int:
     print(f"  package:  {package_dir or '(none — non-Python project)'}")
     print(f"  repo:     {repo_name}")
     print(f"  llm:      {provider}/{model}")
+    if base_url:
+        print(f"  base_url: {base_url}")
     print(f"  trigger:  {trigger}")
 
     # --- Write repoquill.yml ---
@@ -918,6 +937,20 @@ def _cmd_init(args) -> int:
             "local provider" if provider in _LOCAL_PROVIDERS else "OAuth login"
         ) + ")\n"
 
+    if base_url:
+        base_url_line = f"  base_url: {base_url}\n"
+    else:
+        base_url_line = ""
+
+    # source_repo/source_ref are only needed when documenting a remote repo
+    # (i.e. the target repo differs from the current repo).
+    current_repo = _detect_repo_name()
+    if repo_name != current_repo:
+        source_ref = getattr(args, "source_ref", "main") or "main"
+        source_repo_block = f"source_repo: {repo_name}\nsource_ref: {source_ref}\n"
+    else:
+        source_repo_block = ""
+
     # Build conditional blocks based on whether package_dir is set
     if package_dir:
         reference_block = f"  - title: Core\n    modules: [{package_dir}]"
@@ -929,12 +962,14 @@ def _cmd_init(args) -> int:
     config_content = _CONFIG_TEMPLATE.format(
         project_name=project_name,
         package_dir=package_dir,
+        source_repo_block=source_repo_block,
         description=description,
         repo_name=repo_name,
         site_owner=site_owner,
         site_slug=site_slug,
         provider=provider,
         model=model,
+        base_url_line=base_url_line,
         api_key_env_line=api_key_env_line,
         reference_block=reference_block,
         index_block=index_block,
@@ -1021,11 +1056,12 @@ def _cmd_init(args) -> int:
 
 
 def _capture_llm_config(args):
-    """Capture provider / model / api_key_env.
+    """Capture provider / model / base_url / api_key_env.
 
     Minimal by default: uses sensible defaults (openai/gpt-4o) unless the
-    user passes --provider/--model or is in an interactive TTY where they
-    want to choose. Returns a (provider, model, api_key_env) tuple.
+    user passes --provider/--model/--base-url or is in an interactive TTY
+    where they want to choose. Returns a (provider, model, base_url,
+    api_key_env) tuple.
     """
     catalog = _litellm_catalog()
 
@@ -1049,6 +1085,11 @@ def _capture_llm_config(args):
     else:
         model = default_model
 
+    # --- Base URL (custom OpenAI-compatible endpoint) ---
+    base_url = getattr(args, "base_url", None) or ""
+    if not base_url and sys.stdin.isatty():
+        base_url = _prompt_text("Base URL (blank for standard endpoint)", "")
+
     # --- Auth ---
     if provider in _LOCAL_PROVIDERS or provider in _OAUTH_PROVIDERS:
         api_key_env = ""
@@ -1057,7 +1098,7 @@ def _capture_llm_config(args):
         if os.environ.get(api_key_env):
             print(f"  (detected {api_key_env} in your environment)")
 
-    return provider, model, api_key_env
+    return provider, model, base_url, api_key_env
 
 
 def _capture_trigger(args) -> str:
@@ -1396,8 +1437,11 @@ def main(argv=None) -> int:
     init.add_argument("--name", default=None, help="Project name (default: from pyproject.toml)")
     init.add_argument("--package", default=None, help="Python package directory (default: auto-detect)")
     init.add_argument("--description", default=None, help="One-line project description")
+    init.add_argument("--repo", default=None, help="Target repo to document (e.g. owner/repo or GitHub URL)")
     init.add_argument("--provider", default=None, help="LLM provider (default: interactive prompt)")
     init.add_argument("--model", default=None, help="LLM model (default: provider's default)")
+    init.add_argument("--base-url", default=None, help="Custom OpenAI-compatible endpoint URL")
+    init.add_argument("--source-ref", default="main", help="Branch/tag of the source repo (default: main)")
     init.add_argument(
         "--trigger", default=None,
         choices=["manual", "push_main", "push_all", "release"],
