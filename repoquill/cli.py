@@ -763,10 +763,17 @@ def _cmd_init(args) -> int:
                 api_key_env = existing["api_key_env"]
                 trigger = existing["trigger"]
                 description = existing["description"] or f"Documentation for {project_name}"
-                # Preserve source_repo/source_ref/base_url from existing config
-                source_repo = existing.get("source_repo", "")
-                source_ref = existing.get("source_ref", "")
-                base_url = existing.get("base_url", "")
+                # Preserve source_repo/source_ref/base_url from existing config,
+                # or use command-line args if not in existing config
+                source_repo = existing.get("source_repo", "") or (
+                    getattr(args, "repo", "") or ""
+                )
+                source_ref = existing.get("source_ref", "") or (
+                    getattr(args, "source_ref", "") or ""
+                )
+                base_url = existing.get("base_url", "") or (
+                    getattr(args, "base_url", "") or ""
+                )
 
                 # Write config with existing values
                 repo_name = _detect_repo_name()
