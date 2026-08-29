@@ -114,6 +114,8 @@ client = LLMClient(llm_cfg
     # NOTE: llm_cfg is required (no default)
 ,
     # NOTE: llm_cfg is required (no default)
+
+    # NOTE: llm_cfg is required (no default)
 )
 ```
 
