@@ -156,12 +156,15 @@ meaningful improvement.
 
 ## Persistent state
 
+All research state lives in `research/` (see `research/README.md` for the
+file map and local test commands).
+
 Before ending any session, update:
 
-- CURRENT_STATE.md
-- BEST_KNOWN.md
-- NEXT_EXPERIMENT.md
-- experiments/registry.jsonl
+- research/CURRENT_STATE.md
+- research/BEST_KNOWN.md
+- research/NEXT_EXPERIMENT.md
+- research/registry.jsonl
 
 A future Claude session must be able to resume the work without access to the
 previous conversation.
