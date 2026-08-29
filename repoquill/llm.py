@@ -32,6 +32,11 @@ import os
 import time
 from typing import Any, Dict, List, Optional
 
+import litellm
+
+# Drop unsupported params (e.g. temperature for o-series models)
+litellm.drop_params = True
+
 # Providers that run locally and never need an API key.
 _LOCAL_PROVIDERS = {"ollama", "lm_studio", "vllm", "local"}
 
