@@ -191,7 +191,7 @@ def determine_structure(cfg, client) -> List[dict]:
             f'  - slug: "{p["slug"]}" (title: {p["title"]})'
             for p in fixed_pages
         )
-        prompt = f"""You are a technical documentation architect. Given this Python project's file tree and README, assign source files to each documentation page below.
+        prompt = f"""You are a technical documentation architect. Given this Python project's file tree and README, assign source files and a one-line description to each documentation page below.
 
 FILE TREE:
 {tree}
@@ -202,13 +202,17 @@ README (excerpt):
 FIXED PAGES (these are the exact pages that will be generated — do NOT add or remove any):
 {slug_lines}
 
-For each page, list the source files (relative paths) that page should cover.
+For each page, provide:
+1. source_files: the source files (relative paths) that page should cover
+2. description: a one-line description (max 80 chars) that tells a developer what they'll learn on this page
+
 Return a JSON array with one entry per page, in the same order:
-{{"slug": "kebab-case-slug", "source_files": ["relative/path.py", ...]}}
+{{"slug": "kebab-case-slug", "source_files": ["relative/path.py", ...], "description": "One-line description"}}
 
 Rules:
 - Return exactly {len(fixed_pages)} entries, one per page listed above
 - source_files lists which files each page should draw from
+- description should be specific and useful (e.g. "Set up your first audit in 5 minutes"), not generic (e.g. "Getting started guide")
 - Be specific and practical for developers who need to USE this library
 - Return ONLY the JSON array, no markdown fences"""
 
@@ -222,10 +226,12 @@ Rules:
         except (json.JSONDecodeError, ValueError):
             assignments = []
 
-        # Merge LLM-assigned source_files into the fixed page list
-        by_slug = {a.get("slug", ""): a.get("source_files", []) for a in assignments}
+        # Merge LLM-assigned source_files and descriptions into the fixed page list
+        by_slug = {a.get("slug", ""): a for a in assignments}
         for p in fixed_pages:
-            p["source_files"] = by_slug.get(p["slug"], [])
+            a = by_slug.get(p["slug"], {})
+            p["source_files"] = a.get("source_files", [])
+            p["description"] = a.get("description", "")
             # Give each page a better title (human-readable from slug)
             p["title"] = p["slug"].replace("-", " ").title()
 
