@@ -25,7 +25,7 @@ def _cfg(tmp_path, output_dir=None):
         raw=raw,
         site_src=site_src,
         config_dir=str(tmp_path),
-        build={"docs_dir": docs_dir, "site_dir": "site"},
+        build={"docs_dir": docs_dir, "site_dir": "site_repoquill"},
     )
 
 

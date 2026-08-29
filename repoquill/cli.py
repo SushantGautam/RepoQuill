@@ -134,7 +134,7 @@ def _run_mkdocs_build(cfg, skill_content: str | None = None) -> None:
         [sys.executable, "-m", "mkdocs", "build"],
         cwd=_mkdocs_cwd(cfg), check=True,
     )
-    site_dir = cfg.build.get("site_dir", "site")
+    site_dir = cfg.build.get("site_dir", "site_repoquill")
     site_path = os.path.join(_mkdocs_cwd(cfg), site_dir)
 
     # Write SKILL.md as a raw plain-text file into the site output.
@@ -471,7 +471,7 @@ jobs:
       api_key_secret: LLM_API_KEY
       api_key_env: {api_key_env}
       deploy_branch: gh-pages
-      deploy_path: site
+      deploy_path: site_repoquill
     secrets:
       LLM_API_KEY: ${{{{ secrets.LLM_API_KEY }}}}
 """
