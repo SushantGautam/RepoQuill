@@ -763,6 +763,10 @@ def _cmd_init(args) -> int:
                 api_key_env = existing["api_key_env"]
                 trigger = existing["trigger"]
                 description = existing["description"] or f"Documentation for {project_name}"
+                # Preserve source_repo/source_ref/base_url from existing config
+                source_repo = existing.get("source_repo", "")
+                source_ref = existing.get("source_ref", "")
+                base_url = existing.get("base_url", "")
 
                 # Write config with existing values
                 repo_name = _detect_repo_name()
@@ -784,6 +788,18 @@ def _cmd_init(args) -> int:
                 site_repo_url = site.get("repo_url", f"https://github.com/{repo_name}")
                 site_repo_name = site.get("repo_name", repo_name)
                 site_desc = site.get("description", description)
+
+                # Build source_repo block (preserve from existing config)
+                source_repo_block = ""
+                if source_repo:
+                    source_repo_block = f"source_repo: {source_repo}\n"
+                    if source_ref:
+                        source_repo_block += f"source_ref: {source_ref}\n"
+
+                # Build base_url line (preserve from existing config)
+                base_url_line = ""
+                if base_url:
+                    base_url_line = f"  base_url: {base_url}\n"
 
                 narrative = existing.get("narrative_sections") or [
                     {"title": "Getting Started", "slugs": ["quickstart", "installation"]},
@@ -814,10 +830,12 @@ def _cmd_init(args) -> int:
                     f"\n"
                     f"project_name: {project_name}\n"
                     f"package_dir: {package_dir}\n"
+                    f"{source_repo_block}"
                     f"\n"
                     f"llm:\n"
                     f"  provider: {provider}\n"
                     f"  model: {model}\n"
+                    f"{base_url_line}"
                     f"{api_key_env_line}"
                     f"site:\n"
                     f"  name: {site_name}\n"
