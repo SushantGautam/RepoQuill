@@ -45,6 +45,24 @@ def determine_structure(cfg, client) -> List[dict]:
         with open(readme_path, "r", encoding="utf-8", errors="replace") as f:
             readme = f.read()[:3000]
 
+    # Build the required-pages constraint from narrative_sections
+    required_block = ""
+    if cfg.narrative_sections:
+        lines = []
+        for sec in cfg.narrative_sections:
+            title = sec.get("title", "")
+            slugs = sec.get("slugs", [])
+            for slug in slugs:
+                lines.append(f'  - slug: "{slug}" (section: {title})')
+        if lines:
+            required_block = (
+                "\nREQUIRED PAGES (these slugs MUST appear in your output, "
+                "grouped under their section titles):\n"
+                + "\n".join(lines)
+                + "\nYou may add additional pages beyond these if the project "
+                "warrants them, but every required slug above must be present.\n"
+            )
+
     prompt = f"""You are a technical documentation architect. Given this Python project's file tree and README, plan a developer documentation structure.
 
 FILE TREE:
@@ -52,12 +70,12 @@ FILE TREE:
 
 README (excerpt):
 {readme}
-
+{required_block}
 Return a JSON array of documentation pages. Each entry: {{"title": "Page Title", "slug": "kebab-case-slug", "description": "One-line description", "source_files": ["relative/path.py", ...]}}
 
 Rules:
-- 8-12 narrative pages total (the API reference is generated separately — do NOT include an api-reference page)
-- Must include: Getting Started, Core Architecture, CLI Usage (if applicable), and pages covering the major subsystems
+- Include all required pages listed above (exact slugs)
+- You may add additional pages to cover major subsystems not listed
 - source_files lists which files each page should cover
 - Be specific and practical for developers who need to USE this library
 - Return ONLY the JSON array, no markdown fences"""
