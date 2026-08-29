@@ -571,7 +571,7 @@ def build_mkdocs_yml(cfg, nav: List) -> None:
     else:
         docs_dir = build_cfg.get("docs_dir", "docs")
         mkdocs_path = os.path.join(cfg.config_dir, "mkdocs.yml")
-    site_dir = build_cfg.get("site_dir", "site")
+    site_dir = build_cfg.get("site_dir", "docs/site")
     use_directory_urls = build_cfg.get("use_directory_urls", True)
 
     content = f'''# MkDocs configuration for {cfg.site_name}

@@ -25,7 +25,7 @@ def _cfg(tmp_path, output_dir=None):
         raw=raw,
         site_src=site_src,
         config_dir=str(tmp_path),
-        build={"docs_dir": docs_dir, "site_dir": "site"},
+        build={"docs_dir": docs_dir, "site_dir": "docs/site"},
     )
 
 
@@ -74,8 +74,8 @@ def test_run_mkdocs_build_cleans_up(tmp_path, monkeypatch):
 
     def fake_run(cmd, **kw):
         calls.append((cmd, kw))
-        # Simulate mkdocs producing a site/ dir
-        site = os.path.join(kw["cwd"], "site")
+        # Simulate mkdocs producing a docs/site/ dir
+        site = os.path.join(kw["cwd"], "docs", "site")
         os.makedirs(site, exist_ok=True)
 
     monkeypatch.setattr("repoquill.cli.subprocess.run", fake_run)
