@@ -930,13 +930,16 @@ def _cmd_init(args) -> int:
                 with open(wf_path, "r", encoding="utf-8") as f:
                     wf_content = f.read()
                 
-                # Extract current trigger from workflow
+                # Extract current trigger from workflow (ignore comments)
                 current_trigger = "manual"
-                if "push:" in wf_content and "branches: [main]" in wf_content:
+                # Only look at non-comment lines
+                active_lines = [line for line in wf_content.split('\n') if not line.strip().startswith('#')]
+                active_content = '\n'.join(active_lines)
+                if "push:" in active_content and "branches: [main]" in active_content:
                     current_trigger = "push_main"
-                elif "push:" in wf_content and "branches:" not in wf_content:
+                elif "push:" in active_content and "branches:" not in active_content:
                     current_trigger = "push_all"
-                elif "push:" in wf_content and "tags:" in wf_content:
+                elif "push:" in active_content and "tags:" in active_content:
                     current_trigger = "release"
                 
                 if current_trigger != trigger:
@@ -1121,7 +1124,7 @@ def _cmd_init(args) -> int:
         print(f"  2. Make sure your local model server is running ({provider}).")
     else:
         local_key = os.environ.get(api_key_env, "")
-        if local_key and shutil.which("gh") and sys.stdin.isatty():
+        if local_key and shutil.which("gh") and sys.stdin.isatty() and not args.yes:
             print("  2. Your local " + api_key_env + " is set.")
             answer = input(
                 "     Set the LLM_API_KEY GitHub secret now (via gh)? [y/N] "
@@ -1143,6 +1146,10 @@ def _cmd_init(args) -> int:
             else:
                 print("     Set it later: Settings → Secrets → Actions")
                 print("       → New repository secret → Name: LLM_API_KEY")
+        elif local_key:
+            print("  2. Your local " + api_key_env + " is set.")
+            print("     Set the GitHub secret later: Settings → Secrets → Actions")
+            print("       → New repository secret → Name: LLM_API_KEY")
         else:
             print("  2. Set your LLM API key:")
             print("     • Local:  export " + api_key_env + "=sk-...")
