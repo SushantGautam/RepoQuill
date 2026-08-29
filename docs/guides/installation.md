@@ -1,238 +1,174 @@
 ## Installation
 
-`repoquill` is a Python library designed to automate the generation and maintenance of technical documentation directly from repository metadata and source code structures. It streamlines the process of keeping developer documentation synchronized with code changes, reducing manual effort and minimizing documentation drift.
+RepoQuill is a Python library and command-line tool designed to generate comprehensive, two-layer developer documentation for any Python package. It combines deterministic API reference generation with LLM-powered narrative guides to create a complete MkDocs Material site.
 
-This page provides comprehensive instructions for installing `repoquill` using `pip`, `uv`, or building from source, and managing its dependencies. Whether you are integrating `repoquill` into a CI/CD pipeline or using it locally for development, these steps ensure a stable and reproducible environment.
+This page details how to install and initialize RepoQuill in your project.
 
 ### Prerequisites
 
-Before installing `repoquill`, ensure your environment meets the following requirements:
+Before installing RepoQuill, ensure your environment meets the following requirements:
 
-1.  **Python Version**: `repoquill` requires **Python 3.8** or higher. It is tested against Python 3.8, 3.9, 3.10, and 3.11.
-2.  **Operating System**: Compatible with Linux, macOS, and Windows.
-3.  **Package Manager**: `pip` version 20.0 or higher is recommended. Alternatively, `uv` is supported for faster, isolated installations.
+1.  **Python**: A recent version of Python compatible with the PyPI distribution.
+2.  **Package Manager**: While `pip` is supported, RepoQuill is optimized for use with `uv` or `uvx` for isolated, fast execution.
+3.  **LLM Provider**: You must have an API key for a supported LLM provider (e.g., OpenAI, Anthropic, GitHub Copilot, OpenRouter, Groq, Ollama) or access to a local LLM server.
 
-To verify your Python version, run:
+### Installation Methods
 
-```bash
-python --version
-```
+RepoQuill can be installed in two primary ways: as an ephemeral tool via `uvx` (recommended for one-off scaffolding) or as a persistent installation via `uv` or `pip`.
 
-If you do not have a suitable Python version installed, we recommend using a virtual environment manager such as `pyenv` (for macOS/Linux) or `conda` (cross-platform) to manage multiple Python versions.
+#### Option 1: Ephemeral Installation with `uvx` (Recommended)
 
-### Installing via pip
-
-The recommended method for most users is to install `repoquill` directly from the Python Package Index (PyPI). This ensures you get the latest stable release with all dependencies automatically resolved.
-
-#### Standard Installation
-
-To install the latest stable version of `repoquill`, run the following command in your terminal:
+Using `uvx` allows you to run RepoQuill without installing it into your project's environment. This is ideal for initializing documentation in a new repository.
 
 ```bash
-pip install repoquill
-```
+# Navigate to your project root
+cd your-repo
 
-If you are using a virtual environment, ensure it is activated before running the command. For example, using `venv`:
-
-```bash
-python -m venv myenv
-source myenv/bin/activate  # On Windows: myenv\Scripts\activate
-pip install repoquill
-```
-
-#### Installing with Extras
-
-`repoquill` offers optional features that require additional dependencies. You can install these using the `extras` syntax.
-
-*   **`dev`**: Includes development tools such as `pytest`, `black`, `mypy`, and `flake8`. Recommended for contributors.
-*   **`docs`**: Includes dependencies required for building the documentation site (e.g., `sphinx`, `sphinx-rtd-theme`).
-
-To install with development tools:
-
-```bash
-pip install repoquill[dev]
-```
-
-To install with documentation tools:
-
-```bash
-pip install repoquill[docs]
-```
-
-To install all optional extras:
-
-```bash
-pip install repoquill[all]
-```
-
-#### Verifying the Installation
-
-After installation, verify that `repoquill` is correctly installed by checking its version:
-
-```bash
-python -c "import repoquill; print(repoquill.__version__)"
-```
-
-You can also check the available CLI commands if `repoquill` provides a command-line interface:
-
-```bash
-repoquill --help
-```
-
-### Installing via uv
-
-For faster installation and isolated environments, `repoquill` supports `uv`.
-
-#### One-off Execution (uvx)
-
-You can run `repoquill` commands without a persistent installation using `uvx`. This is ideal for scaffolding new projects:
-
-```bash
+# Run RepoQuill init in an isolated environment
 uvx repoquill init
 ```
 
-#### Persistent Installation
+This command downloads and executes RepoQuill in a temporary environment. It does not modify your `requirements.txt` or `pyproject.toml` directly but generates the necessary configuration files.
 
-To install `repoquill` as a tool for repeated use:
+#### Option 2: Persistent Installation with `uv`
+
+If you plan to run RepoQuill frequently or need it in your CI/CD pipeline, you may prefer a persistent installation.
 
 ```bash
+# Install RepoQuill as a standalone tool
 uv tool install repoquill
+
+# Initialize documentation
+repoquill init
 ```
 
-Once installed, you can run `repoquill` commands directly from your terminal.
+#### Option 3: Installation with `pip`
 
-### Installing from Source
-
-Installing from source is recommended for developers who wish to contribute to `repoquill` or need to use features from the `main` branch that are not yet available in a stable release.
-
-#### Cloning the Repository
-
-First, clone the `repoquill` repository from GitHub:
+You can also install RepoQuill using standard `pip`.
 
 ```bash
-git clone https://github.com/SushantGautam/RepoQuill.git
-cd RepoQuill
+# Install from PyPI
+pip install repoquill
+
+# Initialize documentation
+repoquill init
 ```
 
-#### Creating a Virtual Environment
+### Initializing Your Project
 
-It is best practice to create an isolated virtual environment for development:
+The `repoquill init` command is the primary entry point for setting up documentation generation. It performs the following actions:
+
+1.  **Auto-detection**: It automatically detects your package name, project name, and GitHub repository URL.
+2.  **Provider Selection**: It prompts you to select an LLM provider. Supported providers include:
+    *   `openai`
+    *   `anthropic`
+    *   `github_copilot`
+    *   `openrouter`
+    *   `groq`
+    *   `ollama`
+    *   `lm_studio`
+    *   `local`
+    *   `vllm`
+3.  **Configuration Generation**: It creates a `repoquill.yml` file in your project root. This file contains the selected provider, model, and authentication settings.
+4.  **CI Workflow Creation**: It generates a `.github/workflows/docs.yml` file that calls RepoQuill's reusable GitHub Actions workflow. This ensures your documentation is automatically regenerated on every push.
+
+#### Command-Line Flags
+
+You can skip the interactive prompts by specifying the provider and model directly via command-line flags:
 
 ```bash
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+# Example: Initialize with Anthropic Claude Sonnet 4.5
+repoquill init --provider anthropic --model claude-sonnet-4-5
 ```
 
-#### Installing in Editable Mode
+Available providers for the `--provider` flag include: `openai`, `anthropic`, `github_copilot`, `openrouter`, `groq`, `ollama`, `lm_studio`, `local`, and `vllm`.
 
-Use `pip` to install the package in editable (development) mode. This allows you to make changes to the source code and see them reflected immediately without reinstalling:
+### Configuration
+
+After running `repoquill init`, a `repoquill.yml` file is created in your project root. This file is the single source of truth for your documentation generation settings.
+
+The configuration is managed by the `config.RepoQuillConfig` class, which exposes the following properties:
+
+*   `site_name`: The name of your documentation site.
+*   `site_url`: The base URL where your documentation will be hosted.
+*   `repo_url`: The URL of your GitHub repository.
+*   `repo_name`: The name of your repository.
+
+The `config.LLMConfig` class manages LLM-specific settings, including the provider, model, and authentication details.
+
+You can load the configuration programmatically using:
+
+```python
+from config import load_config
+
+# Load configuration from the default location
+cfg = load_config("repoquill.yml")
+
+# Access configuration properties
+print(cfg.site_name)
+print(cfg.repo_url)
+```
+
+### Setting Up LLM Authentication
+
+RepoQuill requires an LLM API key to generate narrative guides. The method for providing this key depends on your chosen provider and execution context.
+
+#### GitHub Actions (CI/CD)
+
+If you are using the generated GitHub Actions workflow, you must add your API key as a repository secret.
+
+1.  Navigate to your GitHub repository.
+2.  Go to **Settings** → **Secrets and variables** → **Actions**.
+3.  Click **New repository secret**.
+4.  Add a secret named `LLM_API_KEY` with your provider's API key as the value.
+
+| Secret Name | Value |
+| :--- | :--- |
+| `LLM_API_KEY` | `sk-...` (your provider's key) |
+
+> **Note**: Providers like `github_copilot` may use device-code login, and local providers (e.g., `ollama`, `lm_studio`) do not require an API key.
+
+#### Local Execution
+
+When running `repoquill` locally, the `LLM_API_KEY` environment variable is typically used for authentication. Ensure this variable is set in your shell environment before running the tool:
 
 ```bash
-pip install -e .
+export LLM_API_KEY="your-api-key-here"
+repoquill generate
 ```
 
-To include development dependencies:
+### Verification
 
-```bash
-pip install -e ".[dev]"
+To verify that RepoQuill is installed and configured correctly, you can run the verification module. This checks the generated documentation against the actual source code to ensure accuracy.
+
+```python
+from verify import verify_pages
+from config import load_config
+
+# Load configuration
+cfg = load_config("repoquill.yml")
+
+# Initialize LLM client (requires llm.LLMClient)
+from llm import LLMClient
+from config import LLMConfig
+
+# Note: LLMConfig initialization depends on the specific provider setup
+# This is a conceptual example of the verification flow
+# client = LLMClient(llm_cfg) 
+# verify_pages(cfg, client)
 ```
 
-#### Building Documentation
-
-If you are working on the documentation, you will need to install the documentation extras and build the site:
-
-```bash
-pip install -e ".[docs]"
-cd docs
-make html
-```
-
-The generated HTML documentation will be available in the `docs/_build/html` directory.
-
-### Managing Dependencies
-
-`repoquill` uses `setuptools` for package management. The primary dependency definitions are located in the `pyproject.toml` file at the root of the repository.
-
-#### Core Dependencies
-
-The core dependencies required for `repoquill` to function are defined in the `[project.dependencies]` section of `pyproject.toml`. These are installed automatically when you run `pip install repoquill`. Typical core dependencies include:
-
-*   `click`: For command-line interface functionality.
-*   `jinja2`: For template rendering of documentation files.
-*   `pyyaml`: For parsing YAML configuration files.
-*   `requests`: For interacting with GitHub/GitLab APIs if remote metadata is fetched.
-
-#### Optional Dependencies
-
-Optional dependencies are defined under `[project.optional-dependencies]`. As mentioned earlier, these are installed using the bracket notation:
-
-| Extra Name | Description | Included Packages |
-| :--- | :--- | :--- |
-| `dev` | Development and testing tools | `pytest`, `black`, `mypy`, `flake8`, `pre-commit` |
-| `docs` | Documentation building tools | `sphinx`, `sphinx-rtd-theme`, `myst-parser` |
-| `all` | All optional dependencies | Union of `dev` and `docs` |
-
-#### Pinning Versions
-
-For production environments, it is recommended to pin specific versions of `repoquill` and its dependencies to ensure reproducibility. You can generate a `requirements.txt` file using:
-
-```bash
-pip freeze > requirements.txt
-```
-
-Or, for a more curated list, use `pip-tools`:
-
-```bash
-pip install pip-tools
-pip-compile pyproject.toml -o requirements.txt
-```
-
-### Troubleshooting
-
-#### Permission Errors
-
-If you encounter permission errors when installing via `pip`, avoid using `sudo`. Instead, use the `--user` flag or, preferably, a virtual environment:
-
-```bash
-pip install --user repoquill
-```
-
-#### Conflicting Dependencies
-
-If `repoquill` conflicts with other packages in your environment, consider using a dedicated virtual environment. You can also use `pip check` to identify dependency conflicts:
-
-```bash
-pip check
-```
-
-#### Build Failures from Source
-
-If building from source fails, ensure that you have the necessary build tools installed:
-
-*   **Linux**: `build-essential`, `python3-dev`
-*   **macOS**: Xcode Command Line Tools (`xcode-select --install`)
-*   **Windows**: Visual Studio Build Tools with "Desktop development with C++" workload
-
-### Uninstalling
-
-To uninstall `repoquill`, use the following command:
-
-```bash
-pip uninstall repoquill
-```
-
-This will remove the package and its associated files from your environment.
+The `verify_pages` function takes the configuration and an LLM client instance to check all documentation pages for consistency with the source code.
 
 ### Next Steps
 
-Now that you have installed `repoquill`, you can proceed to:
+Once installed and initialized, you can proceed to:
 
-1.  **Configuration**: Set up your `repoquill.yml` configuration file.
-2.  **Usage**: Run the `repoquill` CLI to generate documentation.
-3.  **Integration**: Integrate `repoquill` into your CI/CD pipeline for automated documentation updates.
-
-Refer to the **Configuration** and **Usage** sections of this documentation for further details.
+1.  **Generate Documentation**: Run `repoquill generate` to create the initial documentation site.
+2.  **Review Configuration**: Adjust `repoquill.yml` to customize site metadata or LLM parameters.
+3.  **Deploy**: Push your changes to trigger the GitHub Actions workflow, which will build and deploy the documentation site.
 
 ### See Also
 
 *   [Quickstart](quickstart.md)
+*   [Key Ideas](key-ideas.md)

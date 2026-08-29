@@ -14,7 +14,8 @@
       "slug": "installation",
       "description": "",
       "source_files": [
-        "repoquill/cli.py"
+        "repoquill/cli.py",
+        "repoquill/config.py"
       ]
     },
     {
@@ -22,11 +23,15 @@
       "slug": "architecture",
       "description": "",
       "source_files": [
+        "repoquill/__init__.py",
+        "repoquill/plan.py",
+        "repoquill/grounding.py",
         "repoquill/llm.py",
         "repoquill/narrative.py",
         "repoquill/reference.py",
         "repoquill/site.py",
-        "repoquill/plan.py"
+        "repoquill/verify.py",
+        "repoquill/surgical_verify.py"
       ]
     },
     {
@@ -36,7 +41,8 @@
       "source_files": [
         "repoquill/grounding.py",
         "repoquill/verify.py",
-        "repoquill/surgical_verify.py"
+        "repoquill/surgical_verify.py",
+        "repoquill/plan.py"
       ]
     }
   ],

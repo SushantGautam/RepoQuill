@@ -1,171 +1,126 @@
 ## Key Ideas
 
-**repoquill** is a Python library designed to generate, manage, and version technical documentation directly from source code repositories. It operates as a generic two-layer developer-docs generator:
+RepoQuill is a two-layer developer documentation generator for Python packages. It combines deterministic static analysis with Large Language Model (LLM) generation to produce a complete, accurate, and searchable documentation site. The core philosophy is that documentation must be grounded in the actual source code to prevent hallucinations, while still providing the narrative context that raw API references lack.
 
-1.  **Layer 1 — API Reference (Deterministic):** Uses `Griffe` to parse source code and `mkdocstrings` to render classes, functions, signatures, and docstrings. This layer is fast, free, and does not rely on LLMs.
-2.  **Layer 2 — Narrative Guides (LLM):** Uses `LiteLLM` to write conceptual guide pages (quickstart, concepts, workflows) grounded in the actual source code. This layer is incremental, regenerating only pages whose source files have changed.
-3.  **Output:** A polished MkDocs Material site, including `llms.txt` / `llms-full.txt` for AI agents and a `SKILL.md` for coding agents.
+### The Two-Layer Architecture
 
-The library is built upon three fundamental abstractions: **Configuration**, **LLM Interaction**, and **Site Generation**. These concepts work together to decouple the source of truth (the code) from the final output format, allowing developers to maintain a single configuration file (`repoquill.yml`) while targeting a complete documentation site.
+RepoQuill separates documentation generation into two distinct layers, each serving a specific purpose:
 
-### 1. Configuration
+1.  **Layer 1: API Reference (Deterministic)**
+    This layer uses static analysis (via Griffe) to parse the Python source code. It extracts class definitions, function signatures, parameters, and docstrings. This layer is fast, cost-free, and never hallucinates because it does not use an LLM. It produces the precise technical reference for every public symbol in the package.
 
-At the heart of `repoquill` is the `RepoQuillConfig` class. This abstraction allows the library to ingest project-specific settings from a `repoquill.yml` file without coupling the core engine to specific file systems or version control systems.
+2.  **Layer 2: Narrative Guides (LLM-Driven)**
+    This layer uses an LLM to write conceptual guide pages, such as quickstarts, architectural overviews, and workflow explanations. Crucially, this generation is **grounded** in the actual source code. The LLM is provided with the real API surface and source files to ensure that the narrative accurately reflects the library's capabilities. This layer is incremental: only pages whose underlying source code has changed are regenerated, optimizing for speed and cost.
 
-The primary implementation is `RepoQuillConfig`, which holds the site metadata and repository details. It exposes the following properties:
-*   `site_name`: The name of the documentation site.
-*   `site_url`: The base URL of the deployed site.
-*   `repo_url`: The URL of the source code repository.
-*   `repo_name`: The name of the repository.
+### Grounding and Verification
 
-```python
-from repoquill.config import RepoQuillConfig, LLMConfig, load_config
+A central tenet of RepoQuill is that LLM-generated content must be verified against the source code. The library includes a robust verification subsystem (`verify` and `surgical_verify` modules) that ensures:
 
-# Load configuration from a YAML file
-cfg = load_config("repoquill.yml")
+*   **Symbol Accuracy:** Every class, function, and method mentioned in the generated documentation must exist in the source code.
+*   **Signature Fidelity:** Code examples and descriptions must match the exact parameter names and order found in the source.
+*   **Property vs. Method Distinction:** The system explicitly distinguishes between attributes (properties) and methods, preventing common LLM errors where properties are incorrectly called as functions (e.g., `obj.name()` instead of `obj.name`).
 
-# Access configuration properties
-print(cfg.site_name)
-print(cfg.repo_url)
-```
+The `grounding.run_grounding_pass` function orchestrates this process, scanning generated guides for inaccuracies and attempting to fix them or flagging them for review.
 
-**Design Pattern:** The *Configuration Object* pattern is employed here. By defining a common `RepoQuillConfig` interface, `repoquill` can swap out the data retrieval mechanism (YAML, JSON, etc.) at runtime without altering the downstream processing logic.
+### Incremental Generation
 
-### 2. LLM Interaction
+RepoQuill is designed for continuous integration workflows. It tracks the state of the documentation using file hashes.
 
-Documentation narrative generation requires interaction with Large Language Models. `repoquill` models this process through the `LLMClient` and `LocalRAG` classes.
+*   **Hashing:** The `plan.compute_file_hashes` function calculates hashes for all source files in the package.
+*   **Change Detection:** The `plan.page_needs_regeneration` function compares old and new hashes to determine if a specific documentation page needs to be updated.
+*   **Cleanup:** The `plan.cleanup_stale_pages` function removes documentation pages that correspond to deleted source files.
 
-#### The `LLMClient`
+This ensures that running RepoQuill in CI only processes changes, making it efficient for large repositories.
 
-The `LLMClient` class serves as the interface for communicating with LLM providers. It encapsulates the logic for sending messages and handling responses.
+### Configuration and Setup
 
-```python
-from repoquill.llm import LLMClient
-from repoquill.config import LLMConfig
+RepoQuill is configured via a `repoquill.yml` file. The `config.RepoQuillConfig` class loads this configuration, providing properties such as `site_name`, `site_url`, `repo_url`, and `repo_name`. The LLM configuration is handled by `config.LLMConfig`, which specifies the provider, model, and authentication details.
 
-# Initialize the client with LLM configuration
-llm_cfg = LLMConfig()
-client = LLMClient(llm_cfg
-    # NOTE: llm_cfg is required (no default)
-,
-    # NOTE: llm_cfg is required (no default)
-)
+The CLI entry point, `cli.main`, provides the `repoquill init` command to scaffold the configuration and GitHub Actions workflow. It supports various LLM providers, including OpenAI, Anthropic, GitHub Copilot, and local providers like Ollama and LM Studio.
 
-# Send a chat request
-response = client.chat(
-    messages=[{"role": "user", "content": "Hello"}],
-    max_tokens=100,
-    temperature=0.7,
-    retries=3
-)
-```
+### Core Modules and Functions
 
-#### Local RAG
+The library is structured into several key modules, each responsible for a specific part of the pipeline:
 
-For grounding LLM responses in local source code, `repoquill` provides the `LocalRAG` class. This class builds a retrieval-augmented generation indfrom repoquill.llm import LocalRAG
+#### `reference` Module
+Handles the extraction of the API surface from the source code.
+*   `extract_api_surface(pkg_path, max_chars)`: Extracts the public API (classes, functions) from the package.
+*   `get_source_files(pkg_path)`: Retrieves the source code files for grounding.
+*   `build_api_reference(cfg)`: Generates the deterministic API reference pages.
 
-# Initialize RAG with configuration and source files
-rag_cfg = {"chunk_size": 500}
-source_files = {"main.py": "print('hello')"}
-rag = LocalRAG(rag_cfg, source_files
-    # NOTE: rag_cfg is required (no default),
-    # NOTE: source_files is required (no default)
-)
+#### `narrative` Module
+Manages the LLM-driven generation of guide pages.
+*   `determine_structure(cfg, client)`: Uses the LLM to decide the structure of the narrative guides.
+*   `generate_all_pages(pages, source_files, client, cfg, old_hashes, new_hashes)`: Orchestrates the generation of all narrative pages, respecting incremental changes.
+*   `generate_page(page, source_files, client, cfg)`: Generates a single narrative page using the LLM.
 
-# Build the index
-rag.build()
+#### `verify` and `surgical_verify` Modules
+Ensure the accuracy of the generated documentation.
+*   `verify.verify_pages(cfg, client)`: Runs the full verification pass on all generated pages.
+*   `surgical_verify.run_surgical_verify(guide_dir, pkg_path)`: Performs targeted fixes for common errors, such as incorrect method calls or missing required parameters.
+*   `verify.check_page(page_md, idx, pkg_name)`: Checks a single page against the symbol index.
 
-# Retrieve relevant context
-results = rag.retrieve(query="how to print", top_k=3)
-= rag.retrieve(query="how to print", top_k=3)
-```
+#### `site` Module
+Assembles the final MkDocs site.
+*   `build_mkdocs_yml(cfg, nav)`: Generates the `mkdocs.yml` configuration.
+*   `build_nav(cfg, pages, reference_modules)`: Constructs the navigation structure.
+*   `build_llms_txt(cfg, pages, reference_modules)`: Generates `llms.txt` and `llms-full.txt` files for AI agent consumption.
 
-### 3. Site Generation
+### Example Usage
 
-Once the API reference and narrative guides are generated, they need to be assembled into a documentation site. `repoquill` abstracts this through the `site` module functions.
-
-The `build_nav` function constructs the navigation structure for the MkDocs site. The `build_index_md` function generates the main index page.
-
-```python
-from repoquill.site import build_nav, build_index_md
-
-# Build navigation structure
-nav = build_nav(cfg, pages, reference_modules)
-
-# Build the index page
-index_md = build_index_md(cfg, pages, reference_modules)
-```
-
-**Design Pattern:** The *Builder Pattern* is used here. Each function in the `site` module handles a specific aspect of the site generation (navigation, index, llms.txt) and returns the resulting content. This promotes modularity and reusability of individual generation steps.
-
-### Core Workflow
-
-The typical usage of `repoquill` follows a clear, linear workflow:
-
-1.  **Initialize Config**: Load the `RepoQuillConfig` from `repoquill.yml`.
-2.  **Generate API Reference**: Use `reference.build_api_reference` to create the deterministic API docs.
-3.  **Generate Narrative Guides**: Use `narrative.generate_all_pages` to create LLM-generated guides.
-4.  **Build Site**: Use `site` functions to assemble the final MkDocs site.
+While RepoQuill is primarily used via the CLI (`repoquill init` and the GitHub Actions workflow), the underlying API allows for programmatic control. Below is an example of how one might interact with the core components if integrating RepoQuill into a custom pipeline.
 
 ```python
 from repoquill.config import load_config
-from repoquill.reference import build_api_reference
-from repoquill.narrative import generate_all_pages
-from repoquill.site import build_nav, build_index_md
+from repoquill.llm import LLMClient
+from repoquill.reference import extract_api_surface, get_source_files
+from repoquill.narrative import determine_structure, generate_all_pages
+from repoquill.plan import compute_file_hashes, load_plan, store_plan
 
-# 1. Load Config
+# 1. Load Configuration
 cfg = load_config("repoquill.yml")
 
-# 2. Generate API Reference
-api_ref = build_api_reference(cfg)
+# 2. Initialize LLM Client
+llm_client = LLMClient(cfg.llm)
 
-# 3. Generate Narrative Guides
-# Note: This requires an LLM client and source files
-# pages = generate_all_pages(pages, source_files, client, cfg, old_hashes, new_hashes)
+# 3. Extract Source Context
+pkg_path = "my_package"
+source_files = get_source_files(pkg_path)
+api_surface = extract_api_surface(pkg_path, max_chars=50000)
 
-# 4. Build Site
-nav = build_nav(cfg, pages, reference_modules)
-index_md = build_index_md(cfg, pages, reference_modules)
+# 4. Determine Documentation Structure
+pages = determine_structure(cfg, llm_client)
+
+# 5. Compute Hashes for Incremental Generation
+old_hashes = load_plan("plan.json") if "plan.json" exists else {}
+new_hashes = compute_file_hashes(source_files)
+
+# 6. Generate Narrative Pages
+generate_all_pages(
+    pages=pages,
+    source_files=source_files,
+    client=llm_client,
+    cfg=cfg,
+    old_hashes=old_hashes,
+    new_hashes=new_hashes
+)
+
+# 7. Store Plan for Next Run
+store_plan("plan.json", pages, new_hashes)
 ```
 
-### Configuration and Context
+### Output
 
-The `repoquill.yml` file allows global variables to be injected into the documentation generation process. This is useful for injecting build information, such as the current version number or build timestamp, into all generated documents.
+The final output is a MkDocs Material site that includes:
+*   **API Reference:** Deterministic, accurate documentation for all public symbols.
+*   **Narrative Guides:** LLM-generated conceptual pages grounded in the source.
+*   **AI-Ready Files:** `llms.txt` and `llms-full.txt` for easy consumption by AI agents.
+*   **SKILL.md:** A file providing context for coding agents.
 
-```yaml
-# repoquill.yml
-site_name: "My Project Docs"
-site_url: "https://example.com/docs"
-repo_url: "https://github.com/user/repo"
-repo_name: "my-project"
-```
-
-Within the `RepoQuillConfig`, these values can be accessed via properties, enabling dynamic content generation based on the project configuration.
-
-### Error Handling and Logging
-
-`repoquill` employs standard Python exception handling. If an LLM request fails, the `LLMClient` will raise an exception containing the original error. This allows developers to identify problematic requests without halting the entire build process if configured to continue on error.
-
-```python
-try:
-    response = client.chat(messages, max_tokens, temperature, retries)
-except Exception as e:
-    logger.error(f"Failed to process LLM request: {e}")
-```
-
-### Summary of Key Classes
-
-| Class | Module | Description |
-| :--- | :--- | :--- |
-| `RepoQuillConfig` | `repoquill.config` | Configuration object for the documentation site. |
-| `LLMConfig` | `repoquill.config` | Configuration object for LLM provider settings. |
-| `LLMClient` | `repoquill.llm` | Client for interacting with LLM providers. |
-| `LocalRAG` | `repoquill.llm` | Retrieval-augmented generation for local source code. |
-| `SymbolIndex` | `repoquill.verify` | Index of symbols for verification purposes. |
-
-By adhering to these abstractions, `repoquill` provides a flexible, extensible framework for documentation generation that can adapt to diverse project needs while maintaining a consistent and predictable API.
+This architecture ensures that developers receive documentation that is both technically precise and conceptually helpful, while maintaining the integrity of the information through rigorous verification.
 
 ### See Also
 
 *   [Architecture](architecture.md)
 *   [Quickstart](quickstart.md)
+*   [Installation](installation.md)

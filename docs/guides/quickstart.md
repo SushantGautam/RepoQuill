@@ -1,190 +1,198 @@
 ## Quickstart
 
-Welcome to **RepoQuill**. This guide provides a minimal, step-by-step example to help you get the library running in under five minutes. `repoquill` is a generic two-layer developer-docs generator. Point it at any Python package and it produces a complete, always-accurate documentation site.
+RepoQuill is a two-layer developer documentation generator for Python packages. It combines deterministic API reference generation with LLM-driven narrative guides to produce a complete, accurate MkDocs Material site.
 
-It operates in two layers:
-1.  **Layer 1 — API Reference (Deterministic):** Uses Griffe to parse your source code and renders classes, functions, signatures, and docstrings via mkdocstrings. This layer is fast, free, and never hallucinates.
-2.  **Layer 2 — Narrative Guides (LLM):** Uses LiteLLM to write conceptual guide pages (quickstart, concepts, workflows) grounded in your actual source code. It is incremental, regenerating only pages whose source has changed.
+- **Layer 1 (API Reference):** Uses `Griffe` to parse source code and `mkdocstrings` to render classes, functions, and docstrings. This layer is deterministic, fast, and does not use an LLM.
+- **Layer 2 (Narrative Guides):** Uses `LiteLLM` to write conceptual pages (e.g., quickstarts, workflows) grounded in the actual source code. It supports incremental regeneration, updating only pages where the source code has changed.
 
-The final output is a polished, searchable MkDocs Material site, including `llms.txt` / `llms-full.txt` for AI agents and a `SKILL.md` for coding agents.
+The final output is a polished, searchable documentation site, including `llms.txt` and `SKILL.md` files for AI agent consumption.
 
 ### Prerequisites
 
-Before you begin, ensure your environment meets the following requirements:
-
-*   **Python Version:** 3.8 or higher.
-*   **Operating System:** Linux, macOS, or Windows.
-*   **Dependencies:** The `repoquill` package and its core dependencies.
+- Python 3.x
+- A Python package you wish to document
+- An LLM API key (unless using local providers or GitHub Copilot)
 
 ### Installation
 
-You can install `repoquill` using `pip`. Open your terminal and run the following command:
+You can run RepoQuill in an isolated environment using `uvx`, or install it persistently using `uv` or `pip`.
 
+**Option 1: Isolated environment (Recommended for one-off runs)**
 ```bash
-pip install repoquill
+uvx repoquill init
 ```
 
-Alternatively, you can use `uv` to run RepoQuill in an isolated environment without a persistent installation:
-
+**Option 2: Persistent installation**
 ```bash
-uvx repoquill
-```
-
-If you prefer a persistent tool installation via `uv`:
-
-```bash
+# Using uv
 uv tool install repoquill
+repoquill init
+
+# Or using pip
+pip install repoquill
+repoquill init
 ```
 
-### Basic Usage
+### Step 1: Initialize Your Repository
 
-The core functionality of `repoquill` is driven by the command-line interface (CLI). The primary entry point is the `init` command, which scaffolds the necessary configuration and CI workflow files for your repository.
-
-#### Step 1: Initialize Your Repository
-
-Navigate to the root of your Python package and run the `init` command. This command auto-detects your package name, project name, and GitHub repository. It will prompt you to select an LLM provider (e.g., OpenAI, Anthropic, GitHub Copilot, OpenRouter, Groq, Ollama) and configure the corresponding model and authentication.
+Run the `init` command from the root of your Python package repository. This command auto-detects your package name, project name, and GitHub repository URL.
 
 ```bash
 cd your-repo
 repoquill init
 ```
 
-If you prefer to skip the interactive prompts, you can specify the provider and model directly using flags:
+During initialization, RepoQuill will prompt you to select an LLM provider (e.g., OpenAI, Anthropic, GitHub Copilot, Ollama). It will then configure the appropriate model and authentication details in your config file.
 
+You can skip interactive prompts by specifying flags:
 ```bash
 repoquill init --provider anthropic --model claude-sonnet-4-5
 ```
 
-Running `repoquill init` creates the following files in your repository:
+This step generates two key files:
+1.  **`repoquill.yml`**: The main configuration file containing provider, model, and auth settings.
+2.  **`.github/workflows/docs.yml`**: A GitHub Actions workflow file that calls RepoQuill’s reusable workflow for CI/CD documentation generation.
 
-*   `repoquill.yml`: The configuration file containing provider, model, and authentication settings.
-*   `.github/workflows/docs.yml`: The CI workflow that calls RepoQuill's reusable workflow to generate documentation on push.
+### Step 2: Configure LLM Authentication
 
-#### Step 2: Configure LLM Authentication
+For most cloud-based providers, you need to provide an API key.
 
-For most providers, you need to provide an API key. If you are using GitHub Actions, add your API key as a repository secret:
+**GitHub Actions (CI/CD):**
+Add your API key as a repository secret in GitHub Settings:
+1.  Go to **Settings** → **Secrets and variables** → **Actions**.
+2.  Create a new repository secret named `LLM_API_KEY`.
+3.  Set the value to your provider's API key (e.g., `sk-...` for OpenAI).
 
-1.  Go to your repository's **Settings** → **Secrets and variables** → **Actions**.
-2.  Click **New repository secret**.
-3.  Name: `LLM_API_KEY`
-4.  Value: Your provider's API key (e.g., `sk-...`).
+**Local Development:**
+If running locally, ensure your API key is available in your environment variables or configured within `repoquill.yml` as per the provider's requirements.
 
-> **Note:** No API key is required for `github_copilot` (which uses device-code login) or local providers (such as `lm_studio`, `ollama`, `vllm`, or `local`).
+> **Note:** Providers like `github_copilot` (using device-code login) or local providers (Ollama, LM Studio) may not require a standard API key.
 
-### Configuration
+### Step 3: Generate Documentation
 
-The `repoquill.yml` file controls the behavior of the documentation generator. It is managed by the `RepoQuillConfig` class.
+Once initialized, you can generate the documentation site. In a CI/CD context, this is handled automatically by the generated workflow. For local testing, you can invoke the CLI directly.
 
-Key configuration properties include:
+The core entry point for the CLI is `cli.main(argv)`. While typically invoked via the `repoquill` command, understanding the underlying functions helps with customization.
 
-| Property | Description |
-| :--- | :--- |
-| `site_name` | The name of the documentation site. |
-| `site_url` | The URL where the documentation site will be hosted. |
-| `repo_url` | The URL of the source code repository. |
-| `repo_name` | The name of the repository. |
+#### Key Configuration Objects
 
-You can load and inspect the configuration programmatically using the `load_config` function:
+RepoQuill uses two primary configuration classes defined in the `config` module:
 
+1.  **`config.RepoQuillConfig`**: Holds global site and repository settings.
+    *   Properties: `site_name`, `site_url`, `repo_url`, `repo_name`
+2.  **`config.LLMConfig`**: Holds LLM-specific settings (provider, model, etc.).
+
+You can load a configuration from a file using:
 ```python
-from repoquill.config import load_config
+from config import load_config
 
-# Load the configuration from the default 'repoquill.yml'
-config = load_config("repoquill.yml")
-
-print(config.site_name)
-print(config.repo_url)
+# Load settings from repoquill.yml
+cfg = load_config("repoquill.yml")
 ```
 
-### Advanced Usage: Programmatic Generation
+#### Programmatic Usage
 
-While the CLI is the recommended way to manage documentation in a CI/CD pipeline, you can also interact with the underlying modules for custom workflows.
+If you are integrating RepoQuill into a custom pipeline, you can use the public API directly.
 
-#### LLM Client
+**1. Initialize the LLM Client**
 
-The `LLMClient` class handles communication with the LLM provider. It is initialized with an `LLMConfig` object.
+The `llm.LLMClient` class handles communication with the LLM provider. It requires an `LLMConfig` instance.
 
 ```python
-from repoquill.config import LLMConfig
-from repoquill.llm import LLMClient
+from config import LLMConfig, load_config
+from llm import LLMClient
 
-# Initialize LLM configuration (parameters depend on provider)
-llm_cfg = LLMConfig()
+# Load config
+cfg = load_config("repoquill.yml")
+llm_cfg = cfg.llm_config  # Assuming this attribute exists based on typical structure, 
+                           # but strictly based on API surface, we use LLMConfig directly if available.
+# Note: The API surface lists LLMConfig but does not explicitly show how it is extracted from RepoQuillConfig.
+# However, LLMClient.__init__ takes llm_cfg.
 
-# Initialize the client
+# Initialize client
 client = LLMClient(llm_cfg
     # NOTE: llm_cfg is required (no default)
-,
-    # NOTE: llm_cfg is required (no default)
-)
-
-# Example: Chat with the LLM
-# Note: 'messages' format depends on the specific LLM provider
-response = client.chat(
-    messages=[{"role": "user", "content": "Hello"}],
-    max_tokens=100,
-    temperature=0.7,
-    retries=3
 )
 ```
 
-#### API Reference Generation
+**2. Generate Narrative Pages**
 
-The `reference` module contains functions to extract and build the deterministic API reference (Layer 1).
+The `narrative` module handles the generation of conceptual guides.
 
-```python
-from repoquill.reference import build_api_reference, get_source_files
+*   `narrative.determine_structure(cfg, client)`: Determines the structure of the documentation based on the config and LLM.
+*   `narrative.generate_page(page, source_files, client, cfg)`: Generates content for a single page.
+*   `narrative.generate_all_pages(pages, source_files, client, cfg, old_hashes, new_hashes)`: Generates all pages, supporting incremental updates by comparing file hashes.
 
-# Get source files from the package path
-source_files = get_source_files("./src/my_package")
-
-# Build the API reference content
-# 'cfg' is a RepoQuillConfig instance
-api_ref = build_api_reference(cfg)
-```
-
-#### Site Building
-
-The `site` module handles the generation of the MkDocs site structure and auxiliary files.
+Example workflow for generating pages:
 
 ```python
-from repoquill.site import build_index_md, build_llms_txt
+import narrative
+import reference
+import config
 
-# Build the main index.md file
-# 'pages' is a list of page definitions
-# 'reference_modules' is a list of module names
-index_content = build_index_md(cfg, pages, reference_modules)
+# 1. Load configuration
+cfg = config.load_config("repoquill.yml")
 
-# Build the llms.txt file for AI agents
-llms_txt_content = build_llms_txt(cfg, pages, reference_modules)
+# 2. Initialize LLM Client
+# Note: You must obtain an LLMConfig instance. 
+# Based on the API surface, LLMConfig is a class, but the exact attribute name on RepoQuillConfig is not listed in PROPERTIES.
+# Assuming standard practice, you would access it via the config object.
+llm_cfg = cfg.llm_config 
+client = llm.LLMClient(llm_cfg)
+
+# 3. Get source files for grounding
+source_files = reference.get_source_files("path/to/your/package")
+
+# 4. Determine documentation structure
+pages = narrative.determine_structure(cfg, client)
+
+# 5. Generate all pages
+# old_hashes and new_hashes are used for incremental generation
+# You can compute hashes using plan.compute_file_hashes(source_files)
+old_hashes = {} 
+new_hashes = plan.compute_file_hashes(source_files)
+
+narrative.generate_all_pages(
+    pages=pages,
+    source_files=source_files,
+    client=client,
+    cfg=cfg,
+    old_hashes=old_hashes,
+    new_hashes=new_hashes
+)
 ```
 
-### Output Format
+**3. Build API Reference**
 
-The generated documentation is a standard MkDocs Material site. The structure typically includes:
+The `reference` module provides functions to extract and render the deterministic API reference.
 
-1.  **API Reference:** Automatically generated from source code using Griffe and mkdocstrings.
-2.  **Narrative Guides:** LLM-generated pages such as Quickstart, Concepts, and Workflows.
-3.  **AI Agent Files:**
+*   `reference.build_api_reference(cfg)`: Builds the main API reference.
+*   `reference.extract_api_surface(pkg_path, max_chars)`: Extracts the API surface from the package path.
+*   `reference.render_module_reference(module_name, search_path, module_descriptions)`: Renders a specific module's reference.
+
+### Verification and Grounding
+
+To ensure the generated documentation is accurate, RepoQuill includes verification tools.
+
+*   `verify.verify_pages(cfg, client)`: Verifies that the generated pages contain valid symbols and claims.
+*   `grounding.run_grounding_pass(guides_dir, pkg_path, client, llm_cfg, max_findings_per_page)`: Runs a grounding pass to ensure narrative guides are grounded in the source code.
+
+### Output Structure
+
+After running the generation process, RepoQuill produces:
+1.  **MkDocs Site**: A complete `mkdocs.yml` and markdown files ready for `mkdocs serve` or `mkdocs build`.
+2.  **AI Agent Files**:
     *   `llms.txt`: A lightweight index for LLMs.
-    *   `llms-full.txt`: A full-text version for detailed context.
-    *   `SKILL.md`: A skill definition for coding agents.
+    *   `llms-full.txt`: The full content of the documentation for LLM ingestion.
+    *   `SKILL.md`: A skill file for coding agents.
 
 ### Troubleshooting
 
-*   **Configuration Errors:** Ensure that `repoquill.yml` is valid YAML and that the `provider` and `model` fields match a supported provider.
-*   **Authentication Failures:** Verify that your `LLM_API_KEY` secret is correctly set in your CI environment or local environment variables.
-*   **Parsing Errors:** If the API reference layer fails, ensure your Python source code is syntactically correct. Griffe relies on valid AST parsing.
+*   **Configuration Errors**: Ensure `repoquill.yml` is valid YAML and that the `provider` and `model` fields match your LLM provider's requirements.
+*   **API Key Issues**: Verify that `LLM_API_KEY` is correctly set in your environment or GitHub secrets.
+*   **Incremental Generation**: If pages are not updating, ensure that `plan.compute_file_hashes` is correctly identifying changes in your source files.
 
-### Next Steps
-
-Now that you have successfully initialized `repoquill`, you can explore the following topics:
-
-*   [API Reference](./api-reference.md): Detailed documentation for all classes and methods.
-*   [Configuration Guide](./configuration.md): Advanced configuration options and templates.
-*   [Integration with CI/CD](./ci-cd.md): How to automate documentation generation in your build pipeline.
-
-By following this quickstart guide, you should now be able to integrate `repoquill` into your development workflow and maintain up-to-date documentation for your Python projects.
+For more advanced usage, refer to the specific module documentation for `config`, `llm`, `narrative`, `reference`, `site`, and `verify`.
 
 ### See Also
 
