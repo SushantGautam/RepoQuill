@@ -43,6 +43,12 @@
 | E23 | De-Goodhart workflows category in coverage_check_v2.py | — | 54.4% (mean of 3, +2.1pp) | — | **KEEP** (removed 18 generic words, no other category affected) |
 | E15 | LLM-planned structure (no hand-authored slugs) | 0.0% | 38.5% (mean of 3) | 0.0% | **REVERT** (coverage -15.9pp, well outside band) |
 | RETRO4 | Research retrospective (5th since RETRO3) | — | — | — | **METHODOLOGY** (workflows Goodhart risk, usability blind spot) |
+| E24 | Grounding pass variance (4 variants × 3 runs) | 0.0% | 52.9 (mean) | 9.3 (mean) | **REVERT** (no variant beats E19 on all metrics) |
+| E25 | Fix example checker to exclude signature snippets | 0.0% | 51.2 (mean) | 13.5 (mean) | **REVERT** (broken% worse than E19; generation quality issue, not checker) |
+| E26 | E19 config WITHOUT grounding pass | 0.0% | 54.7 (mean) | 15.2 (mean) | **INFORMATIVE** (grounding pass NOT the cause; root cause = @property detection) |
+| E27 | Mark @property attributes in API surface | 0.0% | 55.1 (mean) | 3.5 (mean) | **KEEP** (prop_as_method=0, broken% best ever, coverage best ever) |
+| E28 | Strip leading indentation from code blocks | — | — | 0.7 (mean, re-scored) | **KEEP** (de-Goodhart: 5 syntax_error → 0) |
+| E29 | Investigate remaining missing_required finding | — | — | — | **NO_ACTION** (1/9 calls, within variance; E14 enrichment working) |
 
 ## E11 — Variance Band Results
 
