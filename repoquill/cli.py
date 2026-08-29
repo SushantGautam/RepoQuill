@@ -16,6 +16,8 @@ Flags:
     --build             Also run ``mkdocs build`` after generating.
     --source-root PATH  Override the source repo root.
     --port PORT         Port for ``mkdocs serve`` (default: 8000).
+
+Note: Supports parallel LLM generation via max_concurrent in repoquill.yml.
 """
 
 from __future__ import annotations
