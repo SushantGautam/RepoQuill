@@ -21,29 +21,24 @@ Your repo keeps one `repoquill.yml` and a GitHub Actions workflow that calls Rep
 
 ## Quick start
 
-### 1. Install
+### 1. Scaffold your repo
 
 ```bash
-uv tool install repoquill
-# optional: local RAG (offline embeddings, no API key)
-uv tool install "repoquill[rag]"
+cd your-repo
+uvx repoquill init
 ```
+
+`uvx` runs RepoQuill in an isolated environment — no install needed. (Prefer a persistent install? `uv tool install repoquill`, then just `repoquill init`.)
 
 <details>
 <summary>Prefer pip?</summary>
 
 ```bash
 pip install repoquill
-pip install "repoquill[rag]"   # optional
-```
-</details>
-
-### 2. Scaffold your repo
-
-```bash
 cd your-repo
 repoquill init
 ```
+</details>
 
 `repoquill init` auto-detects your package name, project name, and GitHub repo, then **asks which LLM provider you want** (OpenAI, Anthropic, GitHub Copilot, OpenRouter, Groq, Ollama, …) and fills in the matching model + auth. It creates:
 
@@ -52,7 +47,7 @@ repoquill init
 
 You can skip the prompts with flags: `repoquill init --provider anthropic --model claude-sonnet-4-5`.
 
-### 3. Add your LLM API key as a GitHub secret
+### 2. Add your LLM API key as a GitHub secret
 
 Settings → Secrets and variables → Actions → New repository secret:
 
@@ -62,7 +57,7 @@ Settings → Secrets and variables → Actions → New repository secret:
 
 > **No API key needed** for `github_copilot` (device-code login) or local providers (`ollama`, `lm_studio`, `vllm`).
 
-### 4. Push and go
+### 3. Push and go
 
 ```bash
 git add repoquill.yml .github/workflows/docs.yml
@@ -76,9 +71,9 @@ Docs build on every push to `main` and deploy to GitHub Pages (`https://<you>.gi
 
 ```bash
 export OPENAI_API_KEY=sk-...
-repoquill serve          # live-reload at http://localhost:8000
-repoquill build          # one-shot build
-repoquill build --no-llm # deterministic reference only (no API key)
+uvx repoquill serve          # live-reload at http://localhost:8000
+uvx repoquill build          # one-shot build
+uvx repoquill build --no-llm # deterministic reference only (no API key)
 ```
 
 ## How it works
