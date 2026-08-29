@@ -107,10 +107,10 @@ jobs:
 
       - name: Generate docs
         env:
-          LLM_API_KEY: ${{ secrets[inputs.api_key_secret] }}
+          REPOQUILL_API_KEY: ${{ secrets.LLM_API_KEY }}
           SOURCE_ROOT: ${{ steps.src.outputs.repo != '' && format('{0}/source', github.workspace) || '' }}
         run: |
-          export ${{ inputs.api_key_env }}="${LLM_API_KEY}"
+          export ${{ inputs.api_key_env }}="${REPOQUILL_API_KEY}"
           NO_LLM_FLAG=""
           if [ "${{ inputs.no_llm }}" = "true" ]; then
             NO_LLM_FLAG="--no-llm"
