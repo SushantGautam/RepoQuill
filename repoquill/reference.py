@@ -1273,6 +1273,38 @@ def extract_cli_surface(pkg_path: str, max_chars: int = 8000) -> str:
     return text
 
 
+def _module_docstring_fallback(pkg_path: str, pkg_name: str, mod: str) -> str:
+    """Return the first line of a module's docstring, or '' if none.
+
+    Resolves the dotted module name to a file under ``pkg_path`` (which is
+    the package root, so the top-level package name is stripped) and reads
+    its docstring via ``ast``.
+    """
+    parts = mod.split(".")
+    if parts and parts[0] == pkg_name:
+        parts = parts[1:]
+    if not parts:
+        path = os.path.join(pkg_path, "__init__.py")
+    else:
+        path = os.path.join(pkg_path, *parts[:-1], parts[-1] + ".py")
+        if not os.path.isfile(path):
+            # Could be a subpackage (directory with __init__.py).
+            path = os.path.join(pkg_path, *parts, "__init__.py")
+    if not os.path.isfile(path):
+        return ""
+    try:
+        with open(path, "r", encoding="utf-8", errors="replace") as f:
+            source = f.read()
+        tree = ast.parse(source)
+        doc = ast.get_docstring(tree)
+        if not doc:
+            return ""
+        first = doc.strip().split("\n")[0].strip()
+        return first[:120] if len(first) > 120 else first
+    except (OSError, SyntaxError):
+        return ""
+
+
 def build_api_reference(cfg) -> List[str]:
     """Generate ``reference/*.md`` for every importable module.
 
@@ -1288,7 +1320,7 @@ def build_api_reference(cfg) -> List[str]:
     ref_dir = cfg.ref_dir
     pkg_path = cfg.pkg_path
     root = cfg.root
-    module_descriptions = cfg.raw.get("module_descriptions", {})
+    module_descriptions = dict(cfg.raw.get("module_descriptions") or {})
 
     os.makedirs(ref_dir, exist_ok=True)
     # Derive the top-level package name from pkg_path so that module
@@ -1332,6 +1364,10 @@ def build_api_reference(cfg) -> List[str]:
             continue
         print(f"    reference: {mod}")
         desc = module_descriptions.get(mod, "")
+        if not desc:
+            # Docstring fallback: resolve module name to file and read its
+            # docstring (first line, truncated to 120 chars).
+            desc = _module_docstring_fallback(pkg_path, pkg_name, mod)
         lines = [f"## {mod}", ""]
         if desc:
             lines += [desc, ""]

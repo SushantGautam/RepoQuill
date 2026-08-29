@@ -1795,7 +1795,7 @@ def _cmd_generate(args) -> int:
 
     # Build SKILL.md content (don't write to site_src — MkDocs would
     # render it to HTML). We'll write it to the site output after build.
-    skill_content = build_skill_md(cfg)
+    skill_content = build_skill_md(cfg, reference_modules)
     print(f"  SKILL.md ({len(skill_content)} chars)")
 
     _copy_images(cfg)

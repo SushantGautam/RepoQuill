@@ -55,8 +55,65 @@ def _reference_sections(cfg, reference_modules=None):
     return result
 
 
-def _module_descriptions(cfg):
-    return cfg.raw.get("module_descriptions", {})
+def _module_descriptions(cfg, reference_modules=None):
+    """Module descriptions: config overrides, then docstring fallback.
+
+    Returns a dict of module name -> one-line description.  Config
+    ``module_descriptions`` take precedence; any module without a config
+    description falls back to its docstring (first line, truncated to 120
+    chars).  When ``reference_modules`` is given, only those modules are
+    described; otherwise every module name already present in the config is
+    kept as-is.
+    """
+    descs = dict(cfg.raw.get("module_descriptions") or {})
+    if not reference_modules:
+        return descs
+    pkg_path = cfg.pkg_path
+    if not pkg_path or not os.path.isdir(pkg_path):
+        return descs
+    pkg_name = os.path.basename(os.path.normpath(pkg_path))
+    for mod in reference_modules:
+        if descs.get(mod):
+            continue
+        # Resolve module name to file path.
+        # pkg_path IS the package root, so strip the top-level package name.
+        parts = mod.split(".")
+        if parts and parts[0] == pkg_name:
+            parts = parts[1:]
+        if not parts:
+            # The package itself → its __init__.py
+            path = os.path.join(pkg_path, "__init__.py")
+        else:
+            # Submodule: simpleaudit.cli → parts=['cli'] → pkg_path/cli.py
+            # Subpackage: simpleaudit.judges → parts=['judges'] → pkg_path/judges/__init__.py
+            # simpleaudit.judges.safety → parts=['judges','safety'] → pkg_path/judges/safety.py
+            path = os.path.join(pkg_path, *parts[:-1], parts[-1] + ".py")
+            if not os.path.isfile(path):
+                # Could be a subpackage (directory with __init__.py).
+                path = os.path.join(pkg_path, *parts, "__init__.py")
+        if not os.path.isfile(path):
+            continue
+        doc = _extract_module_docstring(path)
+        if doc:
+            descs[mod] = doc
+    return descs
+
+
+def _extract_module_docstring(path):
+    """Return the first line of a module's docstring, or '' if none."""
+    import ast
+    try:
+        with open(path, "r", encoding="utf-8", errors="replace") as f:
+            source = f.read()
+        tree = ast.parse(source)
+        doc = ast.get_docstring(tree)
+        if not doc:
+            return ""
+        # First line only, strip whitespace, truncate
+        first = doc.strip().split("\n")[0].strip()
+        return first[:120] if len(first) > 120 else first
+    except (OSError, SyntaxError):
+        return ""
 
 
 def build_index_md(cfg, pages: List[dict], reference_modules: List[str]) -> None:
@@ -114,9 +171,10 @@ def build_index_md(cfg, pages: List[dict], reference_modules: List[str]) -> None
             continue
         lines.append(f"### {section_name}")
         lines.append("")
+        descs = _module_descriptions(cfg, mods)
         for m in mods:
             slug = m.replace(".", "_")
-            desc = _module_descriptions(cfg).get(m, "")
+            desc = descs.get(m, "")
             lines.append(f"- [`{m}`](reference/{slug}.md) — {desc}")
         lines.append("")
 
@@ -160,6 +218,7 @@ def build_llms_txt(cfg, pages: List[dict], reference_modules: List[str]) -> None
     lines.append("## API Reference")
     lines.append("")
     seen_modules = set()
+    descs = _module_descriptions(cfg, reference_modules)
     for section_name, _ in _reference_sections(cfg, reference_modules):
         mods = _section_modules(cfg, section_name, reference_modules)
         if not mods:
@@ -169,7 +228,7 @@ def build_llms_txt(cfg, pages: List[dict], reference_modules: List[str]) -> None
                 continue
             seen_modules.add(m)
             slug = m.replace(".", "_")
-            desc = _module_descriptions(cfg).get(m, "")
+            desc = descs.get(m, "")
             url = f"{base}/reference/{slug}/" if base else f"reference/{slug}/"
             lines.append(f"- [{m}]({url}): {desc}" if desc else f"- [{m}]({url})")
     lines.append("")
@@ -666,7 +725,7 @@ nav:
         f.write(content)
 
 
-def build_skill_md(cfg) -> str:
+def build_skill_md(cfg, reference_modules=None) -> str:
     """Build ``SKILL.md`` content — an agent skill for USING the software.
 
     This is NOT about the docs pipeline. It's a practical guide for an
@@ -688,7 +747,7 @@ def build_skill_md(cfg) -> str:
 
     # Build module list from reference sections
     module_lines = []
-    for section_name, prefixes in _reference_sections(cfg):
+    for section_name, prefixes in _reference_sections(cfg, reference_modules):
         module_lines.append(f"  - **{section_name}**: {', '.join(f'`{p}`' for p in prefixes)}")
     module_table = "\n".join(module_lines)
 
@@ -700,7 +759,7 @@ def build_skill_md(cfg) -> str:
 
     # Module descriptions (top-level modules only, for brevity)
     desc_lines = []
-    for mod, desc in _module_descriptions(cfg).items():
+    for mod, desc in _module_descriptions(cfg, reference_modules).items():
         if mod.count(".") <= 1:  # top-level or one-level-deep
             desc_lines.append(f"| `{mod}` | {desc} |")
     desc_table = "\n".join(desc_lines) if desc_lines else "| _none_ | _none_ |"
