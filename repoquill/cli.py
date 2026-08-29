@@ -25,6 +25,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -1332,6 +1333,52 @@ def _capture_trigger(args) -> str:
     return "manual"
 
 
+def _is_placeholder_tagline(tagline, project_name) -> bool:
+    """Return True if a tagline is a generic template string rather than a
+    real description of the project.
+
+    A scaffolded/placeholder tagline is one that merely echoes the project
+    name (e.g. "Documentation for simpleaudit-docs") or is otherwise
+    boilerplate. Such a tagline carries no information about what the
+    project actually does, so the LLM should regenerate it from the source
+    README. Real, hand-written taglines are left untouched.
+    """
+    if not tagline or not isinstance(tagline, str):
+        return True
+    t = tagline.strip().lower()
+    if not t:
+        return True
+    # Boilerplate templates that only restate the project name.
+    name = (project_name or "").strip().lower()
+    if name:
+        # "Documentation for <name>", "<name> documentation",
+        # "Docs for <name>", "<name> docs", etc.
+        for boiler in (
+            f"documentation for {name}",
+            f"{name} documentation",
+            f"docs for {name}",
+            f"{name} docs",
+            f"documentation for {name} project",
+            f"documentation for the {name} project",
+        ):
+            if t == boiler:
+                return True
+        # Any string whose only meaningful content is the name plus a
+        # generic word (docs/documentation/website).
+        generic_words = {"documentation", "docs", "doc", "website", "site"}
+        tokens = [w for w in re.split(r"[^a-z0-9]+", t) if w]
+        meaningful = [w for w in tokens if w not in generic_words and w != name]
+        if not meaningful:
+            return True
+    # Generic boilerplate that mentions no project-specific content.
+    if t in {
+        "documentation", "docs", "project documentation",
+        "documentation for this project", "project docs",
+    }:
+        return True
+    return False
+
+
 def _scaffold_config(cfg, client) -> bool:
     """Ask the LLM to fill in missing config sections (narrative_sections,
     reference_sections, index) for a minimal config.
@@ -1340,10 +1387,18 @@ def _scaffold_config(cfg, client) -> bool:
     """
     import yaml
 
-    # Check if config is minimal (missing key sections)
+    # Check if config is minimal (missing key sections). A placeholder
+    # tagline (e.g. "Documentation for <name>") counts as missing — the
+    # LLM regenerates a real one from the source README.
     needs_narrative = not cfg.narrative_sections
     needs_reference = not cfg.raw.get("reference_sections")
-    needs_index = not cfg.index or not cfg.index.get("tagline")
+    tagline = (cfg.index or {}).get("tagline", "")
+    needs_index = _is_placeholder_tagline(tagline, cfg.project_name)
+    # Also regenerate the index if it has a real tagline but no quick_start
+    # for an installable package (quick_start is the highest-impact index
+    # content and is cheap to derive from the README).
+    if not needs_index and cfg.index and not cfg.index.get("quick_start"):
+        needs_index = bool(cfg.package_dir)
 
     if not (needs_narrative or needs_reference or needs_index):
         return False  # Config is already complete
@@ -1395,8 +1450,8 @@ Return a JSON object with these keys (only include keys that are needed):
 Rules:
 - narrative_sections: 2-4 sections grouping the narrative guide pages (e.g. "Getting Started", "Core Concepts", "Advanced Usage")
 - reference_sections: group the available modules into logical sections (e.g. "Core", "CLI", "Utilities")
-- index.tagline: a concise one-line description of the project
-- index.quick_start: only include if this is an installable package
+- index.tagline: ONE or TWO sentences, taken from or faithful to the README, that tell a new developer what this project DOES (its purpose and the problem it solves). Never restate the project name or write boilerplate like "Documentation for X". Be specific: name the capability, not the category.
+- index.quick_start: include ONLY if the README shows a concrete install command (e.g. "pip install <pkg>"). Set "install" to that exact command. Do NOT invent an install command that is not in the README.
 - Return ONLY the JSON object, no markdown fences"""
 
     result = client.chat(
