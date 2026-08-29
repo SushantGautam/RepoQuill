@@ -31,6 +31,7 @@ from repoquill.reference import (
     get_examples_context,
     get_file_tree,
     get_source_files,
+    get_tests_context,
 )
 
 # E14: page-relevant constructor context.  These names are the ones a
@@ -229,6 +230,14 @@ def generate_page(
         except Exception:  # noqa: BLE001
             examples = ""
 
+    # --- E16: tests as behavioral ground truth ---
+    tests_ctx = ""
+    if getattr(llm, "include_tests", False):
+        try:
+            tests_ctx = get_tests_context(cfg.root)
+        except Exception:  # noqa: BLE001
+            tests_ctx = ""
+
     # --- CLI surface (E2): inject for CLI-related pages only ---
     cli_surface = ""
     if getattr(llm, "include_api_surface", True):
@@ -321,6 +330,12 @@ def generate_page(
         enrichment += f"\nREADME (excerpt):\n{readme}\n"
     if examples:
         enrichment += f"\nEXAMPLES FROM THE REPO (real example files — prefer their patterns):\n{examples}\n"
+    if tests_ctx:
+        enrichment += (
+            f"\nTESTS (ground truth for behavior — verify your behavioral claims "
+            f"against these; if a test asserts something, the doc may state it):\n"
+            f"{tests_ctx}\n"
+        )
 
     if old_content:
         prompt = f"""You are a senior technical writer maintaining developer documentation for the {cfg.project_name} Python library.

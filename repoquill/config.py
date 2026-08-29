@@ -44,6 +44,7 @@ class LLMConfig:
     include_api_surface: bool = True  # inject AST-extracted API surface
     include_readme: bool = True       # inject README excerpt
     include_examples: bool = True     # inject examples/ listing + key files
+    include_tests: bool = False       # inject top test files as behavior ground truth
     strict_prompt: bool = True        # anti-hallucination prompt variant
     # Post-generation verification (hallucination check + fix passes)
     verify_passes: int = 0            # 0 = off; 1-2 recommended
@@ -155,6 +156,7 @@ def load_config(config_path: Optional[str] = None) -> RepoQuillConfig:
         include_api_surface=bool(llm_raw.get("include_api_surface", True)),
         include_readme=bool(llm_raw.get("include_readme", True)),
         include_examples=bool(llm_raw.get("include_examples", True)),
+        include_tests=bool(llm_raw.get("include_tests", False)),
         strict_prompt=bool(llm_raw.get("strict_prompt", True)),
         verify_passes=int(llm_raw.get("verify_passes", 0)),
     )

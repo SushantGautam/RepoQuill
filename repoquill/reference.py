@@ -949,6 +949,69 @@ def get_examples_context(root: str, max_chars: int = 4000) -> str:
     return text
 
 
+def get_tests_context(root: str, max_chars: int = 6000) -> str:
+    """Build a context block from the repo's tests/ directory.
+
+    Tests are ground truth for *behavior*: they show what the API is
+    expected to do, not just what symbols exist.  We extract the most
+    behavior-revealing tests (those with the most assertions) and
+    include them so the LLM can verify its behavioral claims.
+
+    Generic: looks for tests/, test/, testing/ at the repo root.
+    Returns "" if no test directory found.
+    """
+    test_dir = None
+    for cand in ("tests", "test", "testing"):
+        d = os.path.join(root, cand)
+        if os.path.isdir(d):
+            test_dir = d
+            break
+    if test_dir is None:
+        return ""
+
+    # Score each test file by assertion count (higher = more behavior)
+    scored = []
+    for f in sorted(os.listdir(test_dir)):
+        if not f.startswith("test_") or not f.endswith(".py"):
+            continue
+        full = os.path.join(test_dir, f)
+        try:
+            with open(full, "r", encoding="utf-8", errors="replace") as fh:
+                content = fh.read()
+        except OSError:
+            continue
+        assert_count = content.count("assert ") + content.count("assert(")
+        scored.append((assert_count, f, content))
+
+    if not scored:
+        return ""
+
+    # Sort by assertion count descending; take top 4 files
+    scored.sort(key=lambda x: -x[0])
+    top = scored[:4]
+
+    lines = [
+        "TEST FILES (ground truth for behavior — what the API is expected to do):"
+    ]
+    included = 0
+    for assert_count, fname, content in top:
+        if included >= 4:
+            break
+        # Truncate each file to keep total under budget
+        excerpt = content[:2500]
+        if len(content) > 2500:
+            excerpt += "\n# ... (truncated)"
+        lines.append(
+            f"\n### {fname} ({assert_count} assertions)\n```python\n{excerpt}\n```"
+        )
+        included += 1
+
+    text = "\n".join(lines)
+    if len(text) > max_chars:
+        text = text[:max_chars] + "\n... (truncated)"
+    return text
+
+
 def extract_cli_surface(pkg_path: str, max_chars: int = 8000) -> str:
     """Extract the argparse CLI surface from the package source.
 
