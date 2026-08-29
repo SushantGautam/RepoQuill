@@ -1602,12 +1602,24 @@
 <li><strong>Description</strong>: Extracts specific constructor signatures for given class names.</li>
 </ul>
 </li>
+<li><strong><code>extract_member_bodies(pkg_path, names, max_lines, max_chars)</code></strong>:<ul>
+<li><strong>Description</strong>: Extracts the source code bodies of specific members (classes or functions) for detailed analysis.</li>
+</ul>
+</li>
+<li><strong><code>get_examples_context(root, max_chars)</code></strong>:<ul>
+<li><strong>Description</strong>: Retrieves context from example files within the repository.</li>
+</ul>
+</li>
 <li><strong><code>get_source_files(pkg_path)</code></strong>:<ul>
 <li><strong>Description</strong>: Retrieves a list of source files in the package.</li>
 </ul>
 </li>
 <li><strong><code>get_file_tree(pkg_path)</code></strong>:<ul>
 <li><strong>Description</strong>: Generates a tree structure of the package files.</li>
+</ul>
+</li>
+<li><strong><code>get_tests_context(root, max_chars)</code></strong>:<ul>
+<li><strong>Description</strong>: Retrieves context from test files within the repository.</li>
 </ul>
 </li>
 <li><strong><code>build_api_reference(cfg)</code></strong>:<ul>
@@ -1680,6 +1692,10 @@
 </li>
 <li><strong><code>verify_pages(cfg, client)</code></strong>:<ul>
 <li><strong>Description</strong>: Orchestrates the verification process for all generated pages.</li>
+</ul>
+</li>
+<li><strong><code>fix_type_claims(content, pkg_path)</code></strong>:<ul>
+<li><strong>Description</strong>: Identifies and corrects type-related claims in the documentation that do not match the source code.</li>
 </ul>
 </li>
 <li><strong><code>extract_backtick_symbols(md)</code></strong>, <strong><code>extract_code_blocks(md)</code></strong>, <strong><code>extract_imports(md)</code></strong>, <strong><code>extract_method_calls(md)</code></strong>:<ul>
@@ -1836,6 +1852,7 @@ def main():
     cfg = load_config(&quot;repoquill.yml&quot;)
 
     # Initialize LLM client
+    # NOTE: llm_cfg is required (no default)
     llm_client = LLMClient(cfg.llm_config
     # NOTE: llm_cfg is required (no default)
 )
