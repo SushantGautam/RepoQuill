@@ -63,6 +63,12 @@ on:
         required: false
         default: "site"
         type: string
+      # Set to "true" to delete all previously generated docs before regenerating.
+      clean:
+        description: "Delete docs/ before generating (forces full regeneration)"
+        required: false
+        default: "false"
+        type: string
     secrets:
       LLM_API_KEY:
         description: "LLM API key (wired into the env var named by api_key_env)"
@@ -104,6 +110,10 @@ jobs:
         uses: astral-sh/setup-uv@v5
         with:
           python-version: ${{ inputs.python_version }}
+
+      - name: Clean previously generated docs
+        if: inputs.clean == 'true'
+        run: rm -rf docs/
 
       - name: Generate docs
         env:

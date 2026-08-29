@@ -4,6 +4,15 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      clean:
+        description: "Delete docs/ before generating (forces full regeneration)"
+        required: false
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
 
 # Required: the reusable workflow commits docs back to this repo, and
 # cross-repo workflow calls default to contents:read without this.
@@ -19,5 +28,6 @@ jobs:
       api_key_env: OPENAI_API_KEY
       deploy_branch: gh-pages
       deploy_path: site_repoquill
+      clean: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.clean || 'false' }}
     secrets:
       LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
