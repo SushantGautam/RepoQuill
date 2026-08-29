@@ -29,6 +29,7 @@ class LLMConfig:
     api_key_env: str = "OPENAI_API_KEY"
     base_url: Optional[str] = None
     rag: Dict[str, Any] = field(default_factory=dict)
+    max_concurrent: int = 1  # Max parallel LLM calls (1 = sequential)
 
 
 @dataclass
@@ -126,6 +127,7 @@ def load_config(config_path: Optional[str] = None) -> RepoQuillConfig:
         api_key_env=llm_raw.get("api_key_env", "OPENAI_API_KEY"),
         base_url=llm_raw.get("base_url"),
         rag=llm_raw.get("rag", {}) or {},
+        max_concurrent=int(llm_raw.get("max_concurrent", 1)),
     )
 
     # --- Build block ---

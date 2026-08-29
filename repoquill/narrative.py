@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import json
 import os
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Dict, List
 
 from repoquill.llm import strip_code_fences
@@ -193,6 +194,25 @@ Return ONLY the markdown content, no preamble."""
     return content
 
 
+def _generate_single_page(
+    page: dict,
+    source_files: Dict[str, str],
+    client,
+    cfg,
+) -> tuple:
+    """Generate a single page. Returns (slug, success, message)."""
+    slug = page["slug"]
+    title = page["title"]
+    out_path = os.path.join(cfg.out_guides, f"{slug}.md")
+    try:
+        content = generate_page(page, source_files, client, cfg)
+        with open(out_path, "w") as f:
+            f.write(content)
+        return (slug, True, f"OK ({len(content)} chars)")
+    except Exception as e:  # noqa: BLE001
+        return (slug, False, f"FAILED: {e}")
+
+
 def generate_all_pages(
     pages: List[dict],
     source_files: Dict[str, str],
@@ -202,6 +222,8 @@ def generate_all_pages(
     new_hashes: Dict[str, str],
 ) -> List[str]:
     """Generate all narrative pages that need regeneration.
+
+    Uses parallel execution when cfg.llm.max_concurrent > 1.
 
     Args:
         pages: List of page dicts.
@@ -215,7 +237,9 @@ def generate_all_pages(
         List of slugs that were (re)generated.
     """
     os.makedirs(cfg.out_guides, exist_ok=True)
-    generated: List[str] = []
+    
+    # Filter pages that need regeneration
+    to_generate = []
     for i, page in enumerate(pages):
         slug = page["slug"]
         title = page["title"]
@@ -228,13 +252,37 @@ def generate_all_pages(
         changed = [f for f in page.get("source_files", [])
                    if old_hashes.get(f) != new_hashes.get(f)]
         reason = f"changed: {', '.join(changed)}" if changed else "new page"
-        print(f"  [{i + 1}/{len(pages)}] {title} ({reason})...", end=" ", flush=True)
-        try:
-            content = generate_page(page, source_files, client, cfg)
-            with open(out_path, "w") as f:
-                f.write(content)
-            print(f"OK ({len(content)} chars)")
-            generated.append(slug)
-        except Exception as e:  # noqa: BLE001
-            print(f"FAILED: {e}")
+        to_generate.append((i, page, reason))
+
+    if not to_generate:
+        return []
+
+    max_workers = max(1, cfg.llm.max_concurrent)
+    generated: List[str] = []
+
+    if max_workers == 1:
+        # Sequential execution (default)
+        for i, page, reason in to_generate:
+            title = page["title"]
+            print(f"  [{i + 1}/{len(pages)}] {title} ({reason})...", end=" ", flush=True)
+            slug, success, msg = _generate_single_page(page, source_files, client, cfg)
+            print(msg)
+            if success:
+                generated.append(slug)
+    else:
+        # Parallel execution
+        print(f"  Generating {len(to_generate)} pages with {max_workers} workers...")
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = {
+                executor.submit(_generate_single_page, page, source_files, client, cfg): (i, page)
+                for i, page, reason in to_generate
+            }
+            for future in as_completed(futures):
+                i, page = futures[future]
+                title = page["title"]
+                slug, success, msg = future.result()
+                print(f"  [{i + 1}/{len(pages)}] {title}: {msg}")
+                if success:
+                    generated.append(slug)
+
     return generated
