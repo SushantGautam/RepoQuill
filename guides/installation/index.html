@@ -1,0 +1,1420 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Documentation for repoquill">
+      
+      
+      
+        <link rel="canonical" href="https://SushantGautam.github.io/RepoQuill/guides/installation/">
+      
+      
+        <link rel="prev" href="../quickstart/">
+      
+      
+        <link rel="next" href="../architecture/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Installation - repoquill</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#installation" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="repoquill" class="md-header__button md-logo" aria-label="repoquill" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            repoquill
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Installation
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/SushantGautam/RepoQuill" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    SushantGautam/RepoQuill
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="repoquill" class="md-nav__button md-logo" aria-label="repoquill" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    repoquill
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/SushantGautam/RepoQuill" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    SushantGautam/RepoQuill
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    repoquill
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Guides
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Guides
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_1" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_2_1" id="__nav_2_1_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_1_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_2_1">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Getting Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quickstart
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#installation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Installation
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Installation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#prerequisites" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Prerequisites
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#installing-via-pip" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Installing via pip
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Installing via pip">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#standard-installation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Standard Installation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#installing-with-extras" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Installing with Extras
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#verifying-the-installation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Verifying the Installation
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#installing-from-source" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Installing from Source
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Installing from Source">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#cloning-the-repository" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cloning the Repository
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#creating-a-virtual-environment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Creating a Virtual Environment
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#installing-in-editable-mode" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Installing in Editable Mode
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#building-documentation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Building Documentation
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#managing-dependencies" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Managing Dependencies
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Managing Dependencies">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#core-dependencies" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Core Dependencies
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#optional-dependencies" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Optional Dependencies
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pinning-versions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pinning Versions
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#troubleshooting" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Troubleshooting
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Troubleshooting">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#permission-errors" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Permission Errors
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#conflicting-dependencies" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Conflicting Dependencies
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#build-failures-from-source" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Build Failures from Source
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#uninstalling" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Uninstalling
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#next-steps" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Next Steps
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#see-also" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        See Also
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2_2" id="__nav_2_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Core Concepts
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Core Concepts
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../key-ideas/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Key ideas
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#installation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Installation
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Installation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#prerequisites" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Prerequisites
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#installing-via-pip" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Installing via pip
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Installing via pip">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#standard-installation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Standard Installation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#installing-with-extras" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Installing with Extras
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#verifying-the-installation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Verifying the Installation
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#installing-from-source" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Installing from Source
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Installing from Source">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#cloning-the-repository" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cloning the Repository
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#creating-a-virtual-environment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Creating a Virtual Environment
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#installing-in-editable-mode" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Installing in Editable Mode
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#building-documentation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Building Documentation
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#managing-dependencies" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Managing Dependencies
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Managing Dependencies">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#core-dependencies" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Core Dependencies
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#optional-dependencies" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Optional Dependencies
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pinning-versions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pinning Versions
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#troubleshooting" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Troubleshooting
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Troubleshooting">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#permission-errors" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Permission Errors
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#conflicting-dependencies" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Conflicting Dependencies
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#build-failures-from-source" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Build Failures from Source
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#uninstalling" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Uninstalling
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#next-steps" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Next Steps
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#see-also" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        See Also
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+  <h1>Installation</h1>
+
+<h2 id="installation">Installation</h2>
+<p><code>repoquill</code> is a Python library designed to automate the generation and maintenance of technical documentation directly from repository metadata and source code structures. It streamlines the process of keeping developer documentation synchronized with code changes, reducing manual effort and minimizing documentation drift.</p>
+<p>This page provides comprehensive instructions for installing <code>repoquill</code> using <code>pip</code>, building from source, and managing its dependencies. Whether you are integrating <code>repoquill</code> into a CI/CD pipeline or using it locally for development, these steps ensure a stable and reproducible environment.</p>
+<h3 id="prerequisites">Prerequisites</h3>
+<p>Before installing <code>repoquill</code>, ensure your environment meets the following requirements:</p>
+<ol>
+<li><strong>Python Version</strong>: <code>repoquill</code> requires <strong>Python 3.8</strong> or higher. It is tested against Python 3.8, 3.9, 3.10, and 3.11.</li>
+<li><strong>Operating System</strong>: Compatible with Linux, macOS, and Windows.</li>
+<li><strong>Package Manager</strong>: <code>pip</code> version 20.0 or higher is recommended.</li>
+</ol>
+<p>To verify your Python version, run:</p>
+<pre><code class="language-bash">python --version
+</code></pre>
+<p>If you do not have a suitable Python version installed, we recommend using a virtual environment manager such as <code>pyenv</code> (for macOS/Linux) or <code>conda</code> (cross-platform) to manage multiple Python versions.</p>
+<h3 id="installing-via-pip">Installing via pip</h3>
+<p>The recommended method for most users is to install <code>repoquill</code> directly from the Python Package Index (PyPI). This ensures you get the latest stable release with all dependencies automatically resolved.</p>
+<h4 id="standard-installation">Standard Installation</h4>
+<p>To install the latest stable version of <code>repoquill</code>, run the following command in your terminal:</p>
+<pre><code class="language-bash">pip install repoquill
+</code></pre>
+<p>If you are using a virtual environment, ensure it is activated before running the command. For example, using <code>venv</code>:</p>
+<pre><code class="language-bash">python -m venv myenv
+source myenv/bin/activate  # On Windows: myenv\Scripts\activate
+pip install repoquill
+</code></pre>
+<h4 id="installing-with-extras">Installing with Extras</h4>
+<p><code>repoquill</code> offers optional features that require additional dependencies. You can install these using the <code>extras</code> syntax.</p>
+<ul>
+<li><strong><code>dev</code></strong>: Includes development tools such as <code>pytest</code>, <code>black</code>, <code>mypy</code>, and <code>flake8</code>. Recommended for contributors.</li>
+<li><strong><code>docs</code></strong>: Includes dependencies required for building the documentation site (e.g., <code>sphinx</code>, <code>sphinx-rtd-theme</code>).</li>
+</ul>
+<p>To install with development tools:</p>
+<pre><code class="language-bash">pip install repoquill[dev]
+</code></pre>
+<p>To install with documentation tools:</p>
+<pre><code class="language-bash">pip install repoquill[docs]
+</code></pre>
+<p>To install all optional extras:</p>
+<pre><code class="language-bash">pip install repoquill[all]
+</code></pre>
+<h4 id="verifying-the-installation">Verifying the Installation</h4>
+<p>After installation, verify that <code>repoquill</code> is correctly installed by checking its version:</p>
+<pre><code class="language-bash">python -c &quot;import repoquill; print(repoquill.__version__)&quot;
+</code></pre>
+<p>You can also check the available CLI commands if <code>repoquill</code> provides a command-line interface:</p>
+<pre><code class="language-bash">repoquill --help
+</code></pre>
+<h3 id="installing-from-source">Installing from Source</h3>
+<p>Installing from source is recommended for developers who wish to contribute to <code>repoquill</code> or need to use features from the <code>main</code> branch that are not yet available in a stable release.</p>
+<h4 id="cloning-the-repository">Cloning the Repository</h4>
+<p>First, clone the <code>repoquill</code> repository from GitHub:</p>
+<pre><code class="language-bash">git clone https://github.com/your-org/repoquill.git
+cd repoquill
+</code></pre>
+<h4 id="creating-a-virtual-environment">Creating a Virtual Environment</h4>
+<p>It is best practice to create an isolated virtual environment for development:</p>
+<pre><code class="language-bash">python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+</code></pre>
+<h4 id="installing-in-editable-mode">Installing in Editable Mode</h4>
+<p>Use <code>pip</code> to install the package in editable (development) mode. This allows you to make changes to the source code and see them reflected immediately without reinstalling:</p>
+<pre><code class="language-bash">pip install -e .
+</code></pre>
+<p>To include development dependencies:</p>
+<pre><code class="language-bash">pip install -e &quot;.[dev]&quot;
+</code></pre>
+<h4 id="building-documentation">Building Documentation</h4>
+<p>If you are working on the documentation, you will need to install the documentation extras and build the site:</p>
+<pre><code class="language-bash">pip install -e &quot;.[docs]&quot;
+cd docs
+make html
+</code></pre>
+<p>The generated HTML documentation will be available in the <code>docs/_build/html</code> directory.</p>
+<h3 id="managing-dependencies">Managing Dependencies</h3>
+<p><code>repoquill</code> uses <code>setuptools</code> for package management. The primary dependency definitions are located in the <code>pyproject.toml</code> file at the root of the repository.</p>
+<h4 id="core-dependencies">Core Dependencies</h4>
+<p>The core dependencies required for <code>repoquill</code> to function are defined in the <code>[project.dependencies]</code> section of <code>pyproject.toml</code>. These are installed automatically when you run <code>pip install repoquill</code>. Typical core dependencies include:</p>
+<ul>
+<li><code>click</code>: For command-line interface functionality.</li>
+<li><code>jinja2</code>: For template rendering of documentation files.</li>
+<li><code>pyyaml</code>: For parsing YAML configuration files.</li>
+<li><code>requests</code>: For interacting with GitHub/GitLab APIs if remote metadata is fetched.</li>
+</ul>
+<h4 id="optional-dependencies">Optional Dependencies</h4>
+<p>Optional dependencies are defined under <code>[project.optional-dependencies]</code>. As mentioned earlier, these are installed using the bracket notation:</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Extra Name</th>
+<th style="text-align: left;">Description</th>
+<th style="text-align: left;">Included Packages</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>dev</code></td>
+<td style="text-align: left;">Development and testing tools</td>
+<td style="text-align: left;"><code>pytest</code>, <code>black</code>, <code>mypy</code>, <code>flake8</code>, <code>pre-commit</code></td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>docs</code></td>
+<td style="text-align: left;">Documentation building tools</td>
+<td style="text-align: left;"><code>sphinx</code>, <code>sphinx-rtd-theme</code>, <code>myst-parser</code></td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>all</code></td>
+<td style="text-align: left;">All optional dependencies</td>
+<td style="text-align: left;">Union of <code>dev</code> and <code>docs</code></td>
+</tr>
+</tbody>
+</table>
+<h4 id="pinning-versions">Pinning Versions</h4>
+<p>For production environments, it is recommended to pin specific versions of <code>repoquill</code> and its dependencies to ensure reproducibility. You can generate a <code>requirements.txt</code> file using:</p>
+<pre><code class="language-bash">pip freeze &gt; requirements.txt
+</code></pre>
+<p>Or, for a more curated list, use <code>pip-tools</code>:</p>
+<pre><code class="language-bash">pip install pip-tools
+pip-compile pyproject.toml -o requirements.txt
+</code></pre>
+<h3 id="troubleshooting">Troubleshooting</h3>
+<h4 id="permission-errors">Permission Errors</h4>
+<p>If you encounter permission errors when installing via <code>pip</code>, avoid using <code>sudo</code>. Instead, use the <code>--user</code> flag or, preferably, a virtual environment:</p>
+<pre><code class="language-bash">pip install --user repoquill
+</code></pre>
+<h4 id="conflicting-dependencies">Conflicting Dependencies</h4>
+<p>If <code>repoquill</code> conflicts with other packages in your environment, consider using a dedicated virtual environment. You can also use <code>pip check</code> to identify dependency conflicts:</p>
+<pre><code class="language-bash">pip check
+</code></pre>
+<h4 id="build-failures-from-source">Build Failures from Source</h4>
+<p>If building from source fails, ensure that you have the necessary build tools installed:</p>
+<ul>
+<li><strong>Linux</strong>: <code>build-essential</code>, <code>python3-dev</code></li>
+<li><strong>macOS</strong>: Xcode Command Line Tools (<code>xcode-select --install</code>)</li>
+<li><strong>Windows</strong>: Visual Studio Build Tools with "Desktop development with C++" workload</li>
+</ul>
+<h3 id="uninstalling">Uninstalling</h3>
+<p>To uninstall <code>repoquill</code>, use the following command:</p>
+<pre><code class="language-bash">pip uninstall repoquill
+</code></pre>
+<p>This will remove the package and its associated files from your environment.</p>
+<h3 id="next-steps">Next Steps</h3>
+<p>Now that you have installed <code>repoquill</code>, you can proceed to:</p>
+<ol>
+<li><strong>Configuration</strong>: Set up your <code>repoquill.yaml</code> configuration file.</li>
+<li><strong>Usage</strong>: Run the <code>repoquill</code> CLI to generate documentation.</li>
+<li><strong>Integration</strong>: Integrate <code>repoquill</code> into your CI/CD pipeline for automated documentation updates.</li>
+</ol>
+<p>Refer to the <strong>Configuration</strong> and <strong>Usage</strong> sections of this documentation for further details.</p>
+<h3 id="see-also">See Also</h3>
+<ul>
+<li><a href="../quickstart/">Quickstart</a></li>
+<li><a href="../key-ideas/">Key Ideas</a></li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../quickstart/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Quickstart">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                Quickstart
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../architecture/" class="md-footer__link md-footer__link--next" aria-label="Next: Architecture">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                Architecture
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.sections", "navigation.top", "navigation.footer", "content.code.copy", "search.highlight", "search.suggest", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>
