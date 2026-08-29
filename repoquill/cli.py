@@ -1587,20 +1587,20 @@ def main(argv=None) -> int:
 
     args = parser.parse_args(argv)
 
+    commands = {
+        "init": _cmd_init,
+        "plan": _cmd_plan,
+        "generate": _cmd_generate_multi,
+        "build": _cmd_build_multi,
+        "serve": _cmd_serve,
+    }
+    handler = commands.get(args.command)
+    if handler is None:
+        parser.error(f"Unknown command: {args.command}")
+        return 2
+
     try:
-        if args.command == "init":
-            return _cmd_init(args)
-        elif args.command == "plan":
-            return _cmd_plan(args)
-        elif args.command == "generate":
-            return _cmd_generate_multi(args)
-        elif args.command == "build":
-            return _cmd_build_multi(args)
-        elif args.command == "serve":
-            return _cmd_serve(args)
-        else:
-            parser.error(f"Unknown command: {args.command}")
-            return 2
+        return handler(args)
     except FileNotFoundError as e:
         print(f"error: {e}", file=sys.stderr)
         return 1
