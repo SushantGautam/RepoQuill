@@ -31,21 +31,58 @@ The 3 new findings are TRUE POSITIVES:
 not blind spots. The 0.0% headline was 100% blind to top-level imports. No generation
 change.
 
-## Next: E32 — Build Claim-Verification Checker (C-hallucination)
+## E32 Results (KEEP)
 
-**Hypothesis:** The largest unmeasured gap is C-hallucination — doc references a REAL
-symbol but asserts a FALSE fact about it. RETRO5 identified 8 CONTRADICTED semantics
-in the best-known state (e.g., `passed`/`failed` typed as bool when they're int counts,
-`summary()` returns "string" when it prints and returns None).
+**Change:** `eval/claim_verification_check.py` — NEW checker that extracts atomic
+factual claims from generated docs and validates them against the source AST.
+
+**Claim types checked:**
+1. TYPE_CLAIM — "X is a bool/int/list/dict/str" vs source annotation
+2. RETURN_CLAIM — "X() returns a list/dict/str/None" vs source return annotation
+3. ASYNC_CLAIM — "X() is async" vs source @async def
+4. FIELD_CLAIM — "result.X" where X doesn't exist on the class
+
+**Results (E27_r3):**
+
+| Metric | Value |
+|--------|-------|
+| Total claims | 16 |
+| Contradicted | 3 |
+| Supported | 9 |
+| Unverifiable | 6 |
+| **C-hallucination rate** | **18.8%** |
+
+The 3 contradicted claims:
+- `expected_behavior` claimed as `list` but actually `Optional[List[str]]` (×2 classes)
+- `failed` claimed as `bool` but actually `int`
+
+**Decision: KEEP.** New metric that measures the largest unmeasured gap (C-hallucination).
+The 18.8% rate is a significant finding — nearly 1 in 5 factual claims in the best-known
+state is contradicted by the source. No generation change.
+
+## Next: E33 — Reduce C-hallucination Rate
+
+**Hypothesis:** The 18.8% C-hallucination rate is driven by the LLM making confident
+but wrong type claims (e.g., "bool" when the field is "int", "list" when it's
+"Optional[List[str]]"). A prompt change that encourages the LLM to be more conservative
+about type claims (or to verify them against the source) could reduce the rate.
 
 **Design:**
-1. Build a claim-verification checker on `ground_truth.py` that extracts atomic claims
-   from generated docs (e.g., "X is a bool", "Y returns a list", "Z is async").
-2. Validate each claim against the source AST.
-3. Classify claims as SUPPORTED / CONTRADICTED / UNVERIFIABLE.
-4. Report the C-hallucination rate (CONTRADICTED / total_claims).
+1. Analyze the 3 contradicted claims to identify the pattern.
+2. Test hypothesis: is the LLM confident but wrong, or is it hedging?
+3. If confident but wrong: add a prompt rule that encourages the LLM to be more
+   conservative about type claims (e.g., "If you're not sure about the type, say
+   'a value' instead of 'a bool'").
+4. If hedging: the prompt is already conservative; the issue is elsewhere.
+5. Generate 3 new runs with the prompt change.
+6. Measure C-hallucination rate.
+7. Compare against E27+E28+E30+E31 baseline (18.8% C-hallucination).
 
-**Baseline for comparison:** E27+E28+E30+E31 (55.1% coverage, 0.7% broken, 5 prose, 0.7% halluc).
+**Decision criteria:**
+- If C-hallucination rate drops by ≥5pp: KEEP (generation improvement).
+- If C-hallucination rate is unchanged or worse: REVERT.
+
+**Baseline for comparison:** E27+E28+E30+E31+E32 (55.1% coverage, 0.7% broken, 5 prose, 0.7% halluc, 18.8% C-halluc).
 
 ## E30 Results (KEEP)
 
