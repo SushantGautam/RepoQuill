@@ -524,7 +524,7 @@ def _workflow_on_block(trigger: str, branch: str = "main") -> str:
 _CONFIG_TEMPLATE = """\
 # RepoQuill configuration
 # Docs: https://github.com/SushantGautam/RepoQuill#config
-# Edit .github/workflows/docs.yml for CI/CD configuration
+# Edit your .github/workflows/docs.yml for CI/CD configuration
 
 project_name: {project_name}
 package_dir: {package_dir}
@@ -861,7 +861,7 @@ def _cmd_init(args) -> int:
                 config_content = (
                     f"# RepoQuill configuration\n"
                     f"# Docs: https://github.com/SushantGautam/RepoQuill#config\n"
-                    f"# Edit .github/workflows/docs.yml for CI/CD configuration\n"
+                    f"# Edit your .github/workflows/docs.yml for CI/CD configuration\n"
                     f"\n"
                     f"project_name: {project_name}\n"
                     f"package_dir: {package_dir}\n"
