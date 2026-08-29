@@ -524,8 +524,31 @@ def build_mkdocs_yml(cfg, nav: List) -> None:
         if key in theme_cfg:
             theme_block[key] = theme_cfg[key]
 
-    # Build plugins block (inject paths into mkdocstrings if present)
+    # Build plugins block (inject paths into mkdocstrings if present).
+    # Reference pages are emitted as mkdocstrings directives, so the
+    # plugin MUST be present for the site to render them — if the config
+    # doesn't declare one, we insert a working default rather than
+    # silently producing literal ":::" text on every reference page.
     plugins = []
+    has_mkdocstrings = any(
+        isinstance(p, dict) and "mkdocstrings" in p for p in cfg.plugins
+    )
+    if not has_mkdocstrings:
+        plugins.append({"search": None})
+        plugins.append({
+            "mkdocstrings": {
+                "handlers": {
+                    "python": {
+                        "paths": [cfg.root],
+                        "options": {
+                            "docstring_style": "google",
+                            "show_root_heading": False,
+                            "show_submodules": False,
+                        },
+                    }
+                }
+            }
+        })
     for p in cfg.plugins:
         if isinstance(p, dict) and "mkdocstrings" in p:
             mk = dict(p["mkdocstrings"])
@@ -538,6 +561,15 @@ def build_mkdocs_yml(cfg, nav: List) -> None:
             plugins.append({"mkdocstrings": mk})
         else:
             plugins.append(p)
+
+    # Markdown extensions: reference pages and generated guides rely on
+    # standard extensions; provide a working default set when absent.
+    md_exts = list(cfg.markdown_extensions) or [
+        "admonition",
+        "attr_list",
+        "tables",
+        "toc",
+    ]
 
     # Optional site fields
     extra_site_lines = []
@@ -563,16 +595,23 @@ def build_mkdocs_yml(cfg, nav: List) -> None:
     extra_site_block = "\n".join(extra_site_lines) + "\n" if extra_site_lines else ""
 
     build_cfg = cfg.build
-    # When output_dir is used (same-repo integration), mkdocs.yml lives
-    # inside site_src/ and docs_dir is "." (content is co-located).
+    # When output_dir is used (same-repo integration), mkdocs.yml is written
+    # to the PARENT of site_src/ and docs_dir points at the output dir.
+    # (mkdocs rejects docs_dir == the config file's own directory, so the
+    # config must live one level above the content.)
     # Otherwise, mkdocs.yml is in config_dir/ and docs_dir points to site_src/.
     if cfg.raw.get("output_dir"):
-        docs_dir = "."
-        mkdocs_path = os.path.join(cfg.site_src, "mkdocs.yml")
+        docs_dir = os.path.basename(cfg.site_src)
+        mkdocs_path = os.path.join(os.path.dirname(cfg.site_src), "mkdocs.yml")
     else:
         docs_dir = build_cfg.get("docs_dir", "docs")
         mkdocs_path = os.path.join(cfg.config_dir, "mkdocs.yml")
     site_dir = build_cfg.get("site_dir", "site_repoquill")
+    # With output_dir, a relative site_dir would land INSIDE docs_dir,
+    # which mkdocs rejects. Place the build output as a sibling of the
+    # output dir instead.
+    if cfg.raw.get("output_dir") and not os.path.isabs(site_dir):
+        site_dir = os.path.join(os.path.dirname(cfg.site_src), site_dir)
     use_directory_urls = build_cfg.get("use_directory_urls", True)
 
     content = f'''# MkDocs configuration for {cfg.site_name}
@@ -596,7 +635,7 @@ plugins:
 {_yaml_dump_block(plugins, indent=1)}
 
 markdown_extensions:
-{_yaml_dump_block(cfg.markdown_extensions, indent=1)}
+{_yaml_dump_block(md_exts, indent=1)}
 
 nav:
 {nav_yaml}

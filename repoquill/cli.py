@@ -106,7 +106,10 @@ def _mkdocs_cwd(cfg) -> str:
     site_src/. Otherwise it's in config_dir/.
     """
     if cfg.raw.get("output_dir"):
-        return cfg.site_src
+        # mkdocs.yml is written to the PARENT of site_src (mkdocs rejects
+        # docs_dir == the config file's own directory), so run mkdocs from
+        # there with docs_dir pointing at the output dir.
+        return os.path.dirname(cfg.site_src)
     return cfg.config_dir
 
 
@@ -137,6 +140,10 @@ def _run_mkdocs_build(cfg, skill_content: str | None = None) -> None:
         cwd=_mkdocs_cwd(cfg), check=True,
     )
     site_dir = cfg.build.get("site_dir", "site_repoquill")
+    # With output_dir, build_mkdocs_yml rewrites a relative site_dir to a
+    # sibling of the output dir (a relative path would land inside docs_dir).
+    if cfg.raw.get("output_dir") and not os.path.isabs(site_dir):
+        site_dir = os.path.join(os.path.dirname(cfg.site_src), site_dir)
     site_path = os.path.join(_mkdocs_cwd(cfg), site_dir)
 
     # Write SKILL.md as a raw plain-text file into the site output.
@@ -1525,6 +1532,16 @@ def _cmd_generate(args) -> int:
         stale = cleanup_stale_pages({p["slug"] for p in pages}, cfg.out_guides)
         if stale:
             print(f"  Removed {len(stale)} stale pages: {', '.join(stale)}")
+
+        # Post-generation verification (hallucination check + LLM fix passes)
+        verify_passes = getattr(cfg.llm, "verify_passes", 0)
+        if verify_passes > 0:
+            from repoquill.verify import verify_pages
+            print(f"  Verifying pages ({verify_passes} fix pass(es))...")
+            vsummary = verify_pages(cfg, client)
+            print(f"  verify: {vsummary['findings_before']} findings before, "
+                  f"{vsummary['findings_after']} after "
+                  f"({vsummary['pages_fixed']} pages fixed)")
 
         store_plan(cfg.plan_file, pages, new_hashes)
 
