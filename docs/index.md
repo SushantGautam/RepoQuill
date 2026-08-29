@@ -1,11 +1,11 @@
 # repoquill
 
-Documentation for repoquill
+A two-layer developer-docs generator that produces accurate API references via static analysis and narrative guides via LLM, packaged as a searchable MkDocs Material site.
 
 ## Quick Start
 
 ```bash
-pip install repoquill
+uvx repoquill init
 ```
 
 ## Guides
