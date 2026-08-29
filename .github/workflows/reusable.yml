@@ -63,18 +63,6 @@ on:
         required: false
         default: "site"
         type: string
-      # Optional: check out a separate source repo (for docs-only repos where
-      # the package source lives in a different repository).
-      source_repo:
-        description: "Source repo to check out (e.g. owner/repo). Empty = use the calling repo."
-        required: false
-        default: ""
-        type: string
-      source_ref:
-        description: "Branch/tag/commit of the source repo. Empty = default branch."
-        required: false
-        default: ""
-        type: string
     secrets:
       LLM_API_KEY:
         description: "LLM API key (wired into the env var named by api_key_env)"
@@ -94,12 +82,22 @@ jobs:
           ref: main
           path: _repoquill
 
+      - name: Read source repo from config
+        id: src
+        run: |
+          CFG="${{ inputs.config }}"
+          [ -f "$CFG" ] || CFG="repoquill.yml"
+          SRC_REPO=$(grep -E '^source_repo:' "$CFG" | sed 's/^source_repo:[[:space:]]*//' | tr -d '"' || true)
+          SRC_REF=$(grep -E '^source_ref:' "$CFG" | sed 's/^source_ref:[[:space:]]*//' | tr -d '"' || true)
+          echo "repo=${SRC_REPO}" >> "$GITHUB_OUTPUT"
+          echo "ref=${SRC_REF}" >> "$GITHUB_OUTPUT"
+
       - name: Checkout source repo
-        if: inputs.source_repo != ''
+        if: steps.src.outputs.repo != ''
         uses: actions/checkout@v4
         with:
-          repository: ${{ inputs.source_repo }}
-          ref: ${{ inputs.source_ref }}
+          repository: ${{ steps.src.outputs.repo }}
+          ref: ${{ steps.src.outputs.ref || 'main' }}
           path: source
 
       - name: Set up Python
@@ -118,12 +116,9 @@ jobs:
 
       - name: Generate docs
         env:
-          # Expose the secret under the env var name the LLM client expects.
           LLM_API_KEY: ${{ secrets[inputs.api_key_secret] }}
-          # Point RepoQuill at the checked-out source repo (docs-only repos).
-          SOURCE_ROOT: ${{ inputs.source_repo != '' && format('{0}/source', github.workspace) || '' }}
+          SOURCE_ROOT: ${{ steps.src.outputs.repo != '' && format('{0}/source', github.workspace) || '' }}
         run: |
-          # Wire the secret into the env var named in repoquill.yml.
           export ${{ inputs.api_key_env }}="${LLM_API_KEY}"
           NO_LLM_FLAG=""
           if [ "${{ inputs.no_llm }}" = "true" ]; then

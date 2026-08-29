@@ -45,6 +45,10 @@ class RepoQuillConfig:
     package_dir: str = ""
     root: str = ""
 
+    # Source repo (for docs-only repos where source lives elsewhere)
+    source_repo: str = ""
+    source_ref: str = ""
+
     # LLM
     llm: LLMConfig = field(default_factory=LLMConfig)
 
@@ -147,6 +151,8 @@ def load_config(config_path: Optional[str] = None) -> RepoQuillConfig:
         project_name=cfg_dict.get("project_name", "Project"),
         package_dir=cfg_dict.get("package_dir", ""),
         root=root,
+        source_repo=cfg_dict.get("source_repo", "") or "",
+        source_ref=cfg_dict.get("source_ref", "") or "",
         llm=llm,
         site=cfg_dict.get("site", {}) or {},
         narrative_sections=cfg_dict.get("narrative_sections", []) or [],
