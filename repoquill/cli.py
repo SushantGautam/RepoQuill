@@ -481,16 +481,16 @@ def _workflow_on_block(trigger: str, branch: str = "main") -> str:
             f"    branches: [{branch}]\n"
             "  workflow_dispatch:\n"
         )
-    # manual (default): dormant — only runs when triggered from the UI
+    # manual (default): only runs when triggered from the Actions UI
     return (
         "on:\n"
-        "  # Auto-run disabled. To enable, uncomment one of:\n"
+        "  workflow_dispatch:\n"
+        "  # To auto-run on push, uncomment one of:\n"
         "  #   push:\n"
         "  #     branches: [main]\n"
         "  #   push:            # all branches\n"
         "  #   push:\n"
         "  #     tags: ['v*']   # on release\n"
-        "  workflow_dispatch:\n"
     )
 
 _CONFIG_TEMPLATE = """\
