@@ -1,6 +1,6 @@
 # BEST_KNOWN
 
-**Last updated:** 2026-08-29 (after E49b: auto-populate module descriptions from docstrings — fixes empty '— ' after module links. E49: auto-detect package_dir + deterministic API Reference fallback. E47: deterministic type-annotation verification eliminates C-hallucination)
+**Last updated:** 2026-08-29 (after E50: GitHub source permalinks — mkdocstrings "Source code in" labels render as clickable links to exact line ranges on GitHub/GitLab. E49b: auto-populate module descriptions from docstrings. E49: auto-detect package_dir + deterministic API Reference fallback. E47: deterministic type-annotation verification eliminates C-hallucination)
 
 ## Best-Known State
 
@@ -151,6 +151,17 @@ enrichment, before site assembly. 2-run validation: C-hallucination 0% in BOTH r
 coverage 70.9% median (63.1%/78.8%), S-hallucination 0.5% median (r1: 1 real —
 `from simpleaudit.visualization import server`, no __init__.py; r2: 0), broken
 2.4% median, prose 2 median (improved from E41's 7). **KEEP.**
+
+**E50 (GitHub source permalinks):** `repoquill/source_link.py` — patches the
+mkdocstrings-python `source_location` Jinja filter at runtime so that when a parsed
+object has a Griffe `source_link` property (computed from git remote URL + commit
+hash), the "Source code in" label renders as a clickable hyperlink to the exact
+line range on GitHub/GitLab/etc. The patch is installed in-process via `run_mkdocs()`
+which calls the mkdocs Click CLI directly (not subprocess), so the patch is active
+when the handler initialises its Jinja environment. `show_source: True` is enabled
+in both the default and config-provided mkdocstrings options blocks in site.py.
+Verified: 16 source links on the main package reference page, 1 on the CLI page.
+Committed `fbd308c`. **KEEP.**
 
 **Lesson learned:** `repoquill/verify.py` already existed with a `verify_pages()`
 function (LLM-based hallucination fix pass, 314 lines) imported at cli.py:1539.

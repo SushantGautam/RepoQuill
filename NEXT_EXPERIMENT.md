@@ -1,13 +1,12 @@
 # NEXT_EXPERIMENT
 
-## E50: Deterministic import-path verification pass
+## E51: Deterministic import-path verification pass
 
 **Status:** DESIGNED, NOT STARTED
 
 ### Context
 
-E49 (KEEP) fixed the empty API Reference section by auto-detecting package_dir
-and adding a deterministic fallback in `_reference_sections`. The remaining
+E50 (KEEP) added GitHub source permalinks to the rendered MkDocs site. The remaining
 quality gap is S-hallucination: the LLM invents import paths for symbols that
 exist in submodules but are not re-exported at the root level.
 
