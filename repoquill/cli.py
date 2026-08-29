@@ -349,6 +349,40 @@ def _prompt_text(prompt: str, default: str) -> str:
     return raw or default
 
 
+def _prompt_model(provider: str, catalog: dict, default: str) -> str:
+    """Interactive model picker.
+
+    Shows a short numbered list of the provider's top models (default first)
+    so that typing "1" selects the default. Any other input is treated as a
+    literal model name, so custom / self-hosted models still work.
+    """
+    models = catalog.get(provider, {}).get("models", [])
+    # Build a short, ordered list: default first, then a few others.
+    shown: list = []
+    if default:
+        shown.append(default)
+    for m in models:
+        if m != default and len(shown) < 5:
+            shown.append(m)
+    if not shown:
+        # No catalog data (e.g. local provider) — plain text prompt.
+        return _prompt_text("Model", default)
+    print("  Model:")
+    for i, m in enumerate(shown, 1):
+        marker = " (default)" if m == default else ""
+        print(f"    {i}. {m}{marker}")
+    try:
+        raw = input(f"  Select [1-{len(shown)}] or type a model name (default: {default}): ").strip()
+    except (EOFError, KeyboardInterrupt):
+        return default
+    if not raw:
+        return default
+    if raw.isdigit() and 1 <= int(raw) <= len(shown):
+        return shown[int(raw) - 1]
+    # Free-text: a custom model name.
+    return raw
+
+
 def _check_repo_accessible(repo_name: str) -> bool:
     """Check if a GitHub repo is accessible (public or authenticated).
 
@@ -1216,7 +1250,7 @@ def _capture_llm_config(args):
     if getattr(args, "model", None):
         model = args.model
     elif sys.stdin.isatty():
-        model = _prompt_text("Model", default_model)
+        model = _prompt_model(provider, catalog, default_model)
     else:
         model = default_model
 
