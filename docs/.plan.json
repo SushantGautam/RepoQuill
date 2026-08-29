@@ -78,7 +78,7 @@
     "repoquill/llm.py": "2a7af1558b532fc1303eb6cae9a99cf8f40c2958d337ba085d03bffc37ac6573",
     "repoquill/narrative.py": "48224793cf8f467f5de3f5ebd4aa33b3a042e3e57b39b8e7ed44dce8d74618d4",
     "repoquill/reference.py": "dc002a3344dfabc2657ac81906e20eafa59de75c4ac5ed0d52cfa415da370c32",
-    "repoquill/config.py": "cec06267974924086a74e815a7f5c31371de100855395e5868f34c377387cb31",
+    "repoquill/config.py": "18a8ef532dd67274b7a7287df6c07d9613d0ad1babd5bae77e797698f1122e2d",
     "repoquill/cli.py": "d0ba8d344c9feb38e28fc948917b9a815afff47ac879b85dc84a8487f47b783a",
     "README.md": "4110d20b799a02099bd25656edac92810e16f41ec1f71240b677c7bb653e0f62",
     "pyproject.toml": "4974ac8aa346e6d0e178b69001f110c3c69774b4d8a329a8ca6185c4dcd477a4"
