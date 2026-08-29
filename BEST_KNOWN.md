@@ -1,6 +1,6 @@
 # BEST_KNOWN
 
-**Last updated:** 2026-08-29 (after E49: auto-detect package_dir + deterministic API Reference fallback — fixes empty API Reference section. E47: deterministic type-annotation verification eliminates C-hallucination)
+**Last updated:** 2026-08-29 (after E49b: auto-populate module descriptions from docstrings — fixes empty '— ' after module links. E49: auto-detect package_dir + deterministic API Reference fallback. E47: deterministic type-annotation verification eliminates C-hallucination)
 
 ## Best-Known State
 
