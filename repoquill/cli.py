@@ -524,6 +524,7 @@ def _workflow_on_block(trigger: str, branch: str = "main") -> str:
 _CONFIG_TEMPLATE = """\
 # RepoQuill configuration
 # Docs: https://github.com/SushantGautam/RepoQuill#config
+# Edit .github/workflows/docs.yml for CI/CD configuration
 
 project_name: {project_name}
 package_dir: {package_dir}
@@ -860,6 +861,7 @@ def _cmd_init(args) -> int:
                 config_content = (
                     f"# RepoQuill configuration\n"
                     f"# Docs: https://github.com/SushantGautam/RepoQuill#config\n"
+                    f"# Edit .github/workflows/docs.yml for CI/CD configuration\n"
                     f"\n"
                     f"project_name: {project_name}\n"
                     f"package_dir: {package_dir}\n"
@@ -912,9 +914,8 @@ def _cmd_init(args) -> int:
                 print()
                 print("Next steps:")
                 print("  1. Edit repoquill.yml — set site.url, narrative_sections, etc.")
-                print("  2. Edit .github/workflows/docs.yml — configure triggers, secrets, etc.")
-                print("  3. Run: repoquill build")
-                print("  4. Local preview: repoquill serve")
+                print("  2. Run: repoquill build")
+                print("  3. Local preview: repoquill serve")
                 return 0
 
     # --- Fresh init (no existing config, or user chose reset) ---
@@ -1061,18 +1062,17 @@ def _cmd_init(args) -> int:
     print()
     print("Next steps:")
     print("  1. Edit repoquill.yml — set site.url, narrative_sections, etc.")
-    print("  2. Edit .github/workflows/docs.yml — configure triggers, secrets, etc.")
 
     # Auth setup (path A: local, path B: GitHub Actions)
     if provider in _OAUTH_PROVIDERS:
-        print("  3. Log in once (device-code flow) — happens automatically on the")
+        print("  2. Log in once (device-code flow) — happens automatically on the")
         print("     first `repoquill generate`. No API key needed.")
     elif provider in _LOCAL_PROVIDERS:
-        print(f"  3. Make sure your local model server is running ({provider}).")
+        print(f"  2. Make sure your local model server is running ({provider}).")
     else:
         local_key = os.environ.get(api_key_env, "")
         if local_key and shutil.which("gh") and sys.stdin.isatty():
-            print("  3. Your local " + api_key_env + " is set.")
+            print("  2. Your local " + api_key_env + " is set.")
             answer = input(
                 "     Set the LLM_API_KEY GitHub secret now (via gh)? [y/N] "
             ).strip().lower()
@@ -1094,23 +1094,23 @@ def _cmd_init(args) -> int:
                 print("     Set it later: Settings → Secrets → Actions")
                 print("       → New repository secret → Name: LLM_API_KEY")
         else:
-            print("  3. Set your LLM API key:")
+            print("  2. Set your LLM API key:")
             print("     • Local:  export " + api_key_env + "=sk-...")
             print("     • GitHub Actions: Settings → Secrets → New repository secret")
             print("       Name: LLM_API_KEY   Value: sk-...")
 
     # Trigger / deploy
     if trigger == "manual":
-        print("  4. Build locally:  repoquill build   (or `repoquill serve` to preview)")
+        print("  3. Build locally:  repoquill build   (or `repoquill serve` to preview)")
         print("     Or run the workflow from the Actions UI (it's set to manual).")
     elif trigger == "push_main":
-        print("  4. Push to main — docs build + deploy to GitHub Pages automatically.")
+        print("  3. Push to main — docs build + deploy to GitHub Pages automatically.")
     elif trigger == "push_all":
-        print("  4. Push to any branch / open a PR — docs build automatically.")
+        print("  3. Push to any branch / open a PR — docs build automatically.")
     else:  # release
-        print("  4. Tag a release (v*) — docs build + deploy automatically.")
+        print("  3. Tag a release (v*) — docs build + deploy automatically.")
 
-    print("  5. Local preview anytime:  repoquill serve")
+    print("  4. Local preview anytime:  repoquill serve")
     return 0
 
 
