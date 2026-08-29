@@ -944,8 +944,10 @@ def _cmd_init(args) -> int:
                     on_block = _workflow_on_block(trigger)
                     # Replace the on: block (from "on:" to the next top-level key)
                     import re
-                    pattern = r'^on:\n(?:  .*\n|  #.*\n)*'
-                    wf_content = re.sub(pattern, f'on:\n{on_block}', wf_content, flags=re.MULTILINE)
+                    # Match "on:" followed by indented lines (2 spaces) or comments
+                    pattern = r'^on:\n((?:  .*\n|  #.*\n)*)'
+                    # on_block already includes "on:\n", so just use it directly
+                    wf_content = re.sub(pattern, on_block, wf_content, flags=re.MULTILINE)
                     with open(wf_path, "w", encoding="utf-8") as f:
                         f.write(wf_content)
                     print(f"  updated {wf_path} (trigger: {current_trigger} → {trigger})")
