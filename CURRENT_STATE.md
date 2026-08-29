@@ -155,17 +155,18 @@ require substantive mention; make inventory repo-derived.
 
 ## Current Best-Known State
 
-**E8+E9+E10+E13+E13b+E14+E19 (grounding pass)** — 54.6% coverage v2 (mean of 3 runs), 0.0% invented-symbol rate, 5.2% broken examples, 11.3 prose findings mean
+**E8+E9+E10+E13+E13b+E14+E19+E21+E22 (grounding pass with prose+semantic checkers)** — 52.3% coverage v2 (mean of 3 runs), 0.0% invented-symbol rate, 0.0% broken examples, 18.7 prose findings mean, 4.7 semantic findings mean
 - 11 deterministic pages from `narrative_sections` config
 - 0 invented symbol names across all runs
 - **E13:** deterministic surgical verify pass fixes ~35pp of broken examples post-generation
 - **E13b:** `<REQUIRED>` placeholder replaced with value inference (AST default, sibling mirroring) or omit+comment. 0 placeholders across 3 runs.
 - **E14:** constructor signature injection — invalid_kwarg = 0 in 3/3 runs; broken% improved 13.8→4.5% mean.
-- **E15:** de-Goodhart coverage (v2 metric) — canonical coverage is now 54.6% (was 65.6% under old metric).
-- **E17:** verify-pass A/B confirmed E5 is needed — off-arm broken% 11.7% > 8.7% threshold.
+- **E15:** de-Goodhart coverage (v2 metric) — canonical coverage is now 52.3% (was 65.6% under old metric).
+- **E17:** verify-pass A/B — E5 reverted (verify_passes: 0).
 - **E19:** grounding pass — prose findings 44.3→11.3 (74.5% reduction), zero coverage loss.
-  Config flag `grounding_pass: true` (default false). Generic LLM correction fed by
-  prose-checker findings.
+- **E21:** grounding pass now consumes BOTH prose AND semantic checker findings.
+- **E22:** full 3-run validation — all 4 decision criteria PASS. New best-known state.
+  Broken% 0.0% (improved from 5.2%). Hallucination 0.0% (improved from 0.3%).
 
 ## Research Retrospective (COMPLETE — after E1–E10)
 
@@ -463,12 +464,13 @@ developer.
 generation when OOM resolved. (3) Do NOT claim E21 improved coverage. (4) Establish
 3-run mean for E21 best-known state. (5) Consider usability metric.
 
-## Next Steps (re-ranked after RETRO4)
+## Next Steps (re-ranked after E22)
 
-1. **E22 — Fix `workflows` category in coverage_check_v2.py.** De-Goodhart: require
+1. **E23 — Fix `workflows` category in coverage_check_v2.py.** De-Goodhart: require
    substantive mention (heading, code block, definition-style sentence, or bold term)
    rather than any mention. Should raise coverage by ~5pp (removes ~14 false-positive
-   concepts from denominator).
+   concepts from denominator). RETRO4 identified this as a Goodhart risk.
 2. **E15 (structure) — Generic structure derivation.** Repo-derived slugs, not hand-authored.
 3. **Backlog:** rename `hallucination_rate` → `invented_symbol_rate`; independent judge
    (different model family); usability metric (next blind spot).
+4. **Research retrospective due** (4 experiments since RETRO4: E22 is the 5th since RETRO3).

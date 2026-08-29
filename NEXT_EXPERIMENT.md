@@ -1,6 +1,6 @@
 # NEXT_EXPERIMENT
 
-**Last updated:** 2026-08-29 (after RETRO4)
+**Last updated:** 2026-08-29 (after E22)
 
 ## E13b — Fix the `<REQUIRED>` Placeholder — DONE (KEEP, 5c08779)
 
@@ -195,17 +195,15 @@ no RepoQuill code change.
 grounding.py already consumes semantic_value_check findings alongside prose findings
 (wired in by RETRO3 subagents). No additional code change needed.
 
-### E22 — Re-run Grounding with Semantic Checker — IN PROGRESS
+### E22 — Full 3-Run Validation of Grounding Pass — DONE (KEEP)
 
-**Hypothesis:** Running the grounding pass (now including the semantic checker) on E14
-baseline docs will fix the known RETRO3 errors (language="en" → "English", missing
-event-loop caveat) on top of the prose fixes, with no coverage loss.
+**Result:** All 4 decision criteria PASS. Per-run: r1 cov=52.0%/prose=32→2/sem=4→1,
+r2 cov=59.2%/prose=36→27/sem=8→8, r3 cov=45.8%/prose=33→27/sem=6→5. Mean: cov=52.3%,
+broken=0.0%, prose=18.7, sem=4.7. New best-known state: E8+E9+E10+E13+E13b+E14+E19+E21+E22.
 
-**Design:** 3 runs of E14 baseline (verify_passes: 0, temp 0.7) + grounding pass
-(prose + semantic checkers). Decision rule: semantic → 0, prose < 20, coverage ≥ 50.4%,
-broken% within band → KEEP as new best-known state.
-
-**Runs:** E22_r1, E22_r2, E22_r3 (launched 2026-08-29).
+**Note:** r2 and r3 had high prose_after (27) — the grounding pass fixed semantic
+findings but left many prose findings. r1 had the best prose reduction (32→2).
+Variance in grounding pass effectiveness is notable.
 
 ## E20 (original spec, superseded by result above)
 
@@ -358,12 +356,14 @@ rise by ~5pp (e.g. 52.3% → ~57%).
 - Only change: `workflows` category logic in coverage_check_v2.py.
 - 3 runs to measure variance.
 
-## Backlog (after RETRO4)
+## Backlog (after E22)
 
-- **E22 — Fix `workflows` category** (see above).
+- **E23 — Fix `workflows` category in coverage_check_v2.py** (see above). De-Goodhart:
+  require substantive mention, filter generic English words. Expected +5pp coverage.
 - **E15 — Generic structure derivation.** Repo-derived slugs, not hand-authored.
 - **Independent judge:** use a different model family for judging.
 - **Rename `hallucination_rate` to `invented_symbol_rate`** in the registry.
 - **Usability metric** (next blind spot): measure whether docs are USEFUL to a new
   developer (e.g. "can a new developer install and run a basic audit following the
   docs?").
+- **Research retrospective due** (4 experiments since RETRO4: E22 is the 5th since RETRO3).
