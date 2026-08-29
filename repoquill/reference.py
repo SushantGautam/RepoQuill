@@ -741,14 +741,28 @@ def extract_api_surface(pkg_path: str, max_chars: int = 12000) -> str:
             for node in tree.body:
                 if isinstance(node, ast.ClassDef):
                     methods = []
+                    properties = []
                     for item in node.body:
                         if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)):
                             if not item.name.startswith("_"):
-                                args = [a.arg for a in item.args.args]
-                                if args and args[0] in ("self", "cls"):
-                                    args = args[1:]
-                                methods.append(f"{item.name}({', '.join(args)})")
-                    classes[f"{mod}.{node.name}"] = methods
+                                # E27: detect @property (and @cached_property)
+                                # decorators so the LLM uses them as
+                                # attributes, not methods.
+                                is_prop = any(
+                                    (isinstance(d, ast.Name) and d.id in
+                                     ("property", "cached_property")) or
+                                    (isinstance(d, ast.Attribute) and d.attr in
+                                     ("property", "cached_property"))
+                                    for d in item.decorator_list
+                                )
+                                if is_prop:
+                                    properties.append(item.name)
+                                else:
+                                    args = [a.arg for a in item.args.args]
+                                    if args and args[0] in ("self", "cls"):
+                                        args = args[1:]
+                                    methods.append(f"{item.name}({', '.join(args)})")
+                    classes[f"{mod}.{node.name}"] = (methods, properties)
                 elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                     if not node.name.startswith("_"):
                         args = [a.arg for a in node.args.args]
@@ -767,9 +781,11 @@ def extract_api_surface(pkg_path: str, max_chars: int = 12000) -> str:
 
     lines = []
     if classes:
-        lines.append("CLASSES (name -> public methods):")
-        for cname, methods in sorted(classes.items()):
+        lines.append("CLASSES (name -> public methods; PROPERTIES are attributes, not methods):")
+        for cname, (methods, props) in sorted(classes.items()):
             m = ", ".join(methods) if methods else "(no public methods)"
+            if props:
+                m += f"  [PROPERTIES: {', '.join(props)}]"
             lines.append(f"  {cname}: {m}")
     if functions:
         lines.append("FUNCTIONS:")

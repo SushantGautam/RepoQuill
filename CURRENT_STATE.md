@@ -1,8 +1,8 @@
 # CURRENT_STATE
 
-**Last updated:** 2026-08-29 (after E15 REVERT)
-**Best-known state:** E8+E9+E10+E13+E13b+E14+E19+E23 (grounding pass with prose checker only + de-Goodhart coverage) — 54.6% coverage v2 (mean of 3 runs, after E23 de-Goodhart fix), 0.0% invented-symbol rate, 5.2% broken examples, 11.3 prose findings mean
-**Experiments complete:** E1–E23 + RETRO2 + RETRO3 + RETRO4 + E15. E22 (full 3-run validation of grounding pass with prose+semantic checkers): REVERT — coverage 52.3% (E19: 54.6%, -2.3pp), prose 18.7 (E19: 11.3, +7.4 worse), semantic 4.7 (new metric). The combined grounding pass is LESS effective than the prose-only grounding pass from E19. E23 (de-Goodhart workflows category): KEEP — removed 18 generic English words from workflows inventory, coverage 52.3%→54.4% (+2.1pp). E15 (LLM-planned structure): REVERT — coverage 38.5% (E19: 54.6%, -15.9pp), well outside band. Hand-authored structure provides real value.
+**Last updated:** 2026-08-29 (E27 KEEP)
+**Best-known state:** E8+E9+E10+E13+E13b+E14+E19+E23+E27 (grounding pass with prose checker only + de-Goodhart coverage + @property detection) — 55.1% coverage v2 (mean of 3 runs), 0.0% invented-symbol rate, 3.5% broken examples, 13.3 prose findings mean
+**Experiments complete:** E1–E26 + RETRO2 + RETRO3 + RETRO4 + E15. E22 (full 3-run validation of grounding pass with prose+semantic checkers): REVERT. E23 (de-Goodhart workflows category): KEEP. E15 (LLM-planned structure): REVERT. E24 (grounding pass variance): REVERT. E25 (fix example checker to exclude signature snippets): REVERT — checker fix is correct but E25's broken% (13.5%) is worse than E19 (4.2%) with same fixed checker. E26 (E19 config WITHOUT grounding pass): INFORMATIVE — broken% 15.2% WORSE than E19 (4.2%) and E25 (13.5%), proving grounding pass is NOT the cause of broken-example regression. Root cause identified: extract_api_surface() lists @property attributes as methods, so LLM calls them as methods.
 **E13 (surgical verify pass):** deterministic post-generation edit step. Property-call fix is genuine. Committed (18f365d).
 **E13b (placeholder fix):** replaced `<REQUIRED>` sentinel with value inference (AST default, sibling mirroring) or omit+comment. 0 placeholders across 3 runs. Broken% now honest (13.8% mean). Committed (5c08779).
 **RETRO2 key findings:**
@@ -489,18 +489,168 @@ developer.
 generation when OOM resolved. (3) Do NOT claim E21 improved coverage. (4) Establish
 3-run mean for E21 best-known state. (5) Consider usability metric.
 
-## Next Steps (re-ranked after E22 REVERT)
+## E24 — Grounding Pass Variance (REVERT)
 
-1. **E24 — Investigate grounding pass variance.** Why does r1 get thorough correction
-   (prose 32→2, semantic 4→1) while r2/r3 don't (prose 36→27, 33→27)? Possible causes:
-   (a) LLM temperature 0.1 is still too high for consistent correction; (b) the prompt
-   is too long when many findings are sent; (c) the LLM's attention degrades with more
-   findings. Try: lower temperature to 0.0, cap findings per page at 5, or split
-   findings into multiple LLM calls.
-2. **E15 (structure) — Generic structure derivation.** Repo-derived slugs, not hand-authored.
-   The 11 narrative slugs are hand-authored for SimpleAudit. A generic system should derive
-   page structure from the repository itself.
-3. **Backlog:** rename `hallucination_rate` → `invented_symbol_rate`; independent judge
+**Status:** COMPLETE — 12 runs (4 variants × 3 runs). No variant beats E19.
+
+| Variant | Temp | Max | Cov% | Broken% | Prose | Sem | Halluc% |
+|---------|------|-----|------|---------|-------|-----|---------|
+| A | 0.1 | 20 | 52.5 | 9.1 | 2.3 | 10.3 | 0.00 |
+| B | 0.0 | 20 | 55.1 | 13.9 | 1.3 | 8.3 | 0.00 |
+| C | 0.1 | 5 | 52.9 | 9.1 | 21.7 | 7.7 | 0.00 |
+| D | 0.0 | 5 | 51.4 | 4.9 | 22.7 | 6.0 | 0.00 |
+| **E19** | **0.1** | **20** | **54.6** | **5.2** | **11.3** | — | **0.3** |
+
+**Decision: REVERT.** No variant beats E19 on all metrics simultaneously.
+- B (temp 0.0) has the best prose (1.3) and coverage (55.1%) but broken 13.9% (E19: 5.2%)
+- C/D (max 5) have terrible prose (21.7/22.7) — limiting findings makes the LLM fix fewer issues
+- A (same config as E19) has broken 9.1% vs E19's 5.2% — this is base-generation variance
+
+**Key insight:** The broken-example regression is NOT caused by grounding pass parameters.
+The dominant failure mode is **syntax_error** from API signature snippets (e.g.
+`ModelAuditor(model: str, provider: str, ...)` in code blocks). These are a legitimate
+documentation pattern, not actually broken examples. This is a **Goodharting concern**:
+the metric counts signature snippets as "broken" when they're not really broken.
+
+**Code changes (KEEP):** Added `grounding_temperature`, `grounding_max_findings`, and
+`grounding_semantic` to LLMConfig. `run_grounding_pass()` now accepts `temperature`
+and `include_semantic` parameters. CLI passes these from config. These config options
+are useful for future experiments even though E24's specific variants didn't beat E19.
+
+## E25 — Fix Example Checker to Exclude Signature Snippets (REVERT)
+
+**Status:** COMPLETE — REVERT.
+
+**Implementation:** Added `_is_signature_block()` to `eval/example_check.py` that detects
+API signature snippets (blocks that fail to parse, start with `Name(` or `Name.Name(`,
+contain type annotations, and don't have assignment statements).
+
+**Pre-validation (on existing E19 docs):**
+- E19_r1: 0.0% broken (was 4.0%)
+- E19_r2: 10.5% broken (was 18.4%)
+- E19_r3: 2.1% broken (was 2.1%)
+- **Mean: 4.2%** (was 5.2%)
+
+**Validation:** 3 fresh generation runs (E25_r1, E25_r2, E25_r3) with E19 config +
+grounding pass.
+
+| Run | Coverage v2 | Broken% | Prose | Halluc% |
+|-----|-------------|---------|-------|---------|
+| E25_r1 | 48.6% | 21.3% | 5 | 0.0% |
+| E25_r2 | 50.3% | 6.0% | 1 | 0.0% |
+| E25_r3 | 54.7% | 13.3% | 25 | 0.0% |
+| **Mean** | **51.2%** | **13.5%** | **10.3** | **0.0%** |
+
+vs E19 baseline (with fixed checker): 54.6% coverage, 4.2% broken, 11.3 prose, 0.3% halluc.
+
+**Decision: REVERT.** The checker fix is correct (properly excludes signature snippets —
+no syntax_error findings in E25 runs), but E25's broken% (13.5% mean) is WORSE than E19
+(4.2% mean) with the same fixed checker. The high broken% is a real quality issue: the LLM
+is generating genuinely broken examples (property_called_as_method, missing_required,
+invalid_kwarg). The checker fix doesn't improve generation quality — it only makes the
+metric more honest. Coverage also regressed (51.2% vs 54.6%).
+
+**Key finding:** The broken-example regression is NOT caused by the checker. It's a
+generation quality issue. E25 runs have more broken examples than E19 runs, even though
+they use the same config (E19 config + grounding pass). This suggests either (1) the
+grounding pass is introducing errors, or (2) LLM variance.
+
+## E26 — E19 Config WITHOUT Grounding Pass (INFORMATIVE)
+
+**Design:** 3 fresh runs of E19 config WITHOUT grounding pass. Goal: isolate whether the
+grounding pass introduces broken examples. If broken% drops without grounding → grounding
+pass is the cause. If similar → LLM variance.
+
+| Run | Coverage v2 | Broken% | Prose | Halluc% |
+|-----|-------------|---------|-------|---------|
+| E26_r1 | 54.7% | 15.9% | 49 | 0.0% |
+| E26_r2 | 52.5% | 17.5% | 29 | 0.0% |
+| E26_r3 | 57.0% | 12.3% | 34 | 0.0% |
+| **Mean** | **54.7%** | **15.2%** | **37.3** | **0.0%** |
+
+vs E19 (WITH grounding): 54.6% coverage, 4.2% broken, 11.3 prose, 0.3% halluc.
+vs E25 (WITH grounding, fixed checker): 51.2% coverage, 13.5% broken, 10.3 prose, 0.0% halluc.
+
+**Decision: INFORMATIVE.** E26 (WITHOUT grounding) has broken% = 15.2% — WORSE than E25
+(13.5%) and E19 (4.2%). The grounding pass is NOT the cause of the broken-example
+regression. The dominant error type is `property_called_as_method` (13/14 findings in r1)
+— the LLM consistently calls @property attributes as methods.
+
+**Root cause identified:** `extract_api_surface()` in reference.py lists ALL FunctionDef
+items as "methods" without checking for @property decorators. The LLM sees `score()` in
+the API surface and correctly calls it as a method. 16 @property attributes exist in
+SimpleAudit (mostly on AuditResults). This is a generic issue affecting any Python package
+with @property.
+
+## E27 — Mark @property Attributes in API Surface (KEEP)
+
+**Hypothesis:** Marking @property attributes as PROPERTIES (not methods) in the API
+surface extraction, plus adding a prompt rule to use them as attributes, will eliminate
+the dominant `property_called_as_method` broken-example type.
+
+**Changes:**
+1. `repoquill/reference.py`: `extract_api_surface()` now detects @property and
+   @cached_property decorators, lists them separately as `[PROPERTIES: name1, name2]`
+   instead of in the methods list.
+2. `repoquill/narrative.py`: Added rule 7 to strict prompt: "PROPERTIES (marked
+   [PROPERTIES: ...] in the API surface) are attributes, NOT methods. Use them as
+   `obj.name`, never as `obj.name()`."
+
+**Results:**
+
+| Run | Coverage v2 | Broken% | prop_as_method | Prose | Halluc% |
+|-----|-------------|---------|----------------|-------|---------|
+| E27_r1 | 53.6% | 2.4% | 0 | 12 | 0.0% |
+| E27_r2 | 62.0% | 8.2% | 0 | 15 | 0.0% |
+| E27_r3 | 49.7% | 0.0% | 0 | 13 | 0.0% |
+| **Mean** | **55.1%** | **3.5%** | **0.0** | **13.3** | **0.0%** |
+
+vs E19 baseline: 54.6% coverage, 4.2% broken, 11.3 prose, 0.3% halluc.
+
+**Decision: KEEP.** property_called_as_method = 0 in 3/3 runs (was the dominant error
+type in E25/E26). Broken% 3.5% (E19: 4.2%, E25: 13.5%, E26: 15.2%). Coverage 55.1%
+(E19: 54.6%, within 4.2pp band). Halluc 0.0% (E19: 0.3%). Remaining broken findings
+are syntax_error (5 total across 3 runs) from legitimate code blocks, not property calls.
+Generic fix — any Python package with @property benefits.
+
+## E28 — Strip Leading Indentation from Code Blocks (KEEP)
+
+**Hypothesis:** The 5 remaining syntax_error findings across E27 runs are from code
+blocks with leading indentation (a formatting artifact), not genuine code errors.
+
+**Change:** `eval/example_check.py`: `extract_python_blocks()` now applies
+`textwrap.dedent()` to each code block before returning it.
+
+**Results (re-scored E27 docs):**
+
+| Run | Broken% (before) | Broken% (after) | syntax_error (before→after) |
+|-----|-----------------|-----------------|------------------------------|
+| E27_r1 | 2.4% | 0.0% | 1 → 0 |
+| E27_r2 | 8.2% | 2.0% | 3 → 0 (1 missing_required remains) |
+| E27_r3 | 0.0% | 0.0% | 0 → 0 |
+| **Mean** | **3.5%** | **0.7%** | **5 → 0** |
+
+**Decision: KEEP.** De-Goodhart fix — the metric now measures code correctness, not
+markdown formatting. All 5 syntax_error findings were from indented code blocks. The
+remaining 1 missing_required finding in E27_r2 is a genuine error. No generation change.
+
+## E29 — Investigate Remaining missing_required Finding (NO_ACTION)
+
+**Hypothesis:** The 1 remaining `missing_required` finding in E27_r2 (AuditExperiment()
+missing 'models' param) is either a genuine generation error or a checker false positive.
+
+**Analysis:** `models` is a required param (no default) in AuditExperiment.__init__.
+The LLM generated AuditExperiment() without it in 1/9 cases (E27_r2 cli-reference.md).
+In the other 8 AuditExperiment() calls across 3 runs, the LLM correctly includes models.
+This is a one-off generation error, not a systematic issue.
+
+**Decision: NO_ACTION.** The E14 constructor signature enrichment is working correctly
+(8/9 calls include required params). The 1 missing_required finding is within variance.
+No prompt change or checker refinement warranted.
+
+## Next Steps (re-ranked after E29 NO_ACTION)
+
+1. **Research retrospective in progress** (RETRO5: 3 subagents launched — patterns,
+   Goodhart, adversarial).
+2. **Backlog:** rename `hallucination_rate` → `invented_symbol_rate`; independent judge
    (different model family); usability metric (next blind spot).
-4. **Research retrospective due** (5 experiments since RETRO4: E22, E23 are the 5th-6th
-   since RETRO3).

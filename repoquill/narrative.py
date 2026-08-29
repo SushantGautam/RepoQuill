@@ -280,6 +280,7 @@ def generate_page(
 4. Do not describe behavior you cannot see in the source. No speculation about internals.
 5. If the source does not contain the entry point you need for an example, say so explicitly instead of inventing one.
 6. Prefer fewer, verified claims over more, plausible-sounding ones.
+7. PROPERTIES (marked [PROPERTIES: ...] in the API surface) are attributes, NOT methods. Use them as `obj.name`, never as `obj.name()`.
 """
     else:
         rules_block = ""

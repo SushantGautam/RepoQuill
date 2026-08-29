@@ -22,11 +22,85 @@ from pathlib import Path
 
 
 def extract_python_blocks(md_text: str) -> list[str]:
-    """Extract all fenced python code blocks from markdown."""
+    """Extract all fenced python code blocks from markdown.
+
+    E28: Strip leading indentation from each block before returning. The LLM
+    sometimes indents the entire code block (including the fence), which causes
+    a spurious "unexpected indent" syntax error at line 1. The code itself is
+    correct — the formatting is wrong. This is a de-Goodhart fix: the metric
+    should measure code correctness, not markdown formatting.
+    """
+    import textwrap
     blocks = []
     for m in re.finditer(r'```python\n(.*?)```', md_text, re.DOTALL):
-        blocks.append(m.group(1))
+        blocks.append(textwrap.dedent(m.group(1)))
     return blocks
+
+
+def _is_signature_block(block: str) -> bool:
+    """Detect API signature snippets that are documentation, not executable code.
+
+    Signature blocks are patterns like:
+      - ModelAuditor(model: str, provider: str, ...)
+      - run(scenarios: Union[str, List[Dict[str, Any]]], max_turns: Optional[int] = None)
+      - get_scenarios(pack_name: str) -> List[Dict[str, Any]]
+      - ModelAuditor(
+          model: str,
+          provider: str,
+          ...
+        )
+
+    These are NOT valid Python (annotations in call args, bare signatures without def),
+    but they're a legitimate documentation pattern for showing API signatures.
+
+    Detection strategy:
+    1. Must fail to parse as valid Python
+    2. Must start with Name( (a call expression)
+    3. Must contain type annotations (: type)
+    4. Must NOT be a def statement
+    5. Must NOT contain assignment statements (name = value outside of defaults)
+    """
+    stripped = block.strip()
+
+    # Quick reject: empty or too short
+    if not stripped or len(stripped) < 10:
+        return False
+
+    # Quick reject: real function definitions
+    if stripped.startswith('def ') or stripped.startswith('async def '):
+        return False
+
+    # Must start with Name( or Name.Name( pattern (call expression)
+    if not re.match(r'^[A-Za-z_]\w*(\.[A-Za-z_]\w*)*\s*\(', stripped):
+        return False
+
+    # Must fail to parse as valid Python
+    try:
+        ast.parse(stripped)
+        return False  # Valid Python, not a signature
+    except SyntaxError:
+        pass
+
+    # Must contain type annotations
+    if not re.search(r'\w+\s*:\s*[A-Za-z_\[\'\"]', stripped):
+        return False
+
+    # Must NOT contain assignment statements
+    # Check each line: if a line starts with name = (not name: type = default), it's an assignment
+    for line in stripped.split('\n'):
+        line = line.strip()
+        if not line or line.startswith('#'):
+            continue
+        # Skip lines that are just closing parens or return types
+        if line in (')', '->') or line.startswith('->'):
+            continue
+        # Check for assignment: name = value (not annotation: name: type = default)
+        # An assignment line starts with identifier followed by =
+        # An annotation line starts with identifier followed by :
+        if re.match(r'^[A-Za-z_]\w*\s*=', line):
+            return False  # Assignment, not a signature
+
+    return True
 
 
 def build_class_index(pkg_path: str) -> dict:
@@ -306,6 +380,10 @@ def main():
         page_findings[md_file.name] = []
 
         for block in blocks:
+            # Skip API signature snippets — they're documentation, not executable code
+            if _is_signature_block(block):
+                continue
+
             try:
                 tree = ast.parse(block)
             except SyntaxError:
