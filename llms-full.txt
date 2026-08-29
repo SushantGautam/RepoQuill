@@ -115,10 +115,10 @@ from llm import LLMClient
 
 # Load config
 cfg = load_config("repoquill.yml")
-llm_cfg = cfg.llm_config  # Assuming this attribute exists based on typical structure, 
-                           # but strictly based on API surface, we use LLMConfig directly if available.
+
 # Note: The API surface lists LLMConfig but does not explicitly show how it is extracted from RepoQuillConfig.
-# However, LLMClient.__init__ takes llm_cfg.
+# You must obtain an LLMConfig instance to initialize the client.
+llm_cfg = LLMConfig() # Or extract from cfg if available in your specific version/context
 
 # Initialize client
 client = LLMClient(llm_cfg
@@ -134,12 +134,11 @@ The `narrative` module handles the generation of conceptual guides.
 *   `narrative.generate_page(page, source_files, client, cfg)`: Generates content for a single page.
 *   `narrative.generate_all_pages(pages, source_files, client, cfg, old_hashes, new_hashes)`: Generates all pages, supporting incremental updates by comparing file hashes.
 
-Example workflow for generating pages:
-
-```python
-import narrative
+Examimport narrative
 import reference
 import config
+import plan
+from llm import LLMClient
 
 # 1. Load configuration
 cfg = config.load_config("repoquill.yml")
@@ -147,9 +146,11 @@ cfg = config.load_config("repoquill.yml")
 # 2. Initialize LLM Client
 # Note: You must obtain an LLMConfig instance. 
 # Based on the API surface, LLMConfig is a class, but the exact attribute name on RepoQuillConfig is not listed in PROPERTIES.
-# Assuming standard practice, you would access it via the config object.
-llm_cfg = cfg.llm_config 
-client = llm.LLMClient(llm_cfg)
+# Assuming standard practice, you would access it via the config object or construct it.
+llm_cfg = LLMConfig() 
+client = LLMClient(llm_cfg
+    # NOTE: llm_cfg is required (no default)
+)
 
 # 3. Get source files for grounding
 source_files = reference.get_source_files("path/to/your/package")
@@ -169,6 +170,9 @@ narrative.generate_all_pages(
     client=client,
     cfg=cfg,
     old_hashes=old_hashes,
+    new_hashes=new_hashes
+)
+ashes=old_hashes,
     new_hashes=new_hashes
 )
 ```
