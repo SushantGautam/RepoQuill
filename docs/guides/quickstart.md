@@ -217,4 +217,6 @@ By following this quickstart guide, you should now be able to integrate `repoqui
 ### See Also
 
 *   [Installation](installation.md)
-*   [Key Ideas](key-ideas.md)
+*   [CI/CD Integration](ci-cd.md)
+*   [CLI Commands](cli-commands.md)
+*   [Configuration Reference](configuration.md)

@@ -204,5 +204,6 @@ By adhering to these abstractions, `repoquill` provides a flexible, extensible f
 ### See Also
 
 *   [Architecture](architecture.md)
+*   [CI/CD Integration](ci-cd.md)
+*   [Configuration Reference](configuration.md)
 *   [Installation](installation.md)
-*   [Quickstart](quickstart.md)

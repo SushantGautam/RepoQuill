@@ -214,4 +214,6 @@ Refer to the **Configuration** and **Usage** sections of this documentation for 
 ### See Also
 
 *   [Quickstart](quickstart.md)
+*   [CI/CD Integration](ci-cd.md)
+*   [Configuration Reference](configuration.md)
 *   [Key Ideas](key-ideas.md)

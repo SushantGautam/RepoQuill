@@ -3,43 +3,84 @@
     {
       "title": "Quickstart",
       "slug": "quickstart",
-      "description": "A minimal example to get the library running in under 5 minutes.",
+      "description": "Scaffold your repository and generate your first documentation site in under five minutes.",
       "source_files": [
-        "README.md",
-        "examples/quickstart.py"
+        "repoquill/cli.py",
+        "repoquill/config.py"
       ]
     },
     {
       "title": "Installation",
       "slug": "installation",
-      "description": "Instructions for installing the library via pip, from source, and managing dependencies.",
+      "description": "Install RepoQuill via uvx, uv tool, or pip and configure your environment.",
       "source_files": [
-        "setup.py",
-        "pyproject.toml",
-        "requirements.txt",
-        "README.md"
+        "repoquill/cli.py"
       ]
     },
     {
       "title": "Architecture",
       "slug": "architecture",
-      "description": "High-level overview of the system design, module interactions, and data flow.",
+      "description": "Understand the two-layer generation system: deterministic API reference vs. LLM-driven narrative guides.",
       "source_files": [
-        "src/core/__init__.py",
-        "src/core/engine.py",
-        "docs/architecture.md"
+        "repoquill/reference.py",
+        "repoquill/narrative.py",
+        "repoquill/site.py"
       ]
     },
     {
       "title": "Key Ideas",
       "slug": "key-ideas",
-      "description": "Explanation of the core abstractions, design patterns, and fundamental concepts.",
+      "description": "Core concepts including incremental regeneration, source grounding, and AI-agent compatibility.",
       "source_files": [
-        "src/core/base.py",
-        "src/core/types.py",
-        "docs/concepts.md"
+        "repoquill/plan.py",
+        "repoquill/llm.py",
+        "repoquill/site.py"
+      ]
+    },
+    {
+      "title": "Configuration Reference",
+      "slug": "configuration",
+      "description": "Detailed reference for the repoquill.yml configuration file and its options.",
+      "source_files": [
+        "repoquill/config.py"
+      ]
+    },
+    {
+      "title": "LLM Providers",
+      "slug": "llm-providers",
+      "description": "Configure and use various LLM providers including OpenAI, Anthropic, and local models.",
+      "source_files": [
+        "repoquill/llm.py"
+      ]
+    },
+    {
+      "title": "CLI Commands",
+      "slug": "cli-commands",
+      "description": "Complete reference for all RepoQuill command-line interface commands and flags.",
+      "source_files": [
+        "repoquill/cli.py"
+      ]
+    },
+    {
+      "title": "CI/CD Integration",
+      "slug": "ci-cd",
+      "description": "Set up GitHub Actions workflows to automatically regenerate documentation on code changes.",
+      "source_files": [
+        "repoquill/cli.py",
+        "repoquill/plan.py"
       ]
     }
   ],
-  "file_hashes": {}
+  "file_hashes": {
+    "repoquill/__init__.py": "e274d73b10f1696f491589258809cc3ec8b397fb55352d73806bf0d3b3c5f8fc",
+    "repoquill/site.py": "cb9a15dfc1529ee366edfda9305b7e030a270810754bb4bc041cdfc5dec3a8f4",
+    "repoquill/plan.py": "640378056bb5174494a28e1eb316729a4c77b775651315176d1d2e36371394f8",
+    "repoquill/llm.py": "2a7af1558b532fc1303eb6cae9a99cf8f40c2958d337ba085d03bffc37ac6573",
+    "repoquill/narrative.py": "48224793cf8f467f5de3f5ebd4aa33b3a042e3e57b39b8e7ed44dce8d74618d4",
+    "repoquill/reference.py": "dc002a3344dfabc2657ac81906e20eafa59de75c4ac5ed0d52cfa415da370c32",
+    "repoquill/config.py": "cec06267974924086a74e815a7f5c31371de100855395e5868f34c377387cb31",
+    "repoquill/cli.py": "bde2202a9156a93fe9ae65c9c218c7f3281d3e0e778bafbc680dbbf5ed0d8b94",
+    "README.md": "4110d20b799a02099bd25656edac92810e16f41ec1f71240b677c7bb653e0f62",
+    "pyproject.toml": "4974ac8aa346e6d0e178b69001f110c3c69774b4d8a329a8ca6185c4dcd477a4"
+  }
 }
