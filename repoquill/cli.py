@@ -776,147 +776,167 @@ def _cmd_init(args) -> int:
     if os.path.exists(config_path):
         if args.force:
             print(f"  --force: overwriting {config_path}")
+        elif getattr(args, "yes", False):
+            # Non-interactive: automatically keep existing values
+            raw = _load_existing_config(config_path)
+            llm_raw = raw.get("llm", {}) or {}
+            site_raw = raw.get("site", {}) or {}
+            existing = {
+                "project_name": raw.get("project_name", ""),
+                "package_dir": raw.get("package_dir", ""),
+                "description": site_raw.get("description", ""),
+                "provider": llm_raw.get("provider", "openai"),
+                "model": llm_raw.get("model", "gpt-4o"),
+                "api_key_env": llm_raw.get("api_key_env", ""),
+                "trigger": "manual",
+                "site": site_raw,
+                "narrative_sections": raw.get("narrative_sections", []),
+                "reference_sections": raw.get("reference_sections", []),
+                "index": raw.get("index", {}),
+            }
+            print(f"  --yes: keeping existing {config_path}")
         else:
             existing = _prompt_existing_config(config_path, args)
             if existing is None:
                 # User chose "reset all" — fall through to fresh init
                 existing = None
+        
+        if existing is not None:
+            # User kept or changed values — use them
+            project_name = existing["project_name"] or _detect_project_name()
+            package_dir = existing["package_dir"] or _detect_package_dir()
+            provider = existing["provider"]
+            model = existing["model"]
+            api_key_env = existing["api_key_env"]
+            trigger = existing["trigger"]
+            description = existing["description"] or f"Documentation for {project_name}"
+            # Preserve source_repo/source_ref/base_url from existing config,
+            # or use command-line args if not in existing config
+            source_repo = existing.get("source_repo", "") or (
+                getattr(args, "repo", "") or ""
+            )
+            source_ref = existing.get("source_ref", "") or (
+                getattr(args, "source_ref", "") or ""
+            )
+            base_url = existing.get("base_url", "") or (
+                getattr(args, "base_url", "") or ""
+            )
+
+            # Write config with existing values
+            repo_name = _detect_repo_name()
+            repo_owner, _, repo_slug = repo_name.partition("/")
+            if not repo_slug:
+                repo_owner, repo_slug = "", repo_name
+
+            if api_key_env:
+                api_key_env_line = f"  api_key_env: {api_key_env}\n"
             else:
-                # User kept or changed values — use them
-                project_name = existing["project_name"] or _detect_project_name()
-                package_dir = existing["package_dir"] or _detect_package_dir()
-                provider = existing["provider"]
-                model = existing["model"]
-                api_key_env = existing["api_key_env"]
-                trigger = existing["trigger"]
-                description = existing["description"] or f"Documentation for {project_name}"
-                # Preserve source_repo/source_ref/base_url from existing config,
-                # or use command-line args if not in existing config
-                source_repo = existing.get("source_repo", "") or (
-                    getattr(args, "repo", "") or ""
+                api_key_env_line = "  # api_key_env: (not needed — " + (
+                    "local provider" if provider in _LOCAL_PROVIDERS else "OAuth login"
+                ) + ")\n"
+
+            # Build config content, preserving existing sections
+            site = existing.get("site") or {}
+            site_name = site.get("name", project_name)
+            site_url = site.get("url", f"https://{repo_owner}.github.io/{repo_slug}/")
+            site_repo_url = site.get("repo_url", f"https://github.com/{repo_name}")
+            site_repo_name = site.get("repo_name", repo_name)
+            site_desc = site.get("description", description)
+
+            # Build source_repo block (preserve from existing config)
+            source_repo_block = ""
+            if source_repo:
+                source_repo_block = f"source_repo: {source_repo}\n"
+                if source_ref:
+                    source_repo_block += f"source_ref: {source_ref}\n"
+
+            # Build base_url line (preserve from existing config)
+            base_url_line = ""
+            if base_url:
+                base_url_line = f"  base_url: {base_url}\n"
+
+            narrative = existing.get("narrative_sections") or [
+                {"title": "Getting Started", "slugs": ["quickstart", "installation"]},
+                {"title": "Core Concepts", "slugs": ["architecture", "key-ideas"]},
+            ]
+            if existing.get("reference_sections"):
+                reference = existing["reference_sections"]
+            elif package_dir:
+                reference = [{"title": "Core", "modules": [package_dir]}]
+            else:
+                reference = []
+            if existing.get("index"):
+                index = existing["index"]
+            elif package_dir:
+                index = {"tagline": description, "quick_start": {"install": f"pip install {package_dir}"}}
+            else:
+                index = {"tagline": description}
+
+            # Serialize sections to YAML
+            import yaml
+            narrative_yaml = yaml.dump(narrative, default_flow_style=False, sort_keys=False).strip()
+            reference_yaml = yaml.dump(reference, default_flow_style=False, sort_keys=False).strip()
+            index_yaml = yaml.dump(index, default_flow_style=False, sort_keys=False).strip()
+
+            config_content = (
+                f"# RepoQuill configuration\n"
+                f"# Docs: https://github.com/SushantGautam/RepoQuill#config\n"
+                f"# Edit your .github/workflows/docs.yml for CI/CD configuration\n"
+                f"\n"
+                f"project_name: {project_name}\n"
+                f"package_dir: {package_dir}\n"
+                f"{source_repo_block}"
+                f"\n"
+                f"llm:\n"
+                f"  provider: {provider}\n"
+                f"  model: {model}\n"
+                f"{base_url_line}"
+                f"{api_key_env_line}"
+                f"site:\n"
+                f"  name: {site_name}\n"
+                f"  description: \"{site_desc}\"\n"
+                f"  url: {site_url}\n"
+                f"  repo_url: {site_repo_url}\n"
+                f"  repo_name: {site_repo_name}\n"
+                f"\n"
+                f"narrative_sections:\n"
+                f"{narrative_yaml}\n"
+                f"\n"
+                f"reference_sections:\n"
+                f"{reference_yaml}\n"
+                f"\n"
+                f"index:\n"
+                f"{index_yaml}\n"
+            )
+            with open(config_path, "w", encoding="utf-8") as f:
+                f.write(config_content)
+            print(f"  updated {config_path}")
+
+            # Write workflow if it doesn't exist
+            wf_dir = os.path.join(os.getcwd(), ".github", "workflows")
+            wf_path = os.path.join(wf_dir, "docs.yml")
+            if not os.path.exists(wf_path):
+                os.makedirs(wf_dir, exist_ok=True)
+                on_block = _workflow_on_block(trigger)
+                wf_content = _WORKFLOW_TEMPLATE.format(
+                    api_key_env=api_key_env or "LLM_API_KEY",
+                    on_block=on_block,
                 )
-                source_ref = existing.get("source_ref", "") or (
-                    getattr(args, "source_ref", "") or ""
-                )
-                base_url = existing.get("base_url", "") or (
-                    getattr(args, "base_url", "") or ""
-                )
+                with open(wf_path, "w", encoding="utf-8") as f:
+                    f.write(wf_content)
+                print(f"  created {wf_path}")
+            else:
+                print(f"  kept existing {wf_path}")
 
-                # Write config with existing values
-                repo_name = _detect_repo_name()
-                repo_owner, _, repo_slug = repo_name.partition("/")
-                if not repo_slug:
-                    repo_owner, repo_slug = "", repo_name
+            # Ensure .gitignore has site_repoquill/
+            _ensure_gitignore_entry()
 
-                if api_key_env:
-                    api_key_env_line = f"  api_key_env: {api_key_env}\n"
-                else:
-                    api_key_env_line = "  # api_key_env: (not needed — " + (
-                        "local provider" if provider in _LOCAL_PROVIDERS else "OAuth login"
-                    ) + ")\n"
-
-                # Build config content, preserving existing sections
-                site = existing.get("site") or {}
-                site_name = site.get("name", project_name)
-                site_url = site.get("url", f"https://{repo_owner}.github.io/{repo_slug}/")
-                site_repo_url = site.get("repo_url", f"https://github.com/{repo_name}")
-                site_repo_name = site.get("repo_name", repo_name)
-                site_desc = site.get("description", description)
-
-                # Build source_repo block (preserve from existing config)
-                source_repo_block = ""
-                if source_repo:
-                    source_repo_block = f"source_repo: {source_repo}\n"
-                    if source_ref:
-                        source_repo_block += f"source_ref: {source_ref}\n"
-
-                # Build base_url line (preserve from existing config)
-                base_url_line = ""
-                if base_url:
-                    base_url_line = f"  base_url: {base_url}\n"
-
-                narrative = existing.get("narrative_sections") or [
-                    {"title": "Getting Started", "slugs": ["quickstart", "installation"]},
-                    {"title": "Core Concepts", "slugs": ["architecture", "key-ideas"]},
-                ]
-                if existing.get("reference_sections"):
-                    reference = existing["reference_sections"]
-                elif package_dir:
-                    reference = [{"title": "Core", "modules": [package_dir]}]
-                else:
-                    reference = []
-                if existing.get("index"):
-                    index = existing["index"]
-                elif package_dir:
-                    index = {"tagline": description, "quick_start": {"install": f"pip install {package_dir}"}}
-                else:
-                    index = {"tagline": description}
-
-                # Serialize sections to YAML
-                import yaml
-                narrative_yaml = yaml.dump(narrative, default_flow_style=False, sort_keys=False).strip()
-                reference_yaml = yaml.dump(reference, default_flow_style=False, sort_keys=False).strip()
-                index_yaml = yaml.dump(index, default_flow_style=False, sort_keys=False).strip()
-
-                config_content = (
-                    f"# RepoQuill configuration\n"
-                    f"# Docs: https://github.com/SushantGautam/RepoQuill#config\n"
-                    f"# Edit your .github/workflows/docs.yml for CI/CD configuration\n"
-                    f"\n"
-                    f"project_name: {project_name}\n"
-                    f"package_dir: {package_dir}\n"
-                    f"{source_repo_block}"
-                    f"\n"
-                    f"llm:\n"
-                    f"  provider: {provider}\n"
-                    f"  model: {model}\n"
-                    f"{base_url_line}"
-                    f"{api_key_env_line}"
-                    f"site:\n"
-                    f"  name: {site_name}\n"
-                    f"  description: \"{site_desc}\"\n"
-                    f"  url: {site_url}\n"
-                    f"  repo_url: {site_repo_url}\n"
-                    f"  repo_name: {site_repo_name}\n"
-                    f"\n"
-                    f"narrative_sections:\n"
-                    f"{narrative_yaml}\n"
-                    f"\n"
-                    f"reference_sections:\n"
-                    f"{reference_yaml}\n"
-                    f"\n"
-                    f"index:\n"
-                    f"{index_yaml}\n"
-                )
-                with open(config_path, "w", encoding="utf-8") as f:
-                    f.write(config_content)
-                print(f"  updated {config_path}")
-
-                # Write workflow if it doesn't exist
-                wf_dir = os.path.join(os.getcwd(), ".github", "workflows")
-                wf_path = os.path.join(wf_dir, "docs.yml")
-                if not os.path.exists(wf_path):
-                    os.makedirs(wf_dir, exist_ok=True)
-                    on_block = _workflow_on_block(trigger)
-                    wf_content = _WORKFLOW_TEMPLATE.format(
-                        api_key_env=api_key_env or "LLM_API_KEY",
-                        on_block=on_block,
-                    )
-                    with open(wf_path, "w", encoding="utf-8") as f:
-                        f.write(wf_content)
-                    print(f"  created {wf_path}")
-                else:
-                    print(f"  kept existing {wf_path}")
-
-                # Ensure .gitignore has site_repoquill/
-                _ensure_gitignore_entry()
-
-                print()
-                print("Next steps:")
-                print("  1. Edit repoquill.yml — set site.url, narrative_sections, etc.")
-                print("  2. Run: repoquill build")
-                print("  3. Local preview: repoquill serve")
-                return 0
+            print()
+            print("Next steps:")
+            print("  1. Edit repoquill.yml — set site.url, narrative_sections, etc.")
+            print("  2. Run: repoquill build")
+            print("  3. Local preview: repoquill serve")
+            return 0
 
     # --- Fresh init (no existing config, or user chose reset) ---
     if getattr(args, "repo", None):
@@ -935,6 +955,10 @@ def _cmd_init(args) -> int:
             # Assume owner/repo format
             repo_name = url
         print(f"  (documenting remote repo: {repo_name})")
+    elif getattr(args, "yes", False):
+        # Non-interactive: default to current repo
+        repo_name = _detect_repo_name()
+        print(f"  (documenting current repo: {repo_name})")
     else:
         repo_source = _prompt_repo_source()
         if repo_source != "current":
@@ -1508,6 +1532,7 @@ def main(argv=None) -> int:
     )
     init.add_argument("--test", action="store_true", help="Test the LLM connection after init")
     init.add_argument("--force", action="store_true", help="Overwrite existing files")
+    init.add_argument("-y", "--yes", action="store_true", help="Accept all defaults (non-interactive)")
 
     sub.add_parser("plan", parents=[common], help="Show the page plan")
     gen = sub.add_parser("generate", parents=[common], help="Generate docs")
