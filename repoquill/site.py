@@ -661,6 +661,7 @@ def build_mkdocs_yml(cfg, nav: List) -> None:
                             "docstring_style": "google",
                             "show_root_heading": False,
                             "show_submodules": False,
+                            "show_source": True,
                         },
                     }
                 }
@@ -673,6 +674,11 @@ def build_mkdocs_yml(cfg, nav: List) -> None:
             py = handlers.get("python", {})
             # paths is a top-level handler config field (not under options)
             py["paths"] = [cfg.root]
+            # Ensure show_source is enabled so classes/functions link to
+            # their source in the repo (requires repo_url in mkdocs.yml).
+            opts = py.get("options", {})
+            opts.setdefault("show_source", True)
+            py["options"] = opts
             handlers["python"] = py
             mk["handlers"] = handlers
             plugins.append({"mkdocstrings": mk})

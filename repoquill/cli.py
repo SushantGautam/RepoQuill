@@ -40,6 +40,7 @@ from repoquill.plan import (
     store_plan,
 )
 from repoquill.reference import build_api_reference, get_source_files
+from repoquill.source_link import run_mkdocs
 from repoquill.site import (
     build_index_md,
     build_llms_full_txt,
@@ -136,10 +137,7 @@ def _cleanup_mkdocs_yml(cfg) -> None:
 def _run_mkdocs_build(cfg, skill_content: str | None = None) -> None:
     """Run `mkdocs build` in the correct directory."""
     print("\n[build] Running mkdocs build...")
-    subprocess.run(
-        [sys.executable, "-m", "mkdocs", "build"],
-        cwd=_mkdocs_cwd(cfg), check=True,
-    )
+    run_mkdocs("build", cwd=_mkdocs_cwd(cfg))
     site_dir = cfg.build.get("site_dir", "site_repoquill")
     # With output_dir, build_mkdocs_yml rewrites a relative site_dir to a
     # sibling of the output dir (a relative path would land inside docs_dir).
@@ -166,10 +164,7 @@ def _run_mkdocs_serve(cfg, port: int = 8000) -> None:
     """Run `mkdocs serve` for local preview."""
     print(f"\n[serve] Starting mkdocs serve on http://localhost:{port} ...")
     print("  Press Ctrl+C to stop.\n")
-    subprocess.run(
-        [sys.executable, "-m", "mkdocs", "serve", "-p", str(port)],
-        cwd=_mkdocs_cwd(cfg),
-    )
+    run_mkdocs("serve", ["-p", str(port)], cwd=_mkdocs_cwd(cfg))
 
 
 def _resolve_configs(config_arg: str | None) -> list[str]:
