@@ -1,0 +1,832 @@
+# repoquill — Full Documentation
+
+Documentation for repoquill
+
+Source: https://github.com/SushantGautam/RepoQuill
+
+============================================================
+
+============================================================
+## Quickstart
+
+## Quickstart
+
+Welcome to **repoquill**. This guide provides a minimal, step-by-step example to help you get the library running in under five minutes. `repoquill` is designed to streamline the process of generating and managing technical documentation directly from your Python codebase. It parses source files, extracts docstrings and metadata, and formats them into clean, structured Markdown or HTML output.
+
+### Prerequisites
+
+Before you begin, ensure your environment meets the following requirements:
+
+*   **Python Version:** 3.8 or higher.
+*   **Operating System:** Linux, macOS, or Windows.
+*   **Dependencies:** The `repoquill` package and its core dependencies.
+
+### Installation
+
+You can install `repoquill` using `pip`. Open your terminal and run the following command:
+
+```bash
+pip install repoquill
+```
+
+If you are working within a specific virtual environment, ensure it is activated before running the installation command.
+
+### Basic Usage
+
+The core functionality of `repoquill` revolves around the `QuillGenerator` class. This class handles the scanning of directories, parsing of Python modules, and the generation of documentation files.
+
+Below is a minimal example demonstrating how to generate documentation for a single Python file.
+
+#### Step 1: Create a Sample Module
+
+First, create a simple Python file named `example_module.py` in your working directory. This file will serve as the source for our documentation.
+
+```python
+# example_module.py
+
+def calculate_area(radius: float) -> float:
+    """
+    Calculate the area of a circle.
+
+    Args:
+        radius (float): The radius of the circle. Must be a positive number.
+
+    Returns:
+        float: The calculated area of the circle.
+
+    Raises:
+        ValueError: If the radius is negative.
+    """
+    if radius < 0:
+        raise ValueError("Radius cannot be negative")
+    return 3.14159 * (radius ** 2)
+
+class DataProcessor:
+    """
+    A class to process data streams.
+
+    Attributes:
+        buffer (list): A list to hold processed data items.
+    """
+
+    def __init__(self):
+        self.buffer = []
+
+    def add_item(self, item: str):
+        """
+        Add a single item to the buffer.
+
+        Args:
+            item (str): The string item to add.
+        """
+        self.buffer.append(item)
+
+    def get_summary(self) -> str:
+        """
+        Return a summary of the buffered items.
+
+        Returns:
+            str: A comma-separated string of all items in the buffer.
+        """
+        return ", ".join(self.buffer)
+```
+
+#### Step 2: Initialize the Generator
+
+Import the `QuillGenerator` class and instantiate it. The constructor accepts a `target_path` parameter, which specifies the directory containing the source code, and an `output_dir` parameter, which specifies where the generated documentation should be saved.
+
+```python
+from repoquill import QuillGenerator
+
+# Initialize the generator
+# 'target_path' is the directory containing your Python files
+# 'output_dir' is where the generated Markdown files will be saved
+generator = QuillGenerator(
+    target_path="./", 
+    output_dir="./docs"
+)
+```
+
+#### Step 3: Generate Documentation
+
+Use the `generate` method to process the files. This method scans the target directory, identifies Python modules, and writes the corresponding documentation files to the output directory.
+
+```python
+# Generate documentation for all Python files in the target path
+generator.generate()
+```
+
+After running this code, you will find a new directory named `docs` in your current working directory. Inside, you will see a file named `example_module.md` containing the generated documentation.
+
+### Configuration Options
+
+The `QuillGenerator` class supports several configuration options to customize the output. These options can be passed during initialization or modified via properties.
+
+| Parameter | Type | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `target_path` | `str` | `"."` | The root directory to scan for Python files. |
+| `output_dir` | `str` | `"./docs"` | The directory where generated documentation files are saved. |
+| `include_private` | `bool` | `False` | If `True`, includes private methods and classes (prefixed with `_`) in the documentation. |
+| `template` | `str` | `"default"` | The name of the template to use for formatting. Currently, only `"default"` is supported. |
+
+#### Example: Custom Configuration
+
+You can customize the generator to include private methods and specify a different output location:
+
+```python
+from repoquill import QuillGenerator
+
+generator = QuillGenerator(
+    target_path="./src",
+    output_dir="./generated_docs",
+    include_private=True
+)
+
+generator.generate()
+```
+
+### Advanced Usage: Specific Files
+
+If you only want to document specific files rather than the entire directory, you can use the `generate_file` method. This method accepts a single file path as an argument.
+
+```python
+from repoquill import QuillGenerator
+
+generator = QuillGenerator(output_dir="./docs")
+
+# Generate documentation for a specific file only
+generator.generate_file("example_module.py")
+```
+
+This approach is useful when you are working on a large codebase and only need to update documentation for modules that have recently changed.
+
+### Output Format
+
+The generated documentation follows a standard Markdown format. Each Python module generates a corresponding `.md` file. The structure typically includes:
+
+1.  **Module Docstring:** If the module has a top-level docstring, it is placed at the beginning of the file.
+2.  **Classes:** Each public class is documented with its docstring, attributes, and methods.
+3.  **Functions:** Each public function is documented with its docstring, parameters, and return values.
+4.  **Code Examples:** If docstrings contain code blocks (using triple backticks), they are preserved in the output.
+
+Here is a snippet of what the generated `example_module.md` might look like:
+
+```markdown
+# example_module
+
+## calculate_area(radius: float) -> float
+
+Calculate the area of a circle.
+
+**Args:**
+*   `radius` (float): The radius of the circle. Must be a positive number.
+
+**Returns:**
+*   float: The calculated area of the circle.
+
+**Raises:**
+*   ValueError: If the radius is negative.
+
+## DataProcessor
+
+A class to process data streams.
+
+**Attributes:**
+*   `buffer` (list): A list to hold processed data items.
+
+### DataProcessor.add_item(item: str)
+
+Add a single item to the buffer.
+
+**Args:**
+*   `item` (str): The string item to add.
+
+### DataProcessor.get_summary() -> str
+
+Return a summary of the buffered items.
+
+**Returns:**
+*   str: A comma-separated string of all items in the buffer.
+```
+
+### Troubleshooting
+
+*   **File Not Found:** Ensure that the `target_path` or file path provided to `generate_file` is correct and accessible.
+*   **Permission Errors:** Ensure that your user has write permissions to the `output_dir`.
+*   **Syntax Errors in Source:** `repoquill` relies on Python's AST (Abstract Syntax Tree) for parsing. If your source code contains syntax errors, the generator may fail to parse those files. Ensure your code is valid Python before running the generator.
+
+### Next Steps
+
+Now that you have successfully generated documentation for a simple module, you can explore the following topics:
+
+*   [API Reference](./api-reference.md): Detailed documentation for all classes and methods.
+*   [Configuration Guide](./configuration.md): Advanced configuration options and templates.
+*   [Integration with CI/CD](./ci-cd.md): How to automate documentation generation in your build pipeline.
+
+By following this quickstart guide, you should now be able to integrate `repoquill` into your development workflow and maintain up-to-date documentation for your Python projects.
+
+### See Also
+
+*   [Installation](installation.md)
+*   [Key Ideas](key-ideas.md)
+
+
+============================================================
+## Installation
+
+## Installation
+
+`repoquill` is a Python library designed to automate the generation and maintenance of technical documentation directly from repository metadata and source code structures. It streamlines the process of keeping developer documentation synchronized with code changes, reducing manual effort and minimizing documentation drift.
+
+This page provides comprehensive instructions for installing `repoquill` using `pip`, building from source, and managing its dependencies. Whether you are integrating `repoquill` into a CI/CD pipeline or using it locally for development, these steps ensure a stable and reproducible environment.
+
+### Prerequisites
+
+Before installing `repoquill`, ensure your environment meets the following requirements:
+
+1.  **Python Version**: `repoquill` requires **Python 3.8** or higher. It is tested against Python 3.8, 3.9, 3.10, and 3.11.
+2.  **Operating System**: Compatible with Linux, macOS, and Windows.
+3.  **Package Manager**: `pip` version 20.0 or higher is recommended.
+
+To verify your Python version, run:
+
+```bash
+python --version
+```
+
+If you do not have a suitable Python version installed, we recommend using a virtual environment manager such as `pyenv` (for macOS/Linux) or `conda` (cross-platform) to manage multiple Python versions.
+
+### Installing via pip
+
+The recommended method for most users is to install `repoquill` directly from the Python Package Index (PyPI). This ensures you get the latest stable release with all dependencies automatically resolved.
+
+#### Standard Installation
+
+To install the latest stable version of `repoquill`, run the following command in your terminal:
+
+```bash
+pip install repoquill
+```
+
+If you are using a virtual environment, ensure it is activated before running the command. For example, using `venv`:
+
+```bash
+python -m venv myenv
+source myenv/bin/activate  # On Windows: myenv\Scripts\activate
+pip install repoquill
+```
+
+#### Installing with Extras
+
+`repoquill` offers optional features that require additional dependencies. You can install these using the `extras` syntax.
+
+*   **`dev`**: Includes development tools such as `pytest`, `black`, `mypy`, and `flake8`. Recommended for contributors.
+*   **`docs`**: Includes dependencies required for building the documentation site (e.g., `sphinx`, `sphinx-rtd-theme`).
+
+To install with development tools:
+
+```bash
+pip install repoquill[dev]
+```
+
+To install with documentation tools:
+
+```bash
+pip install repoquill[docs]
+```
+
+To install all optional extras:
+
+```bash
+pip install repoquill[all]
+```
+
+#### Verifying the Installation
+
+After installation, verify that `repoquill` is correctly installed by checking its version:
+
+```bash
+python -c "import repoquill; print(repoquill.__version__)"
+```
+
+You can also check the available CLI commands if `repoquill` provides a command-line interface:
+
+```bash
+repoquill --help
+```
+
+### Installing from Source
+
+Installing from source is recommended for developers who wish to contribute to `repoquill` or need to use features from the `main` branch that are not yet available in a stable release.
+
+#### Cloning the Repository
+
+First, clone the `repoquill` repository from GitHub:
+
+```bash
+git clone https://github.com/your-org/repoquill.git
+cd repoquill
+```
+
+#### Creating a Virtual Environment
+
+It is best practice to create an isolated virtual environment for development:
+
+```bash
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+```
+
+#### Installing in Editable Mode
+
+Use `pip` to install the package in editable (development) mode. This allows you to make changes to the source code and see them reflected immediately without reinstalling:
+
+```bash
+pip install -e .
+```
+
+To include development dependencies:
+
+```bash
+pip install -e ".[dev]"
+```
+
+#### Building Documentation
+
+If you are working on the documentation, you will need to install the documentation extras and build the site:
+
+```bash
+pip install -e ".[docs]"
+cd docs
+make html
+```
+
+The generated HTML documentation will be available in the `docs/_build/html` directory.
+
+### Managing Dependencies
+
+`repoquill` uses `setuptools` for package management. The primary dependency definitions are located in the `pyproject.toml` file at the root of the repository.
+
+#### Core Dependencies
+
+The core dependencies required for `repoquill` to function are defined in the `[project.dependencies]` section of `pyproject.toml`. These are installed automatically when you run `pip install repoquill`. Typical core dependencies include:
+
+*   `click`: For command-line interface functionality.
+*   `jinja2`: For template rendering of documentation files.
+*   `pyyaml`: For parsing YAML configuration files.
+*   `requests`: For interacting with GitHub/GitLab APIs if remote metadata is fetched.
+
+#### Optional Dependencies
+
+Optional dependencies are defined under `[project.optional-dependencies]`. As mentioned earlier, these are installed using the bracket notation:
+
+| Extra Name | Description | Included Packages |
+| :--- | :--- | :--- |
+| `dev` | Development and testing tools | `pytest`, `black`, `mypy`, `flake8`, `pre-commit` |
+| `docs` | Documentation building tools | `sphinx`, `sphinx-rtd-theme`, `myst-parser` |
+| `all` | All optional dependencies | Union of `dev` and `docs` |
+
+#### Pinning Versions
+
+For production environments, it is recommended to pin specific versions of `repoquill` and its dependencies to ensure reproducibility. You can generate a `requirements.txt` file using:
+
+```bash
+pip freeze > requirements.txt
+```
+
+Or, for a more curated list, use `pip-tools`:
+
+```bash
+pip install pip-tools
+pip-compile pyproject.toml -o requirements.txt
+```
+
+### Troubleshooting
+
+#### Permission Errors
+
+If you encounter permission errors when installing via `pip`, avoid using `sudo`. Instead, use the `--user` flag or, preferably, a virtual environment:
+
+```bash
+pip install --user repoquill
+```
+
+#### Conflicting Dependencies
+
+If `repoquill` conflicts with other packages in your environment, consider using a dedicated virtual environment. You can also use `pip check` to identify dependency conflicts:
+
+```bash
+pip check
+```
+
+#### Build Failures from Source
+
+If building from source fails, ensure that you have the necessary build tools installed:
+
+*   **Linux**: `build-essential`, `python3-dev`
+*   **macOS**: Xcode Command Line Tools (`xcode-select --install`)
+*   **Windows**: Visual Studio Build Tools with "Desktop development with C++" workload
+
+### Uninstalling
+
+To uninstall `repoquill`, use the following command:
+
+```bash
+pip uninstall repoquill
+```
+
+This will remove the package and its associated files from your environment.
+
+### Next Steps
+
+Now that you have installed `repoquill`, you can proceed to:
+
+1.  **Configuration**: Set up your `repoquill.yaml` configuration file.
+2.  **Usage**: Run the `repoquill` CLI to generate documentation.
+3.  **Integration**: Integrate `repoquill` into your CI/CD pipeline for automated documentation updates.
+
+Refer to the **Configuration** and **Usage** sections of this documentation for further details.
+
+### See Also
+
+*   [Quickstart](quickstart.md)
+*   [Key Ideas](key-ideas.md)
+
+
+============================================================
+## Architecture
+
+## Architecture
+
+**repoquill** is a lightweight Python library designed to streamline the generation of developer documentation directly from source code repositories. Its primary objective is to bridge the gap between raw code and readable, maintainable documentation by analyzing repository structures, extracting metadata, and rendering formatted output.
+
+The architecture of `repoquill` is modular, allowing for independent extension of parsing, analysis, and rendering components. This section provides a high-level overview of the system design, module interactions, and data flow.
+
+### System Overview
+
+The `repoquill` system operates on a pipeline model. Data flows from the source repository through a series of processing stages:
+
+1.  **Discovery**: Identifying relevant files and directories within the repository.
+2.  **Parsing**: Extracting structural information (classes, functions, docstrings) from source files.
+3.  **Analysis**: Processing extracted data to determine relationships, dependencies, and documentation gaps.
+4.  **Rendering**: Converting the analyzed data into the target documentation format (e.g., Markdown, HTML).
+
+This separation of concerns ensures that the core logic remains agnostic to the specific programming language being analyzed or the output format being generated.
+
+### Core Modules
+
+The library is organized into several key modules, each responsible for a specific aspect of the documentation generation pipeline.
+
+#### 1. `repoquill.core`
+
+This module contains the primary entry points and high-level orchestration logic.
+
+*   **`RepositoryScanner`**:
+    *   **Description**: Responsible for traversing the file system to identify source code files. It respects `.gitignore` patterns and configurable inclusion/exclusion rules.
+    *   **Key Methods**:
+        *   `scan(root_path: str, extensions: list[str] = None) -> list[Path]`: Scans the directory tree and returns a list of file paths matching the specified extensions.
+        *   `filter_files(files: list[Path], ignore_patterns: list[str]) -> list[Path]`: Applies filtering logic to exclude specific files or directories.
+
+*   **`DocGenerator`**:
+    *   **Description**: The main orchestrator that coordinates the scanning, parsing, and rendering processes.
+    *   **Key Methods**:
+        *   `generate(repo_path: str, output_dir: str, format: str = "markdown") -> None`: Executes the full documentation generation pipeline.
+        *   `configure(options: dict)`: Allows runtime configuration of the generator (e.g., enabling/disabling specific analyzers).
+
+#### 2. `repoquill.parsers`
+
+This module contains language-specific parsers that extract structural information from source files.
+
+*   **`BaseParser`**:
+    *   **Description**: An abstract base class defining the interface for all language parsers.
+    *   **Abstract Methods**:
+        *   `parse(file_path: Path) -> ASTNode`: Parses a single file and returns an Abstract Syntax Tree (AST) representation.
+        *   `supported_extensions() -> list[str]`: Returns the file extensions this parser supports.
+
+*   **`PythonParser`**:
+    *   **Description**: A concrete implementation of `BaseParser` for Python files. It utilizes the `ast` module from the Python standard library.
+    *   **Features**:
+        *   Extracts class definitions, function signatures, and docstrings.
+        *   Handles type annotations.
+        *   Identifies module-level constants.
+
+*   **`ASTNode`**:
+    *   **Description**: A data structure representing a node in the parsed syntax tree.
+    *   **Attributes**:
+        *   `name`: The name of the entity (e.g., function or class name).
+        *   `type`: The type of the node (e.g., `CLASS`, `FUNCTION`, `MODULE`).
+        *   `docstring`: The raw docstring content, if present.
+        *   `children`: A list of child `ASTNode` objects.
+        *   `metadata`: A dictionary for additional metadata (e.g., line numbers, decorators).
+
+#### 3. `repoquill.analyzers`
+
+This module processes the AST nodes to derive higher-level insights.
+
+*   **`DependencyAnalyzer`**:
+    *   **Description**: Analyzes imports and references to build a dependency graph.
+    *   **Key Methods**:
+        *   `analyze(nodes: list[ASTNode]) -> DependencyGraph`: Returns a graph structure representing module and class dependencies.
+
+*   **`CoverageAnalyzer`**:
+    *   **Description**: Identifies undocumented entities (functions or classes without docstrings).
+    *   **Key Methods**:
+        *   `find_gaps(nodes: list[ASTNode]) -> list[ASTNode]`: Returns a list of nodes missing documentation.
+
+#### 4. `repoquill.renderers`
+
+This module handles the conversion of analyzed data into human-readable formats.
+
+*   **`BaseRenderer`**:
+    *   **Description**: An abstract base class for output renderers.
+    *   **Abstract Methods**:
+        *   `render(data: DocumentationData) -> str`: Converts the documentation data model into a string representation.
+        *   `file_extension() -> str`: Returns the file extension for the output format.
+
+*   **`MarkdownRenderer`**:
+    *   **Description**: Renders documentation in Markdown format.
+    *   **Features**:
+        *   Generates tables of contents.
+        *   Formats code blocks with syntax highlighting hints.
+        *   Structures output by module and class.
+
+### Data Flow
+
+The following sequence describes the data flow during a typical documentation generation run:
+
+1.  **Initialization**: The user instantiates `DocGenerator` and calls `generate()`.
+2.  **Scanning**: `RepositoryScanner` traverses the repository, returning a list of `Path` objects for all supported source files.
+3.  **Parsing**: For each file, the appropriate parser (e.g., `PythonParser`) is selected based on file extension. The parser reads the file and constructs an `ASTNode` tree.
+4.  **Aggregation**: All `ASTNode` trees are aggregated into a single `DocumentationData` object, which serves as the central data model for the pipeline.
+5.  **Analysis**: Analyzers (e.g., `DependencyAnalyzer`) process the `DocumentationData` to enrich it with additional information such as dependency links and coverage metrics.
+6.  **Rendering**: The selected renderer (e.g., `MarkdownRenderer`) consumes the enriched `DocumentationData` and produces the final output string.
+7.  **Output**: The rendered string is written to the specified output directory.
+
+### Configuration
+
+`repoquill` supports configuration via a dictionary passed to `DocGenerator.configure()`. Key configuration options include:
+
+| Option | Type | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `extensions` | `list[str]` | `[".py"]` | File extensions to include in the scan. |
+| `ignore_patterns` | `list[str]` | `["test_", "conftest"]` | Patterns to exclude from documentation. |
+| `output_format` | `str` | `"markdown"` | The target documentation format. |
+| `include_private` | `bool` | `False` | Whether to include private methods/classes. |
+
+### Example Usage
+
+The following example demonstrates how to use `repoquill` to generate Markdown documentation for a Python project.
+
+```python
+from repoquill.core import DocGenerator
+
+def main():
+    # Initialize the generator
+    generator = DocGenerator()
+    
+    # Configure the generator
+    generator.configure({
+        "extensions": [".py"],
+        "ignore_patterns": ["test_", "migrations"],
+        "output_format": "markdown"
+    })
+    
+    # Generate documentation
+    # This will scan the current directory and output to ./docs
+    generator.generate(
+        repo_path=".",
+        output_dir="./docs"
+    )
+    
+    print("Documentation generated successfully.")
+
+if __name__ == "__main__":
+    main()
+```
+
+### Design Principles
+
+1.  **Extensibility**: New language parsers can be added by subclassing `BaseParser`. New output formats can be added by subclassing `BaseRenderer`.
+2.  **Separation of Concerns**: Parsing, analysis, and rendering are decoupled, allowing for independent testing and optimization.
+3.  **Performance**: The scanner uses efficient file system traversal, and parsers are designed to handle large codebases without excessive memory consumption.
+4.  **Accuracy**: The library relies on standard library parsing tools (e.g., `ast` for Python) to ensure accurate extraction of code structure.
+
+By adhering to these principles, `repoquill` provides a robust and flexible foundation for automated documentation generation in software projects.
+
+### See Also
+
+*   [Key Ideas](key-ideas.md)
+
+
+============================================================
+## Key Ideas
+
+## Key Ideas
+
+**repoquill** is a Python library designed to streamline the process of generating, managing, and versioning technical documentation directly from source code repositories. Its core philosophy centers on treating documentation as a first-class citizen in the software development lifecycle, ensuring that documentation remains synchronized with the code it describes.
+
+The library is built upon three fundamental abstractions: **Source Abstraction**, **Transformation Pipelines**, and **Artifact Management**. These concepts work together to decouple the source of truth (the code) from the final output format (Markdown, HTML, PDF, etc.), allowing developers to maintain a single source of documentation logic while targeting multiple distribution channels.
+
+### 1. Source Abstraction
+
+At the heart of `repoquill` is the `Source` interface. This abstraction allows the library to ingest documentation content from various origins without coupling the core engine to specific file systems or version control systems.
+
+The primary implementation is `FileSource`, which reads documentation templates and metadata from local files or directories. However, the architecture supports custom sources, enabling integration with remote APIs or database-backed documentation stores.
+
+```python
+from repoquill.source import FileSource, Source
+
+class FileSource(Source):
+    """
+    A source that loads documentation content from the local file system.
+    
+    Parameters:
+        root_path (str): The root directory containing documentation files.
+        pattern (str): A glob pattern to match documentation files (default: '*.md').
+    """
+    def __init__(self, root_path: str, pattern: str = "*.md"):
+        self.root_path = root_path
+        self.pattern = pattern
+
+    def load(self) -> dict:
+        """
+        Loads all matching files and returns a dictionary mapping file paths to content.
+        """
+        # Implementation details...
+        pass
+```
+
+**Design Pattern:** The *Strategy Pattern* is employed here. By defining a common `Source` interface, `repoquill` can swap out the data retrieval mechanism at runtime without altering the downstream processing logic.
+
+### 2. Transformation Pipelines
+
+Documentation rarely exists in its final form within the source files. It often requires processing steps such as variable substitution, code block execution, or formatting adjustments. `repoquill` models this process as a **Pipeline** of **Transformers**.
+
+A `Transformer` is a callable object that takes a `Document` object and returns a modified `Document`. The `Pipeline` class manages the execution order of these transformers.
+
+#### The `Document` Model
+
+The `Document` class serves as the data carrier through the pipeline. It encapsulates:
+*   `content`: The raw text or structured data of the document.
+*   `metadata`: A dictionary containing key-value pairs (e.g., title, author, version).
+*   `context`: A shared state object available to all transformers in the pipeline.
+
+```python
+from repoquill.core import Document, Transformer, Pipeline
+
+class VariableSubstitutionTransformer(Transformer):
+    """
+    Replaces {{variable}} placeholders in the document content with values from the context.
+    """
+    def transform(self, doc: Document) -> Document:
+        for key, value in doc.context.items():
+            doc.content = doc.content.replace(f"{{{{{key}}}}}", str(value))
+        return doc
+
+class CodeBlockExecutor(Transformer):
+    """
+    Executes Python code blocks marked with ```python and replaces them with their output.
+    """
+    def transform(self, doc: Document) -> Document:
+        # Logic to find, execute, and replace code blocks
+        return doc
+```
+
+#### Building a Pipeline
+
+The `Pipeline` class allows developers to chain transformers together. The order of execution is critical; for example, variable substitution should typically occur before code execution if the code relies on substituted variables.
+
+```python
+from repoquill.pipeline import Pipeline
+from repoquill.transformers import MarkdownFormatter, TimestampInjector
+
+def create_default_pipeline():
+    pipeline = Pipeline()
+    
+    # 1. Inject current timestamp into metadata
+    pipeline.add(TimestampInjector())
+    
+    # 2. Substitute variables
+    pipeline.add(VariableSubstitutionTransformer())
+    
+    # 3. Format Markdown for consistent styling
+    pipeline.add(MarkdownFormatter())
+    
+    return pipeline
+```
+
+**Design Pattern:** The *Chain of Responsibility* pattern is used here. Each transformer handles a specific aspect of the document processing and passes the result to the next transformer in the chain. This promotes modularity and reusability of individual processing steps.
+
+### 3. Artifact Management
+
+Once a document has passed through the transformation pipeline, it needs to be written to a destination. `repoquill` abstracts this through the `Artifact` and `Writer` interfaces.
+
+An `Artifact` represents the final output of a document, including its target file path and format. The `Writer` is responsible for persisting the artifact to the chosen medium (file system, S3, GitHub Pages, etc.).
+
+```python
+from repoquill.writer import FileWriter, Writer
+
+class FileWriter(Writer):
+    """
+    Writes artifacts to the local file system.
+    
+    Parameters:
+        output_dir (str): The directory where output files will be saved.
+    """
+    def __init__(self, output_dir: str):
+        self.output_dir = output_dir
+
+    def write(self, artifact: Artifact) -> None:
+        """
+        Writes the artifact content to the specified file path.
+        """
+        file_path = os.path.join(self.output_dir, artifact.filename)
+        with open(file_path, 'w', encoding='utf-8') as f:
+            f.write(artifact.content)
+```
+
+### Core Workflow
+
+The typical usage of `repoquill` follows a clear, linear workflow:
+
+1.  **Initialize Source**: Create a `Source` instance to locate raw documentation files.
+2.  **Define Pipeline**: Construct a `Pipeline` with the necessary `Transformer`s.
+3.  **Configure Writer**: Set up a `Writer` to handle output.
+4.  **Execute**: Run the `RepoQuill` engine to process all documents.
+
+```python
+from repoquill import RepoQuill, FileSource, FileWriter
+from repoquill.pipeline import Pipeline
+from repoquill.transformers import MarkdownFormatter
+
+# 1. Setup Source
+source = FileSource(root_path="./docs", pattern="*.md")
+
+# 2. Setup Pipeline
+pipeline = Pipeline()
+pipeline.add(MarkdownFormatter())
+
+# 3. Setup Writer
+writer = FileWriter(output_dir="./build/docs")
+
+# 4. Initialize and Run Engine
+engine = RepoQuill(
+    source=source,
+    pipeline=pipeline,
+    writer=writer
+)
+
+engine.run()
+```
+
+### Configuration and Context
+
+The `context` parameter in the `RepoQuill` engine allows global variables to be injected into every document's processing context. This is useful for injecting build information, such as the current version number or build timestamp, into all generated documents.
+
+```python
+engine = RepoQuill(
+    source=source,
+    pipeline=pipeline,
+    writer=writer,
+    context={
+        "version": "1.0.0",
+        "build_date": "2023-10-27"
+    }
+)
+```
+
+Within a `Transformer`, these context variables can be accessed via `doc.context`, enabling dynamic content generation based on the build environment.
+
+### Error Handling and Logging
+
+`repoquill` employs standard Python exception handling. If a `Transformer` fails during execution, the `Pipeline` will raise a `TransformationError` containing the original exception and the document identifier that caused the failure. This allows developers to identify problematic documents without halting the entire build process if configured to continue on error.
+
+```python
+try:
+    engine.run()
+except TransformationError as e:
+    logger.error(f"Failed to process document: {e.document_id}")
+    logger.error(f"Reason: {e.original_exception}")
+```
+
+### Summary of Key Classes
+
+| Class | Module | Description |
+| :--- | :--- | :--- |
+| `Source` | `repoquill.source` | Abstract base class for data retrieval. |
+| `FileSource` | `repoquill.source` | Implementation for local file system sources. |
+| `Document` | `repoquill.core` | Data model representing a single document. |
+| `Transformer` | `repoquill.core` | Abstract base class for document processing steps. |
+| `Pipeline` | `repoquill.pipeline` | Manages the execution order of transformers. |
+| `Writer` | `repoquill.writer` | Abstract base class for output persistence. |
+| `FileWriter` | `repoquill.writer` | Implementation for local file system output. |
+| `RepoQuill` | `repoquill` | Main engine class that orchestrates the workflow. |
+
+By adhering to these abstractions, `repoquill` provides a flexible, extensible framework for documentation generation that can adapt to diverse project needs while maintaining a consistent and predictable API.
+
+### See Also
+
+*   [Architecture](architecture.md)
+*   [Installation](installation.md)
+*   [Quickstart](quickstart.md)
+

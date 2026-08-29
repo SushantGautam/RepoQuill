@@ -1,0 +1,45 @@
+{
+  "pages": [
+    {
+      "title": "Quickstart",
+      "slug": "quickstart",
+      "description": "A minimal example to get the library running in under 5 minutes.",
+      "source_files": [
+        "README.md",
+        "examples/quickstart.py"
+      ]
+    },
+    {
+      "title": "Installation",
+      "slug": "installation",
+      "description": "Instructions for installing the library via pip, from source, and managing dependencies.",
+      "source_files": [
+        "setup.py",
+        "pyproject.toml",
+        "requirements.txt",
+        "README.md"
+      ]
+    },
+    {
+      "title": "Architecture",
+      "slug": "architecture",
+      "description": "High-level overview of the system design, module interactions, and data flow.",
+      "source_files": [
+        "src/core/__init__.py",
+        "src/core/engine.py",
+        "docs/architecture.md"
+      ]
+    },
+    {
+      "title": "Key Ideas",
+      "slug": "key-ideas",
+      "description": "Explanation of the core abstractions, design patterns, and fundamental concepts.",
+      "source_files": [
+        "src/core/base.py",
+        "src/core/types.py",
+        "docs/concepts.md"
+      ]
+    }
+  ],
+  "file_hashes": {}
+}

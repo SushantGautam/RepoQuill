@@ -1,0 +1,19 @@
+# repoquill
+
+Documentation for repoquill
+
+> https://github.com/SushantGautam/RepoQuill
+
+## Guides
+
+- [Quickstart](https://SushantGautam.github.io/RepoQuill/guides/quickstart/): A minimal example to get the library running in under 5 minutes.
+- [Installation](https://SushantGautam.github.io/RepoQuill/guides/installation/): Instructions for installing the library via pip, from source, and managing dependencies.
+- [Architecture](https://SushantGautam.github.io/RepoQuill/guides/architecture/): High-level overview of the system design, module interactions, and data flow.
+- [Key Ideas](https://SushantGautam.github.io/RepoQuill/guides/key-ideas/): Explanation of the core abstractions, design patterns, and fundamental concepts.
+
+## API Reference
+
+
+## Agent Skill
+
+- [SKILL.md](https://SushantGautam.github.io/RepoQuill/SKILL.md): Agent skill for generating, maintaining, and validating this project's documentation.
