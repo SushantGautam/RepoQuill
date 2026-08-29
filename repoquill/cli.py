@@ -788,7 +788,7 @@ def _cmd_init(args) -> int:
                 "provider": llm_raw.get("provider", "openai"),
                 "model": llm_raw.get("model", "gpt-4o"),
                 "api_key_env": llm_raw.get("api_key_env", ""),
-                "trigger": "manual",
+                "trigger": getattr(args, "trigger", "manual"),
                 "site": site_raw,
                 "narrative_sections": raw.get("narrative_sections", []),
                 "reference_sections": raw.get("reference_sections", []),
