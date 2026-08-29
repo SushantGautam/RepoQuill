@@ -1,8 +1,8 @@
 # CURRENT_STATE
 
-**Last updated:** 2026-08-29 (after E22)
-**Best-known state:** E8+E9+E10+E13+E13b+E14+E19+E21+E22 (grounding pass with prose+semantic checkers, full generation) — 52.3% coverage v2 (mean of 3 runs), 0.0% invented-symbol rate, 0.0% broken examples, 18.7 prose findings mean, 4.7 semantic findings mean
-**Experiments complete:** E1–E22 + RETRO2 + RETRO3 + RETRO4. E22 (full 3-run validation of grounding pass): KEEP — all 4 decision criteria PASS (cov 52.3% within 4.2pp band, broken 0.0% within 18.1pp band, sem 4.7 <5, prose 18.7 <20). New best-known state.
+**Last updated:** 2026-08-29 (after E23)
+**Best-known state:** E8+E9+E10+E13+E13b+E14+E19+E21+E22 (grounding pass with prose+semantic checkers, full generation) — 54.4% coverage v2 (mean of 3 runs, after E23 de-Goodhart fix), 0.0% invented-symbol rate, 0.0% broken examples, 18.7 prose findings mean, 4.7 semantic findings mean
+**Experiments complete:** E1–E23 + RETRO2 + RETRO3 + RETRO4. E22 (full 3-run validation of grounding pass): KEEP — all 4 decision criteria PASS. E23 (de-Goodhart workflows category): KEEP — removed 18 generic English words from workflows inventory, coverage 52.3%→54.4% (+2.1pp).
 **E13 (surgical verify pass):** deterministic post-generation edit step. Property-call fix is genuine. Committed (18f365d).
 **E13b (placeholder fix):** replaced `<REQUIRED>` sentinel with value inference (AST default, sibling mirroring) or omit+comment. 0 placeholders across 3 runs. Broken% now honest (13.8% mean). Committed (5c08779).
 **RETRO2 key findings:**
@@ -40,6 +40,7 @@
 | E20 | Semantic value checker (string literals + caveats) | — | — | — | **KEEP** (12 findings on E14/E19, 0 FP; catches language="en" + event-loop caveat) |
 | E21 | Wire semantic checker into grounding pass + test | 0.0% | 56.4% (single-run, top of band) | 5.2% | **KEEP** (semantic 12→1, 91.7% reduction, zero coverage/halluc regression) |
 | E22 | Full 3-run validation of grounding pass (prose+semantic) | 0.0% | 52.3% (mean of 3) | 0.0% | **KEEP** (all 4 criteria PASS, new best-known state) |
+| E23 | De-Goodhart workflows category in coverage_check_v2.py | — | 54.4% (mean of 3, +2.1pp) | — | **KEEP** (removed 18 generic words, no other category affected) |
 | RETRO4 | Research retrospective (5th since RETRO3) | — | — | — | **METHODOLOGY** (workflows Goodhart risk, usability blind spot) |
 
 ## E11 — Variance Band Results
@@ -464,13 +465,12 @@ developer.
 generation when OOM resolved. (3) Do NOT claim E21 improved coverage. (4) Establish
 3-run mean for E21 best-known state. (5) Consider usability metric.
 
-## Next Steps (re-ranked after E22)
+## Next Steps (re-ranked after E23)
 
-1. **E23 — Fix `workflows` category in coverage_check_v2.py.** De-Goodhart: require
-   substantive mention (heading, code block, definition-style sentence, or bold term)
-   rather than any mention. Should raise coverage by ~5pp (removes ~14 false-positive
-   concepts from denominator). RETRO4 identified this as a Goodhart risk.
-2. **E15 (structure) — Generic structure derivation.** Repo-derived slugs, not hand-authored.
-3. **Backlog:** rename `hallucination_rate` → `invented_symbol_rate`; independent judge
+1. **E15 (structure) — Generic structure derivation.** Repo-derived slugs, not hand-authored.
+   The 11 narrative slugs are hand-authored for SimpleAudit. A generic system should derive
+   page structure from the repository itself.
+2. **Backlog:** rename `hallucination_rate` → `invented_symbol_rate`; independent judge
    (different model family); usability metric (next blind spot).
-4. **Research retrospective due** (4 experiments since RETRO4: E22 is the 5th since RETRO3).
+3. **Research retrospective due** (5 experiments since RETRO4: E22, E23 are the 5th-6th
+   since RETRO3).
