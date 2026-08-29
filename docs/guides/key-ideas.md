@@ -60,7 +60,7 @@ response = client.chat(
 
 #### Local RAG
 
-For grounding LLM responses in local source code, `repoquill` provides the `LocalRAG` class. This class builds a retrieval-augmented gfrom repoquill.llm import LocalRAG
+For grounding LLM responses in local source code, `repoquill` provides the `LocalRAG` class. This class builds a retrieval-augmented generation indfrom repoquill.llm import LocalRAG
 
 # Initialize RAG with configuration and source files
 rag_cfg = {"chunk_size": 500}

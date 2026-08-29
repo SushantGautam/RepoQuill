@@ -45,13 +45,13 @@
     "repoquill/site.py": "c5196508d138600d534b4f7ce97d80f2c8bb403ebd3c2aa91cc6530075c988b7",
     "repoquill/plan.py": "640378056bb5174494a28e1eb316729a4c77b775651315176d1d2e36371394f8",
     "repoquill/llm.py": "10ed4ec6e98a1720012ba3cf3ad0872d18c5806259664e4350409719980e3906",
-    "repoquill/narrative.py": "db6ca591ff03a210217b048afedcfaebd74a62df1dbb866b4dd6e70a24755451",
+    "repoquill/narrative.py": "972ec9ec4045286cd0830e209d664f1164ee1f3a574f99eded816fdc5f45b03f",
     "repoquill/surgical_verify.py": "04fda2b1a8443e7c3b93d70e5f728ccd0daf08598f44c048775f94ba6f5cacb3",
-    "repoquill/reference.py": "e7902b4eb3ee0bf76c5e096c2f36b4612f81bf5d7dca932513ce2e0c3b4120c3",
+    "repoquill/reference.py": "e567a37b24d1a203e447b28d8ded27fcfcbd4102a2daf00848cc3e2c49aba99b",
     "repoquill/config.py": "ad7dde928c6ed78ca8e25779b989f02822c747d53a44d386e85ec7a413fd9139",
-    "repoquill/verify.py": "b54cf5445c85e2c237857b89ffb9401f2ac130cb438f1788bbe0567449c91cfb",
+    "repoquill/verify.py": "452cbd8efd52d7716dff36b6b8d82a225142e71db754fa0e0392e243dc9a1060",
     "repoquill/grounding.py": "3f7f36bbfbed794b799c8547b5f4e0658e54323e57799a6906cba582d729ea09",
-    "repoquill/cli.py": "86ad13733ab19dc986a5da360e14d3b02b93864cfad4ae45cd73f7ac4b65883e",
+    "repoquill/cli.py": "49610d5f53bbaa49472ff0f7a8c652aea06e89314aaddbfc08b9e54aef62a2ba",
     "README.md": "4110d20b799a02099bd25656edac92810e16f41ec1f71240b677c7bb653e0f62",
     "pyproject.toml": "4974ac8aa346e6d0e178b69001f110c3c69774b4d8a329a8ca6185c4dcd477a4"
   }

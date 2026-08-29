@@ -70,10 +70,16 @@ This module handles the deterministic extraction of API surfaces and the renderi
     *   **Description**: Extracts CLI command definitions and arguments.
 *   **`extract_constructor_signatures(pkg_path, names, max_chars)`**:
     *   **Description**: Extracts specific constructor signatures for given class names.
+*   **`extract_member_bodies(pkg_path, names, max_lines, max_chars)`**:
+    *   **Description**: Extracts the source code bodies of specific members (classes or functions) for detailed analysis.
+*   **`get_examples_context(root, max_chars)`**:
+    *   **Description**: Retrieves context from example files within the repository.
 *   **`get_source_files(pkg_path)`**:
     *   **Description**: Retrieves a list of source files in the package.
 *   **`get_file_tree(pkg_path)`**:
     *   **Description**: Generates a tree structure of the package files.
+*   **`get_tests_context(root, max_chars)`**:
+    *   **Description**: Retrieves context from test files within the repository.
 *   **`build_api_reference(cfg)`**:
     *   **Description**: Builds the complete API reference documentation structure.
 *   **`render_module_reference(module_name, search_path, module_descriptions)`**:
@@ -119,6 +125,8 @@ This module ensures the accuracy of the generated documentation by verifying it 
     *   **Description**: Verifies all pages in the guides directory.
 *   **`verify_pages(cfg, client)`**:
     *   **Description**: Orchestrates the verification process for all generated pages.
+*   **`fix_type_claims(content, pkg_path)`**:
+    *   **Description**: Identifies and corrects type-related claims in the documentation that do not match the source code.
 *   **`extract_backtick_symbols(md)`**, **`extract_code_blocks(md)`**, **`extract_imports(md)`**, **`extract_method_calls(md)`**:
     *   **Description**: Utility functions to extract specific code elements from Markdown for verification.
 
@@ -215,6 +223,7 @@ def main():
     cfg = load_config("repoquill.yml")
     
     # Initialize LLM client
+    # NOTE: llm_cfg is required (no default)
     llm_client = LLMClient(cfg.llm_config
     # NOTE: llm_cfg is required (no default)
 )
