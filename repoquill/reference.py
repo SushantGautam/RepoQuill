@@ -786,6 +786,120 @@ def extract_api_surface(pkg_path: str, max_chars: int = 12000) -> str:
     return text
 
 
+def extract_constructor_signatures(
+    pkg_path: str, names: set, max_chars: int = 4000
+) -> str:
+    """Extract exact ``__init__`` signatures for the given class names.
+
+    E14: page-relevant constructor context.  When the LLM writes code
+    examples it must know the exact parameter names, order, and defaults
+    of the constructors it calls.  ``extract_api_surface`` lists method
+    *names* but not full signatures, so the model sometimes invents
+    kwarg names.  This function fills that gap with deterministic,
+    AST-derived constructor signatures.
+
+    Args:
+        pkg_path: Absolute path to the package directory.
+        names: Set of class or function names to include.  A class is
+            included when its name (or any dotted suffix, e.g.
+            ``"results.AuditResults"`` matches ``"AuditResults"``) is in
+            the set.  A free function is included when its name is in
+            the set.
+        max_chars: Truncate the result to this many characters.
+
+    Returns:
+        Multi-line string with exact signatures, or empty string if
+        nothing matches.
+    """
+    lines: list = []
+    for dirpath, _, filenames in os.walk(pkg_path):
+        for f in sorted(filenames):
+            if not f.endswith(".py"):
+                continue
+            full = os.path.join(dirpath, f)
+            rel = os.path.relpath(full, pkg_path)
+            mod = rel[:-3].replace(os.sep, ".")
+            if mod.endswith(".__init__"):
+                mod = mod[:-9]
+            try:
+                with open(full, "r", encoding="utf-8", errors="replace") as fh:
+                    tree = ast.parse(fh.read())
+            except (SyntaxError, OSError):
+                continue
+
+            for node in ast.walk(tree):
+                if isinstance(node, ast.ClassDef):
+                    short = node.name
+                    dotted = f"{mod}.{node.name}"
+                    if short not in names and dotted not in names:
+                        continue
+                    init = None
+                    for item in node.body:
+                        if isinstance(item, ast.FunctionDef) and item.name == "__init__":
+                            init = item
+                            break
+                    if init is None:
+                        lines.append(f"  {dotted}(): (no custom __init__)")
+                        continue
+                    args = _sig_args(init)
+                    lines.append(f"  {dotted}.__init__({', '.join(args)})")
+                elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    if node.name.startswith("_"):
+                        continue
+                    short = node.name
+                    dotted = f"{mod}.{node.name}"
+                    if short not in names and dotted not in names:
+                        continue
+                    # Only top-level functions (skip methods, which are
+                    # covered by the class branch above).
+                    if any(
+                        isinstance(p, ast.ClassDef) for p in ast.walk(tree)
+                        if node in ast.walk(p)
+                    ):
+                        continue
+                    args = _sig_args(node)
+                    lines.append(f"  {dotted}({', '.join(args)})")
+
+    if not lines:
+        return ""
+    text = "CONSTRUCTOR / FUNCTION SIGNATURES (exact — use these parameter names verbatim):\n"
+    text += "\n".join(sorted(set(lines)))
+    if len(text) > max_chars:
+        text = text[:max_chars] + "\n... (truncated)"
+    return text
+
+
+def _sig_args(node) -> list:
+    """Render a function's parameter list with annotations and defaults.
+
+    Order: posonly, regular, *vararg, kwonly, **kwarg — matching the
+    source's visual order.  ``self``/``cls`` are included (the caller
+    decides whether to strip them).
+    """
+    args = node.args
+    parts = []
+    # Positional (posonly + regular) share the trailing defaults list.
+    pos_args = list(args.posonlyargs) + list(args.args)
+    n_pos = len(pos_args)
+    n_def = len(args.defaults)
+    for i, a in enumerate(pos_args):
+        ann = f": {ast.unparse(a.annotation)}" if a.annotation else ""
+        d = i - (n_pos - n_def)
+        default = (f"={ast.unparse(args.defaults[d])}"
+                   if d >= 0 and d < n_def else "")
+        parts.append(f"{a.arg}{ann}{default}")
+    if args.vararg:
+        parts.append(f"*{args.vararg.arg}")
+    for i, a in enumerate(args.kwonlyargs):
+        ann = f": {ast.unparse(a.annotation)}" if a.annotation else ""
+        default = (f"={ast.unparse(args.kw_defaults[i])}"
+                   if args.kw_defaults[i] is not None else "")
+        parts.append(f"{a.arg}{ann}{default}")
+    if args.kwarg:
+        parts.append(f"**{args.kwarg.arg}")
+    return parts
+
+
 def get_examples_context(root: str, max_chars: int = 4000) -> str:
     """Build a context block from the repo's examples/ directory.
 

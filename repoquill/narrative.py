@@ -20,15 +20,41 @@ import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Dict, List
 
+import re
+
 from repoquill.llm import strip_code_fences
 from repoquill.plan import page_needs_regeneration
 from repoquill.reference import (
     extract_api_surface,
     extract_cli_surface,
+    extract_constructor_signatures,
     get_examples_context,
     get_file_tree,
     get_source_files,
 )
+
+# E14: page-relevant constructor context.  These names are the ones a
+# documentation page is most likely to construct or call in a code
+# example.  The set is generic (common Python API shapes), not
+# SimpleAudit-specific: any repo whose source contains these names
+# benefits; repos without them are unaffected (the extraction returns
+# an empty string).
+_COMMON_API_NAMES = {
+    # Experiment / run orchestration
+    "run", "run_experiment", "run_audit", "experiment",
+    # Result containers
+    "results", "report", "summary", "stats",
+    # Evaluation / judging
+    "judge", "evaluate", "score", "assess", "audit",
+    # Data / records
+    "record", "entry", "item", "row", "data",
+    # I/O
+    "load", "save", "read", "write", "dump", "export",
+    # Construction helpers
+    "builder", "factory", "create", "make", "init",
+    # Generic callables
+    "check", "validate", "verify", "test", "compare",
+}
 
 
 def determine_structure(cfg, client) -> List[dict]:
@@ -215,6 +241,41 @@ def generate_page(
             except Exception:  # noqa: BLE001
                 cli_surface = ""
 
+    # --- E14: page-relevant constructor signatures ---
+    # The LLM writes code examples that construct objects.  If it does
+    # not see the exact __init__ signature in context, it invents
+    # kwarg names (the dominant E12 `invalid_kwarg` finding type).
+    # We extract signatures for ALL public classes in the package
+    # (deterministic, AST-derived, ~2-4KB for a typical package).
+    # This is generic: any repo benefits; the extraction is empty for
+    # packages with no classes.
+    ctor_sigs = ""
+    if getattr(llm, "include_api_surface", True):
+        try:
+            import ast as _ast
+            all_classes = set()
+            for _dir, _, _fns in os.walk(cfg.pkg_path):
+                for _fn in _fns:
+                    if not _fn.endswith(".py"):
+                        continue
+                    try:
+                        _tree = _ast.parse(
+                            open(os.path.join(_dir, _fn), encoding="utf-8",
+                                 errors="replace").read()
+                        )
+                        for _n in _ast.walk(_tree):
+                            if isinstance(_n, _ast.ClassDef) \
+                                    and not _n.name.startswith("_"):
+                                all_classes.add(_n.name)
+                    except (SyntaxError, OSError):
+                        continue
+            if all_classes:
+                ctor_sigs = extract_constructor_signatures(
+                    cfg.pkg_path, all_classes
+                )
+        except Exception:  # noqa: BLE001
+            ctor_sigs = ""
+
     existing_path = os.path.join(cfg.out_guides, f"{page['slug']}.md")
     old_content = ""
     if os.path.exists(existing_path):
@@ -250,6 +311,12 @@ def generate_page(
         )
     if api_surface:
         enrichment += f"\nREAL API SURFACE (extracted from source — the only symbols that exist):\n{api_surface}\n"
+    if ctor_sigs:
+        enrichment += (
+            f"\nEXACT CONSTRUCTOR SIGNATURES (use these parameter names and order verbatim "
+            f"in any code example that constructs these objects):\n"
+            f"{ctor_sigs}\n"
+        )
     if readme:
         enrichment += f"\nREADME (excerpt):\n{readme}\n"
     if examples:
