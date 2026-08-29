@@ -1543,6 +1543,14 @@ def _cmd_generate(args) -> int:
                   f"{vsummary['findings_after']} after "
                   f"({vsummary['pages_fixed']} pages fixed)")
 
+        # Deterministic surgical verification (no LLM — always runs)
+        from repoquill.surgical_verify import run_surgical_verify
+        ssummary = run_surgical_verify(cfg.out_guides, cfg.pkg_path)
+        if ssummary["pages_fixed"]:
+            print(f"  surgical: {ssummary['property_fixes']} property fixes, "
+                  f"{ssummary['required_fixes']} required-kwarg fixes "
+                  f"({ssummary['pages_fixed']} pages)")
+
         store_plan(cfg.plan_file, pages, new_hashes)
 
     print()
