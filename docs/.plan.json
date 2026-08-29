@@ -3,7 +3,7 @@
     {
       "title": "Quickstart",
       "slug": "quickstart",
-      "description": "Scaffold your repository and generate your first documentation site in under five minutes.",
+      "description": "",
       "source_files": [
         "repoquill/cli.py",
         "repoquill/config.py"
@@ -12,7 +12,7 @@
     {
       "title": "Installation",
       "slug": "installation",
-      "description": "Install RepoQuill via uvx, uv tool, or pip and configure your environment.",
+      "description": "",
       "source_files": [
         "repoquill/cli.py"
       ]
@@ -20,66 +20,38 @@
     {
       "title": "Architecture",
       "slug": "architecture",
-      "description": "Understand the two-layer generation system: deterministic API reference vs. LLM-driven narrative guides.",
+      "description": "",
       "source_files": [
-        "repoquill/reference.py",
+        "repoquill/llm.py",
         "repoquill/narrative.py",
-        "repoquill/site.py"
+        "repoquill/reference.py",
+        "repoquill/site.py",
+        "repoquill/plan.py"
       ]
     },
     {
       "title": "Key Ideas",
       "slug": "key-ideas",
-      "description": "Core concepts including incremental regeneration, source grounding, and AI-agent compatibility.",
+      "description": "",
       "source_files": [
-        "repoquill/plan.py",
-        "repoquill/llm.py",
-        "repoquill/site.py"
-      ]
-    },
-    {
-      "title": "Configuration Reference",
-      "slug": "configuration",
-      "description": "Detailed reference for the repoquill.yml configuration file and its options.",
-      "source_files": [
-        "repoquill/config.py"
-      ]
-    },
-    {
-      "title": "LLM Providers",
-      "slug": "llm-providers",
-      "description": "Configure and use various LLM providers including OpenAI, Anthropic, and local models.",
-      "source_files": [
-        "repoquill/llm.py"
-      ]
-    },
-    {
-      "title": "CLI Commands",
-      "slug": "cli-commands",
-      "description": "Complete reference for all RepoQuill command-line interface commands and flags.",
-      "source_files": [
-        "repoquill/cli.py"
-      ]
-    },
-    {
-      "title": "CI/CD Integration",
-      "slug": "ci-cd",
-      "description": "Set up GitHub Actions workflows to automatically regenerate documentation on code changes.",
-      "source_files": [
-        "repoquill/cli.py",
-        "repoquill/plan.py"
+        "repoquill/grounding.py",
+        "repoquill/verify.py",
+        "repoquill/surgical_verify.py"
       ]
     }
   ],
   "file_hashes": {
     "repoquill/__init__.py": "e274d73b10f1696f491589258809cc3ec8b397fb55352d73806bf0d3b3c5f8fc",
-    "repoquill/site.py": "5cb32fa3094875ceb080d4124ce5b9c117199378e9dd2bd83f0024ca5bc45eed",
+    "repoquill/site.py": "c5196508d138600d534b4f7ce97d80f2c8bb403ebd3c2aa91cc6530075c988b7",
     "repoquill/plan.py": "640378056bb5174494a28e1eb316729a4c77b775651315176d1d2e36371394f8",
     "repoquill/llm.py": "10ed4ec6e98a1720012ba3cf3ad0872d18c5806259664e4350409719980e3906",
-    "repoquill/narrative.py": "48224793cf8f467f5de3f5ebd4aa33b3a042e3e57b39b8e7ed44dce8d74618d4",
-    "repoquill/reference.py": "dc002a3344dfabc2657ac81906e20eafa59de75c4ac5ed0d52cfa415da370c32",
-    "repoquill/config.py": "18a8ef532dd67274b7a7287df6c07d9613d0ad1babd5bae77e797698f1122e2d",
-    "repoquill/cli.py": "d0ba8d344c9feb38e28fc948917b9a815afff47ac879b85dc84a8487f47b783a",
+    "repoquill/narrative.py": "db6ca591ff03a210217b048afedcfaebd74a62df1dbb866b4dd6e70a24755451",
+    "repoquill/surgical_verify.py": "04fda2b1a8443e7c3b93d70e5f728ccd0daf08598f44c048775f94ba6f5cacb3",
+    "repoquill/reference.py": "e7902b4eb3ee0bf76c5e096c2f36b4612f81bf5d7dca932513ce2e0c3b4120c3",
+    "repoquill/config.py": "ad7dde928c6ed78ca8e25779b989f02822c747d53a44d386e85ec7a413fd9139",
+    "repoquill/verify.py": "b54cf5445c85e2c237857b89ffb9401f2ac130cb438f1788bbe0567449c91cfb",
+    "repoquill/grounding.py": "3f7f36bbfbed794b799c8547b5f4e0658e54323e57799a6906cba582d729ea09",
+    "repoquill/cli.py": "86ad13733ab19dc986a5da360e14d3b02b93864cfad4ae45cd73f7ac4b65883e",
     "README.md": "4110d20b799a02099bd25656edac92810e16f41ec1f71240b677c7bb653e0f62",
     "pyproject.toml": "4974ac8aa346e6d0e178b69001f110c3c69774b4d8a329a8ca6185c4dcd477a4"
   }

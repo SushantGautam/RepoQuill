@@ -12,20 +12,13 @@ pip install repoquill
 
 ### Getting Started
 
-- [Quickstart](guides/quickstart.md) — Scaffold your repository and generate your first documentation site in under five minutes.
-- [Installation](guides/installation.md) — Install RepoQuill via uvx, uv tool, or pip and configure your environment.
+- [Quickstart](guides/quickstart.md) — 
+- [Installation](guides/installation.md) — 
 
 ### Core Concepts
 
-- [Architecture](guides/architecture.md) — Understand the two-layer generation system: deterministic API reference vs. LLM-driven narrative guides.
-- [Key Ideas](guides/key-ideas.md) — Core concepts including incremental regeneration, source grounding, and AI-agent compatibility.
-
-### More
-
-- [Configuration Reference](guides/configuration.md) — Detailed reference for the repoquill.yml configuration file and its options.
-- [LLM Providers](guides/llm-providers.md) — Configure and use various LLM providers including OpenAI, Anthropic, and local models.
-- [CLI Commands](guides/cli-commands.md) — Complete reference for all RepoQuill command-line interface commands and flags.
-- [CI/CD Integration](guides/ci-cd.md) — Set up GitHub Actions workflows to automatically regenerate documentation on code changes.
+- [Architecture](guides/architecture.md) — 
+- [Key Ideas](guides/key-ideas.md) — 
 
 ## API Reference
 
@@ -34,8 +27,11 @@ pip install repoquill
 - [`repoquill`](reference/repoquill.md) — 
 - [`repoquill.cli`](reference/repoquill_cli.md) — 
 - [`repoquill.config`](reference/repoquill_config.md) — 
+- [`repoquill.grounding`](reference/repoquill_grounding.md) — 
 - [`repoquill.llm`](reference/repoquill_llm.md) — 
 - [`repoquill.narrative`](reference/repoquill_narrative.md) — 
 - [`repoquill.plan`](reference/repoquill_plan.md) — 
 - [`repoquill.reference`](reference/repoquill_reference.md) — 
 - [`repoquill.site`](reference/repoquill_site.md) — 
+- [`repoquill.surgical_verify`](reference/repoquill_surgical_verify.md) — 
+- [`repoquill.verify`](reference/repoquill_verify.md) — 
