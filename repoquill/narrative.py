@@ -20,8 +20,6 @@ import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Dict, List
 
-import re
-
 from repoquill.llm import strip_code_fences
 from repoquill.plan import page_needs_regeneration
 from repoquill.reference import (
@@ -33,29 +31,6 @@ from repoquill.reference import (
     get_source_files,
     get_tests_context,
 )
-
-# E14: page-relevant constructor context.  These names are the ones a
-# documentation page is most likely to construct or call in a code
-# example.  The set is generic (common Python API shapes), not
-# SimpleAudit-specific: any repo whose source contains these names
-# benefits; repos without them are unaffected (the extraction returns
-# an empty string).
-_COMMON_API_NAMES = {
-    # Experiment / run orchestration
-    "run", "run_experiment", "run_audit", "experiment",
-    # Result containers
-    "results", "report", "summary", "stats",
-    # Evaluation / judging
-    "judge", "evaluate", "score", "assess", "audit",
-    # Data / records
-    "record", "entry", "item", "row", "data",
-    # I/O
-    "load", "save", "read", "write", "dump", "export",
-    # Construction helpers
-    "builder", "factory", "create", "make", "init",
-    # Generic callables
-    "check", "validate", "verify", "test", "compare",
-}
 
 
 def determine_structure(cfg, client) -> List[dict]:
