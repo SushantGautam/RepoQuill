@@ -912,7 +912,7 @@ def _cmd_init(args) -> int:
                 f.write(config_content)
             print(f"  updated {config_path}")
 
-            # Write workflow if it doesn't exist
+            # Write or update workflow
             wf_dir = os.path.join(os.getcwd(), ".github", "workflows")
             wf_path = os.path.join(wf_dir, "docs.yml")
             if not os.path.exists(wf_path):
@@ -926,7 +926,31 @@ def _cmd_init(args) -> int:
                     f.write(wf_content)
                 print(f"  created {wf_path}")
             else:
-                print(f"  kept existing {wf_path}")
+                # Check if trigger changed and update the on: block
+                with open(wf_path, "r", encoding="utf-8") as f:
+                    wf_content = f.read()
+                
+                # Extract current trigger from workflow
+                current_trigger = "manual"
+                if "push:" in wf_content and "branches: [main]" in wf_content:
+                    current_trigger = "push_main"
+                elif "push:" in wf_content and "branches:" not in wf_content:
+                    current_trigger = "push_all"
+                elif "push:" in wf_content and "tags:" in wf_content:
+                    current_trigger = "release"
+                
+                if current_trigger != trigger:
+                    # Update the on: block
+                    on_block = _workflow_on_block(trigger)
+                    # Replace the on: block (from "on:" to the next top-level key)
+                    import re
+                    pattern = r'^on:\n(?:  .*\n|  #.*\n)*'
+                    wf_content = re.sub(pattern, f'on:\n{on_block}', wf_content, flags=re.MULTILINE)
+                    with open(wf_path, "w", encoding="utf-8") as f:
+                        f.write(wf_content)
+                    print(f"  updated {wf_path} (trigger: {current_trigger} → {trigger})")
+                else:
+                    print(f"  kept existing {wf_path}")
 
             # Ensure .gitignore has site_repoquill/
             _ensure_gitignore_entry()
