@@ -28,7 +28,7 @@ def _read_file(path):
 
 def _section_modules(cfg, section_name, reference_modules):
     """Return the modules belonging to a reference section (no duplicates)."""
-    for title, prefixes in _reference_sections(cfg):
+    for title, prefixes in _reference_sections(cfg, reference_modules):
         if title == section_name:
             return [m for m in reference_modules
                     if any(m == p or m.startswith(p + ".") for p in prefixes)]
@@ -40,10 +40,19 @@ def _narrative_sections(cfg):
     return [(s["title"], s["slugs"]) for s in cfg.narrative_sections]
 
 
-def _reference_sections(cfg):
-    """Reference sections as (title, module prefixes) tuples."""
+def _reference_sections(cfg, reference_modules=None):
+    """Reference sections as (title, module prefixes) tuples.
+
+    When the config has no explicit ``reference_sections`` but reference
+    modules exist, falls back to a single "API Reference" section that
+    covers every documented module — so the index, nav, and llms.txt
+    never show an empty API Reference block.
+    """
     sections = cfg.raw.get("reference_sections") or []
-    return [(s["title"], s["modules"]) for s in sections]
+    result = [(s["title"], s["modules"]) for s in sections]
+    if not result and reference_modules:
+        result = [("API Reference", reference_modules)]
+    return result
 
 
 def _module_descriptions(cfg):
@@ -99,7 +108,7 @@ def build_index_md(cfg, pages: List[dict], reference_modules: List[str]) -> None
         lines.append("")
 
     lines += ["## API Reference", ""]
-    for section_name, _ in _reference_sections(cfg):
+    for section_name, _ in _reference_sections(cfg, reference_modules):
         mods = _section_modules(cfg, section_name, reference_modules)
         if not mods:
             continue
@@ -151,7 +160,7 @@ def build_llms_txt(cfg, pages: List[dict], reference_modules: List[str]) -> None
     lines.append("## API Reference")
     lines.append("")
     seen_modules = set()
-    for section_name, _ in _reference_sections(cfg):
+    for section_name, _ in _reference_sections(cfg, reference_modules):
         mods = _section_modules(cfg, section_name, reference_modules)
         if not mods:
             continue
@@ -227,7 +236,7 @@ def build_llms_full_txt(cfg, pages: List[dict], reference_modules: List[str]) ->
     # Raw mkdocstrings directives (::: module) are not rendered in plain text,
     # so we extract the module docstring and provide a URL instead.
     seen_modules = set()
-    for section_name, _ in _reference_sections(cfg):
+    for section_name, _ in _reference_sections(cfg, reference_modules):
         mods = _section_modules(cfg, section_name, reference_modules)
         if not mods:
             continue
@@ -408,7 +417,7 @@ def build_nav(cfg, pages: List[dict], reference_modules: List[str]) -> List:
 
     # --- API Reference section (only if there are reference modules) ---
     ref_nav = []
-    for section_name, _ in _reference_sections(cfg):
+    for section_name, _ in _reference_sections(cfg, reference_modules):
         mods = _section_modules(cfg, section_name, reference_modules)
         if not mods:
             continue
@@ -417,6 +426,13 @@ def build_nav(cfg, pages: List[dict], reference_modules: List[str]) -> List:
         else:
             ref_nav.append([section_name, [f"reference/{m.replace('.', '_')}.md" for m in mods]])
     if ref_nav:
+        # A single section would otherwise nest as API Reference → section
+        # → pages; lift it one level so the nav reads API Reference → pages.
+        # When the section is itself named "API Reference" (the fallback
+        # case), use the pages directly to avoid a redundant label.
+        if len(ref_nav) == 1 and isinstance(ref_nav[0], list):
+            name, pages = ref_nav[0]
+            ref_nav = pages if name == "API Reference" else [name, pages]
         nav.append(["API Reference", ref_nav])
 
     return nav

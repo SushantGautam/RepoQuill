@@ -614,31 +614,106 @@ index:
 
 def _detect_package_dir() -> str:
     """Find the top-level Python package in the current directory."""
-    for entry in sorted(os.listdir(".")):
+    return _detect_package_dir_in(os.getcwd())
+
+
+def _detect_package_dir_in(root: str) -> str:
+    """Find the importable Python package under ``root``.
+
+    Generic heuristic (works for any Python repo layout):
+    1. Top-level directory containing ``__init__.py`` (flat layout).
+    2. ``src/<name>`` (src layout).
+    3. ``<name>`` directory matching the distribution name from
+       ``pyproject.toml`` / ``setup.cfg`` (``-`` → ``_`` normalized).
+    4. Fallback: the single top-level directory with the most ``.py`` files.
+
+    Returns "" if no package can be found (e.g. a non-Python project).
+    """
+    if not os.path.isdir(root):
+        return ""
+    try:
+        entries = sorted(os.listdir(root))
+    except OSError:
+        return ""
+
+    # 1. Top-level package (flat layout).
+    for entry in entries:
         if (
-            os.path.isdir(entry)
+            os.path.isdir(os.path.join(root, entry))
             and not entry.startswith((".", "_"))
-            and os.path.isfile(os.path.join(entry, "__init__.py"))
+            and os.path.isfile(os.path.join(root, entry, "__init__.py"))
         ):
             return entry
+
+    # 2. src layout.
+    src = os.path.join(root, "src")
+    if os.path.isdir(src):
+        try:
+            for entry in sorted(os.listdir(src)):
+                if (
+                    os.path.isdir(os.path.join(src, entry))
+                    and not entry.startswith((".", "_"))
+                    and os.path.isfile(os.path.join(src, entry, "__init__.py"))
+                ):
+                    return os.path.join("src", entry)
+        except OSError:
+            pass
+
+    # 3. Directory matching the distribution name.
+    dist_name = _detect_project_name_in(root)
+    if dist_name:
+        pkg = dist_name.replace("-", "_").lower()
+        for entry in entries:
+            if (
+                entry.lower() == pkg
+                and os.path.isdir(os.path.join(root, entry))
+                and os.path.isfile(os.path.join(root, entry, "__init__.py"))
+            ):
+                return entry
+
+    # 4. Fallback: top-level directory with the most .py files.
+    best, best_count = "", 0
+    for entry in entries:
+        path = os.path.join(root, entry)
+        if not os.path.isdir(path) or entry.startswith((".", "_")):
+            continue
+        try:
+            count = sum(
+                1
+                for _dirpath, _, _files in os.walk(path)
+                for f in _files
+                if f.endswith(".py")
+            )
+        except OSError:
+            continue
+        if count > best_count:
+            best, best_count = entry, count
+    return best if best_count > 0 else ""
+
+
+def _detect_project_name_in(root: str) -> str:
+    """Read the distribution name from pyproject.toml/setup.cfg in ``root``."""
+    for toml in ("pyproject.toml", "setup.cfg"):
+        path = os.path.join(root, toml)
+        if not os.path.isfile(path):
+            continue
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if line.startswith("name") and "=" in line:
+                        val = line.split("=", 1)[1].strip().strip('"').strip("'")
+                        if val:
+                            return val
+        except OSError:
+            pass
     return ""
 
 
 def _detect_project_name() -> str:
     """Read the project name from pyproject.toml if present."""
-    for toml in ("pyproject.toml", "setup.cfg"):
-        if os.path.isfile(toml):
-            try:
-                with open(toml, "r", encoding="utf-8") as f:
-                    for line in f:
-                        line = line.strip()
-                        if line.startswith("name") and "=" in line:
-                            val = line.split("=", 1)[1].strip().strip('"').strip("'")
-                            if val:
-                                return val
-            except OSError:
-                pass
-    return os.path.basename(os.getcwd())
+    name = _detect_project_name_in(os.getcwd())
+    return name or os.path.basename(os.getcwd())
 
 
 def _detect_repo_name() -> str:
@@ -1400,6 +1475,18 @@ def _scaffold_config(cfg, client) -> bool:
     if not needs_index and cfg.index and not cfg.index.get("quick_start"):
         needs_index = bool(cfg.package_dir)
 
+    # Auto-detect the package directory when it is not set. Without a
+    # package_dir the API reference is empty (no modules to document) and
+    # the scaffold cannot list available modules for reference_sections.
+    # This is generic: any Python repo where package_dir was never set.
+    if not cfg.package_dir:
+        detected = _detect_package_dir_in(cfg.root)
+        if detected:
+            cfg.package_dir = detected
+            cfg.raw["package_dir"] = detected
+            cfg.pkg_path = os.path.join(cfg.root, detected)
+            print(f"  Auto-detected package_dir: {detected}")
+
     if not (needs_narrative or needs_reference or needs_index):
         return False  # Config is already complete
 
@@ -1484,6 +1571,8 @@ Rules:
         with open(config_path, "r", encoding="utf-8") as f:
             raw_config = yaml.safe_load(f) or {}
 
+        if "package_dir" in cfg.raw and cfg.raw.get("package_dir"):
+            raw_config["package_dir"] = cfg.raw["package_dir"]
         if "narrative_sections" in cfg.raw:
             raw_config["narrative_sections"] = cfg.raw["narrative_sections"]
         if "reference_sections" in cfg.raw:
@@ -1523,6 +1612,17 @@ def _cmd_generate(args) -> int:
     if args.source_root:
         cfg.root = os.path.abspath(args.source_root)
         cfg.pkg_path = os.path.join(cfg.root, cfg.package_dir)
+
+    # Auto-detect the package directory when not set, so the API
+    # reference has modules to document even without the LLM scaffold
+    # (e.g. --no-llm runs). Generic: any Python repo.
+    if not cfg.package_dir:
+        detected = _detect_package_dir_in(cfg.root)
+        if detected:
+            cfg.package_dir = detected
+            cfg.raw["package_dir"] = detected
+            cfg.pkg_path = os.path.join(cfg.root, detected)
+            print(f"Auto-detected package_dir: {detected}")
 
     os.makedirs(cfg.out_guides, exist_ok=True)
     os.makedirs(cfg.ref_dir, exist_ok=True)
