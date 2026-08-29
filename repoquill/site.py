@@ -42,7 +42,8 @@ def _narrative_sections(cfg):
 
 def _reference_sections(cfg):
     """Reference sections as (title, module prefixes) tuples."""
-    return [(s["title"], s["modules"]) for s in cfg.raw.get("reference_sections", [])]
+    sections = cfg.raw.get("reference_sections") or []
+    return [(s["title"], s["modules"]) for s in sections]
 
 
 def _module_descriptions(cfg):
