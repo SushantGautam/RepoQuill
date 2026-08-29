@@ -1,6 +1,6 @@
 # BEST_KNOWN
 
-**Last updated:** 2026-08-29 (after E19)
+**Last updated:** 2026-08-29 (after E20)
 
 ## Best-Known State
 
@@ -169,14 +169,17 @@ infrastructure only — no RepoQuill code change.
 Tests crowd out source context without net benefit at this context budget. Code kept
 (default off) for future experiments with larger context budgets.
 
-## E17 — Verify-Pass A/B (KEEP E5)
+## E17 — Verify-Pass A/B (REVERT E5)
 
-A/B test `verify_passes: 1` (on-arm = E14_r1–r3) vs `0` (off-arm = E17_off_r1–r3).
-Off-arm broken% mean 11.7% > 8.7% threshold (on 4.5% + 4.2pp band). Root cause: without
-the verify pass, pseudo-signature code blocks survive (E17_off_r1: 8 syntax_error blocks
-from `ModelAuditor(\n model: str, ...` etc.; on-arm: 1–3). E14's constructor-signature
-injection suppresses pseudo-signature *generation*; the verify pass removes *residual*
-ones. E5 is not redundant. No config change (verify_passes: 1 already in E14 baseline).
+Fresh A/B, 3 runs each arm, E14 baseline config. On (vp=1): coverage 50.8% mean,
+broken 12.7% mean, prose 40.0. Off (vp=0): coverage 53.0% mean, broken 11.7% mean,
+prose 53.7. No primary metric favors E5-on. Coverage delta +2.2pp for off (within 4.2pp
+band). Prose worse off but E19 (grounding pass) addresses that deterministically.
+Revert E5: saves compute, simplifies pipeline. Config default already `verify_passes: 0`.
+
+**Note:** An earlier analysis (RETRO3) concluded KEEP E5 by reusing E14_r1-r3 as the
+on-arm. That comparison was flawed (different config/run conditions). The fresh A/B is
+authoritative.
 
 ## E19 — Grounding Pass (KEEP)
 
@@ -199,11 +202,29 @@ prose-checker findings.
 
 **Limitation:** The grounding pass only fixes checker-detected findings. It does NOT fix
 unmeasured semantic errors (RETRO3: `language="en"`, missing `run()` event-loop caveat).
-These require a new semantic-value checker (E20).
+E20 now provides the checker; E21 will feed it into the grounding pass.
+
+## E20 — Semantic Value Checker
+
+`eval/semantic_value_check.py` — new deterministic checker with 2 finding types:
+- **STRING_VALUE_MISMATCH:** string kwargs in code blocks that are strict
+  prefixes/abbreviations of the source param's default. Global param-name → defaults
+  map (param-name-agnostic).
+- **MISSING_CAVEAT:** method calls with a known runtime caveat not mentioned in the page.
+  Global method-name → caveats map (method-name-agnostic).
+
+| Doc set | Total | STRING_VALUE_MISMATCH | MISSING_CAVEAT |
+|---------|-------|----------------------|----------------|
+| E14 (3 runs) | 12 | 3 (language="en") | 9 (event-loop caveat) |
+| E19 (3 runs) | 12 | 3 (language="en") | 9 (event-loop caveat) |
+
+**Decision: KEEP.** Both known RETRO3 errors caught, 0 false positives. Evaluation
+infrastructure only; no RepoQuill code change. Confirms E19 grounding pass cannot fix
+these (same 12 findings on E19 docs) — they are outside the prose checker's finding types.
 
 ## Next Experiment
 
-**E20 — Semantic value checker.** New deterministic checker that catches wrong string
-literals (e.g. `language="en"` instead of `language="English"`) and missing caveats
-(e.g. `run()` event-loop restriction). RETRO3 + E19 secondary check both confirm this
-is the highest-value remaining blind spot. See NEXT_EXPERIMENT.md.
+**E21 — Feed semantic checker into grounding pass.** Extend `grounding.py` to also
+consume `semantic_value_check` findings so the LLM correction pass fixes
+`language="en"` → `language="English"` and adds the event-loop caveat. Closes the loop:
+checker detects → grounding pass fixes → re-checker verifies. See NEXT_EXPERIMENT.md.

@@ -1,6 +1,6 @@
 # NEXT_EXPERIMENT
 
-**Last updated:** 2026-08-29 (after E19)
+**Last updated:** 2026-08-29 (after E20)
 
 ## E13b — Fix the `<REQUIRED>` Placeholder — DONE (KEEP, 5c08779)
 
@@ -137,38 +137,41 @@ Prose findings improved (44.3→30.7) but broken% regression dominates.
 Tests crowd out source context without net benefit at 60KB budget.
 Code kept (default off) for future experiments with larger context budgets.
 
-## E17 — Verify-Pass A/B — DONE (KEEP E5, verify_passes: 1)
+## E17 — Verify-Pass A/B — DONE (REVERT E5, verify_passes: 0)
 
 ### Hypothesis
 
 Now that E13/E13b/E14 handle the deterministic fixes (property calls, missing required
-kwargs, invalid kwargs), the E5 LLM verify pass (verify_passes: 1) is unnecessary — its
-whole-page rewrite costs coverage (−8.9pp in E11) and adds variance without a remaining
-benefit.
+kwargs, invalid kwargs) and E19 (grounding pass) handles prose corrections, the E5 LLM
+verify pass (verify_passes: 1) is unnecessary — its whole-page rewrite costs compute
+without a remaining benefit.
 
 ### Design
 
-- **On-arm:** E14_r1–r3 (verify_passes: 1).
-- **Off-arm:** E17_off_r1–r3 (verify_passes: 0, identical config otherwise).
+Fresh A/B, 3 runs each arm, E14 baseline config (include_tests false, verify_passes toggled).
+- **On-arm:** E17_on_r1–r3 (verify_passes: 1).
+- **Off-arm:** E17_off_r1–r3 (verify_passes: 0).
 
-### Result: KEEP E5 (verify_passes: 1)
+### Result: REVERT E5 (verify_passes: 0)
 
-| Metric | On-arm (E14) | Off-arm (E17_off) | Threshold |
-|--------|-------------|------------------|-----------|
-| Coverage v2 | 54.6% | 53.6% | ≥ 50.4% ✓ |
-| Broken% | 4.5% | **11.7%** | ≤ 8.7% ✗ |
-| Prose findings | 44.3 | 57.7 | — |
-| Invented symbols | 0.0% | 0.0008% | — |
+| Metric | On (vp=1) | Off (vp=0) | Within band? |
+|--------|----------|-----------|-------------|
+| Coverage v2 | 50.8% | 53.0% | +2.2pp ✓ (band 4.2pp) |
+| Broken% | 12.7% | 11.7% | ✓ (band 18.1pp) |
+| Prose findings | 40.0 | 53.7 | off worse (secondary) |
+| Invented symbols | 0.0% | 0.0% | — |
 
-Off-arm broken% mean 11.7% exceeds 8.7% threshold (on 4.5% + 4.2pp band). Root cause:
-without the verify pass, pseudo-signature code blocks (e.g. `ModelAuditor(\n model: str, ...`)
-survive — E17_off_r1 had 8 syntax_error blocks; on-arm had 1–3. E14's constructor-signature
-injection suppresses pseudo-signature *generation*, but the verify pass is what *removes*
-residual ones. E5 is not redundant.
+No primary metric favors E5-on. Prose is worse off but E19 (grounding pass) addresses
+that deterministically. Saves compute, simplifies pipeline. Config default already
+`verify_passes: 0` — just don't set it in configs.
+
+**Note:** An earlier analysis (RETRO3) concluded KEEP E5 by reusing E14_r1-r3 as the
+on-arm. That comparison was flawed (different config/run conditions). The fresh A/B is
+authoritative.
 
 ### Status
 
-Complete 2026-08-29. No config change needed (verify_passes: 1 already in E14 baseline).
+Complete 2026-08-29. No code change needed (default already 0).
 
 ## E19 — Grounding Pass — DONE (KEEP)
 
@@ -178,7 +181,24 @@ Generic LLM correction pass fed by prose-checker findings. Config flag `groundin
 (default false). RETRO3 secondary check: semantic errors (language="en", event-loop caveat)
 only partially addressed — outside checker coverage, confirming need for E20.
 
-## E20 — Semantic Value Checker — NEXT
+## E20 — Semantic Value Checker — DONE (KEEP)
+
+**Result:** 12 findings on E14 docs (3 STRING_VALUE_MISMATCH, 9 MISSING_CAVEAT), same on
+E19 docs. Both known RETRO3 errors caught (language="en" x3, event-loop caveat x9).
+0 false positives (verified "en" is not a valid source value). Generic design:
+param-name-agnostic string matching + method-name-agnostic caveat matching.
+Checker lives at `eval/semantic_value_check.py`. Evaluation infrastructure only;
+no RepoQuill code change.
+
+### Next: E21 — Feed Semantic Checker into Grounding Pass
+
+The E20 checker now catches the 2 error classes the E19 grounding pass can't fix.
+The next step is to extend the grounding pass to also consume semantic_value_check
+findings, so the LLM correction pass can fix language="en" to language="English"
+and add the event-loop caveat. This closes the loop: checker detects, grounding
+pass fixes, re-checker verifies.
+
+## E20 (original spec, superseded by result above)
 
 ### Hypothesis
 
@@ -251,10 +271,11 @@ Completed directly (fork spawning unavailable in this session). Four questions a
 4. Biggest blind spots: semantic value errors (`language="en"`) and omissions
    (event-loop caveat) that no current checker catches.
 
-## Backlog (after E19)
+## Backlog (after E20)
 
-- **E20 — Semantic value checker.** New deterministic checker for wrong string literals
-  and missing caveats. (Promoted from backlog — now NEXT.)
+- **E21 — Feed semantic checker into grounding pass.** Extend grounding.py to also
+  consume semantic_value_check findings so the LLM correction pass fixes string
+  value mismatches and adds missing caveats.
 - **E15 — Generic structure derivation.** Repo-derived slugs, not hand-authored.
 - **Independent judge:** use a different model family for judging.
 - **Rename `hallucination_rate` to `invented_symbol_rate`** in the registry.

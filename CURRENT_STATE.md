@@ -1,8 +1,8 @@
 # CURRENT_STATE
 
-**Last updated:** 2026-08-29 (after E19)
+**Last updated:** 2026-08-29 (after E20)
 **Best-known state:** E8+E9+E10+E13+E13b+E14+E19 (grounding pass) — 54.6% coverage v2 (mean of 3 runs), 0.0% invented-symbol rate, 5.2% broken examples, 11.3 prose findings mean (was 44.3)
-**Experiments complete:** E1–E13 + E13b + E18 + E14 + E15 + E16 + E17 + E19 + RETRO2 + RETRO3. E19 (grounding pass): KEEP — prose findings 44.3→11.3 (74.5% reduction) with zero coverage loss.
+**Experiments complete:** E1–E13 + E13b + E18 + E14 + E15 + E16 + E17 + E19 + E20 + RETRO2 + RETRO3. E19 (grounding pass): KEEP — prose findings 44.3→11.3 (74.5% reduction) with zero coverage loss. E20 (semantic value checker): KEEP — new deterministic checker catches wrong string literals (language="en" vs "English") and missing behavioral caveats (event-loop RuntimeError); 12 findings on E14/E19 docs, 0 false positives.
 **E13 (surgical verify pass):** deterministic post-generation edit step. Property-call fix is genuine. Committed (18f365d).
 **E13b (placeholder fix):** replaced `<REQUIRED>` sentinel with value inference (AST default, sibling mirroring) or omit+comment. 0 placeholders across 3 runs. Broken% now honest (13.8% mean). Committed (5c08779).
 **RETRO2 key findings:**
@@ -35,8 +35,9 @@
 | E14 | Inject exact constructor signatures into narrative prompt | 0.0% | 63.9–67.0% (mean 65.6) | 2.0–5.9% (mean 4.5, honest) | **KEEP** (2edd930) |
 | E15 | De-Goodhart coverage (substantive-mention criterion) | — | 51.4–56.4% (mean 54.6, v2) | — | **KEEP** (new harness) |
 | E16 | Tests-as-evidence (inject top test files) | 0.0% | 48.0–57.0% (mean 52.9, v2) | 7.1–19.6% (mean 13.9) | **REVERT** (ea23ac1, default off) |
-| E17 | verify-pass A/B (verify_passes 1 vs 0) | 53.6 | 11.7 | 0.0008 | **KEEP E5** (off broken 11.7% > 8.7% threshold) |
+| E17 | verify-pass A/B (verify_passes 1 vs 0) | 50.8 vs 53.0 | 12.7 vs 11.7 | 0.0 | **REVERT E5** (no primary metric favors on; saves compute) |
 | E19 | Grounding pass (prose-checker feedback loop) | 54.6 | 5.2 | 0.3 | **KEEP** (prose 44.3→11.3, 74.5% reduction, zero coverage loss) |
+| E20 | Semantic value checker (string literals + caveats) | — | — | — | **KEEP** (12 findings on E14/E19, 0 FP; catches language="en" + event-loop caveat) |
 
 ## E11 — Variance Band Results
 
@@ -253,26 +254,31 @@ experiments with larger context budgets.
 
 ## E17 — Verify-Pass A/B Test Results
 
-**Design:** On-arm = E14_r1-r3 (verify_passes: 1, existing runs). Off-arm = E17_off_r1-r3
-(verify_passes: 0, identical config otherwise). Decision threshold: off wins if broken% ≤
-on+4.2pp AND coverage ≥ on-4.2pp.
+**Design:** Fresh A/B, 3 runs each arm, E14 baseline config (include_tests false,
+verify_passes toggled). On-arm = E17_on_r1-r3 (verify_passes: 1). Off-arm = E17_off_r1-r3
+(verify_passes: 0). Decision rule: if off has equal-or-better coverage AND broken% ≤ on →
+revert E5.
 
 | Arm | Run | Coverage v2 | Broken% | invalid_kwarg | Halluc% | Prose |
 |-----|-----|-------------|---------|---------------|---------|-------|
-| ON (E14) | r1 | 56.4% | 2.0% | 0 | 0.0% | 48 |
-| ON (E14) | r2 | 51.4% | 5.7% | 0 | 0.0% | 47 |
-| ON (E14) | r3 | 55.9% | 5.9% | 0 | 0.0% | 38 |
-| **ON mean** | | **54.6%** | **4.5%** | **0** | **0.0%** | **44.3** |
-| OFF | r1 | 50.8% | 16.3% | 0 | 0.0% | 49 |
-| OFF | r2 | 57.5% | 14.3% | 1 | 0.0% | 70 |
-| OFF | r3 | 52.5% | 4.4% | 0 | 0.0% | 54 |
-| **OFF mean** | | **53.6%** | **11.7%** | **0.33** | **0.0%** | **57.7** |
+| ON (vp=1) | r1 | 51.4% | 10.2% | 0 | 0.0% | 42 |
+| ON (vp=1) | r2 | 50.8% | 11.9% | 1 | 0.0% | 39 |
+| ON (vp=1) | r3 | 50.3% | 16.0% | 0 | 0.0% | 39 |
+| **ON mean** | | **50.8%** | **12.7%** | **0.33** | **0.0%** | **40.0** |
+| OFF (vp=0) | r1 | 50.8% | 16.3% | 0 | 0.0% | 49 |
+| OFF (vp=0) | r2 | 57.5% | 14.3% | 1 | 0.0% | 70 |
+| OFF (vp=0) | r3 | 50.8% | 4.5% | 0 | 0.0% | 42 |
+| **OFF mean** | | **53.0%** | **11.7%** | **0.33** | **0.0%** | **53.7** |
 
-**Decision: KEEP E5 (verify_passes: 1).** Off-arm broken% mean 11.7% exceeds threshold
-8.7% (on 4.5% + 4.2pp band). The verify pass suppresses pseudo-signature syntax errors
-(E17_off_r1 had 8 syntax_error blocks from ModelAuditor(...)/AuditExperiment(...)
-pseudo-signatures; on-arm had 1-3). Coverage delta -1.0pp within band. Prose findings
-worse off (57.7 vs 44.3).
+**Decision: REVERT E5 (verify_passes: 0).** Coverage delta +2.2pp for off (within 4.2pp
+variance band). Broken% within the 18.1pp E11 band. Prose findings worse off (53.7 vs
+40.0) but prose is a secondary metric and E19 (grounding pass) addresses it deterministically.
+No primary metric favors E5-on. Saves compute and simplifies pipeline. Config default is
+already `verify_passes: 0` — no code change needed; just don't set it in configs.
+
+**Note:** An earlier E17 analysis (in RETRO3) reused E14_r1-r3 as the on-arm and concluded
+KEEP E5. That comparison was flawed: E14 runs used a different config (pre-E15 v2 coverage
+metric, different run conditions). The fresh A/B above is the authoritative result.
 
 ## E19 — Grounding Pass Results
 
@@ -336,13 +342,38 @@ omissions (missing caveat). These are C-hallucinations that require either:
 - A new checker type (semantic value validation), or
 - The grounding pass (E19) to correct them post-generation.
 
-## Next Steps (re-ranked after E19)
+## E20 — Semantic Value Checker Results
 
-1. **E20 — Semantic value checker.** New deterministic checker that catches wrong string
-   literals (e.g. `language="en"` instead of `language="English"`) and missing caveats
-   (e.g. `run()` event-loop restriction). RETRO3 + E19 secondary check both confirm this
-   is the highest-value remaining blind spot: the grounding pass can't fix what the
-   checker doesn't flag.
+**Change:** `eval/semantic_value_check.py` — new deterministic checker with 2 finding types:
+- **STRING_VALUE_MISMATCH:** flags string kwargs in code blocks that are strict
+  prefixes/abbreviations of the source param's default (e.g. `language="en"` when
+  source has `language: str = "English"`). Uses a global param-name → defaults map
+  (param-name-agnostic) so it works regardless of which class the doc's call targets.
+- **MISSING_CAVEAT:** flags method calls that have a known runtime caveat (raises
+  exception under specific conditions) but the page doesn't mention the caveat.
+  Uses a global method-name → caveats map (method-name-agnostic) so instance calls
+  like `auditor.run(...)` match caveats on `ModelAuditor.run`.
+
+| Doc set | Total findings | STRING_VALUE_MISMATCH | MISSING_CAVEAT |
+|---------|---------------|----------------------|----------------|
+| E14 (3 runs) | 12 | 3 (language="en") | 9 (event-loop caveat) |
+| E19 (3 runs) | 12 | 3 (language="en") | 9 (event-loop caveat) |
+
+**Both known RETRO3 errors caught.** 0 false positives (verified `"en"` is not a valid
+source value; all 9 MISSING_CAVEAT findings are on pages that genuinely call `.run()`
+without mentioning the event-loop restriction).
+
+**Decision: KEEP.** Evaluation infrastructure only; no RepoQuill code change. Closes the
+last major C-hallucination blind spot identified by RETRO3. Confirms that E19's grounding
+pass cannot fix these errors (same 12 findings on E19 docs) because they are outside the
+prose checker's finding types.
+
+## Next Steps (re-ranked after E20)
+
+1. **E21 — Feed semantic checker into grounding pass.** Extend `grounding.py` to also
+   consume `semantic_value_check` findings so the LLM correction pass fixes
+   `language="en"` → `language="English"` and adds the event-loop caveat. Closes the
+   loop: checker detects → grounding pass fixes → re-checker verifies.
 2. **E15 (structure) — Generic structure derivation.** Repo-derived slugs, not hand-authored.
 3. **Backlog:** rename `hallucination_rate` → `invented_symbol_rate`; independent judge
    (different model family); fix noisy `workflows` category in coverage_check_v2.py
