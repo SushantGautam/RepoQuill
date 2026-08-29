@@ -125,6 +125,15 @@ def _on_block(pkg_dir) -> str:
     return text[start:end]
 
 
+def test_init_workflow_has_contents_write(pkg_dir, monkeypatch):
+    """Generated workflow must grant contents:write (cross-repo commit-back)."""
+    monkeypatch.setattr("builtins.input", lambda *a, **k: "")
+    _cmd_init(_Args(provider="openai", model="gpt-4o"))
+    wf_text = (pkg_dir / ".github" / "workflows" / "docs.yml").read_text()
+    assert "permissions:" in wf_text
+    assert "contents: write" in wf_text
+
+
 def test_init_trigger_manual_is_dormant(pkg_dir, monkeypatch):
     """manual (default) → only workflow_dispatch active, push commented out."""
     monkeypatch.setattr("builtins.input", lambda *a, **k: "")

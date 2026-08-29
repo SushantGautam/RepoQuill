@@ -435,6 +435,11 @@ _WORKFLOW_TEMPLATE = """\
 name: Docs
 
 {on_block}
+# Required: the reusable workflow commits docs back to this repo, and
+# cross-repo workflow calls default to contents:read without this.
+permissions:
+  contents: write
+
 jobs:
   docs:
     uses: SushantGautam/RepoQuill/.github/workflows/reusable.yml@main
