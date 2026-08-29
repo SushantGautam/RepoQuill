@@ -1274,11 +1274,12 @@ def extract_cli_surface(pkg_path: str, max_chars: int = 8000) -> str:
 
 
 def _module_docstring_fallback(pkg_path: str, pkg_name: str, mod: str) -> str:
-    """Return the first line of a module's docstring, or '' if none.
+    """Return a one-line description for a module.
 
-    Resolves the dotted module name to a file under ``pkg_path`` (which is
-    the package root, so the top-level package name is stripped) and reads
-    its docstring via ``ast``.
+    Resolves the dotted module name to a file under ``pkg_path`` and
+    extracts a description using the same fallback chain as
+    ``site._extract_module_docstring``: docstring → leading # comments →
+    first top-level name.
     """
     parts = mod.split(".")
     if parts and parts[0] == pkg_name:
@@ -1292,15 +1293,53 @@ def _module_docstring_fallback(pkg_path: str, pkg_name: str, mod: str) -> str:
             path = os.path.join(pkg_path, *parts, "__init__.py")
     if not os.path.isfile(path):
         return ""
+    return _extract_description_from_source(path)
+
+
+def _name_to_phrase(name: str) -> str:
+    """Convert a Python identifier to a readable phrase."""
+    import re
+    s = re.sub(r'([a-z])([A-Z])', r'\1 \2', name)
+    s = s.replace('_', ' ')
+    return s.lower()[:120]
+
+
+def _extract_description_from_source(path: str) -> str:
+    """Extract a one-line description from a Python source file.
+
+    Fallback chain: docstring → leading # comments → first top-level name.
+    """
     try:
         with open(path, "r", encoding="utf-8", errors="replace") as f:
             source = f.read()
         tree = ast.parse(source)
+        # 1. Docstring
         doc = ast.get_docstring(tree)
-        if not doc:
-            return ""
-        first = doc.strip().split("\n")[0].strip()
-        return first[:120] if len(first) > 120 else first
+        if doc:
+            first = doc.strip().split("\n")[0].strip()
+            return first[:120] if len(first) > 120 else first
+        # 2. Leading # comments (skip file-path-style comments)
+        for line in source.split("\n"):
+            stripped = line.strip()
+            if not stripped:
+                continue
+            if stripped.startswith("#!"):
+                continue
+            if stripped.startswith("#"):
+                text = stripped.lstrip("#").strip()
+                if text and "/" not in text and not text.endswith(".py"):
+                    return text[:120] if len(text) > 120 else text
+                continue
+            break
+        # 3. First top-level name
+        for node in ast.iter_child_nodes(tree):
+            if isinstance(node, ast.Assign):
+                for target in node.targets:
+                    if isinstance(target, ast.Name):
+                        return _name_to_phrase(target.id)
+            elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                return _name_to_phrase(node.name)
+        return ""
     except (OSError, SyntaxError):
         return ""
 

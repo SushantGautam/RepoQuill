@@ -99,19 +99,61 @@ def _module_descriptions(cfg, reference_modules=None):
     return descs
 
 
+def _name_to_phrase(name: str) -> str:
+    """Convert a Python identifier to a readable phrase.
+
+    ``UNG_SCENARIOS`` → ``ung scenarios``, ``AuditExperiment`` → ``audit experiment``.
+    """
+    import re
+    # Split camelCase: AuditExperiment → Audit Experiment
+    s = re.sub(r'([a-z])([A-Z])', r'\1 \2', name)
+    # Split on underscores
+    s = s.replace('_', ' ')
+    return s.lower()[:120]
+
+
 def _extract_module_docstring(path):
-    """Return the first line of a module's docstring, or '' if none."""
+    """Return a one-line description for a module file.
+
+    Fallback chain:
+    1. Module docstring (first line)
+    2. Leading ``#`` comment block (first non-empty line, ``#`` stripped)
+    3. First top-level variable name (e.g. ``UNG_SCENARIOS`` → ``ung_scenarios``)
+    Returns '' if none of the above yield a description.
+    """
     import ast
     try:
         with open(path, "r", encoding="utf-8", errors="replace") as f:
             source = f.read()
         tree = ast.parse(source)
+        # 1. Docstring
         doc = ast.get_docstring(tree)
-        if not doc:
-            return ""
-        # First line only, strip whitespace, truncate
-        first = doc.strip().split("\n")[0].strip()
-        return first[:120] if len(first) > 120 else first
+        if doc:
+            first = doc.strip().split("\n")[0].strip()
+            return first[:120] if len(first) > 120 else first
+        # 2. Leading # comments (skip shebang, file-path comments, blank lines)
+        for line in source.split("\n"):
+            stripped = line.strip()
+            if not stripped:
+                continue
+            if stripped.startswith("#!"):
+                continue
+            if stripped.startswith("#"):
+                text = stripped.lstrip("#").strip()
+                # Skip file-path-style comments (contain / or end in .py)
+                if text and "/" not in text and not text.endswith(".py"):
+                    return text[:120] if len(text) > 120 else text
+                continue
+            break  # first non-comment, non-blank line — stop
+        # 3. First top-level name (variable, function, or class)
+        for node in ast.iter_child_nodes(tree):
+            if isinstance(node, ast.Assign):
+                for target in node.targets:
+                    if isinstance(target, ast.Name):
+                        return _name_to_phrase(target.id)
+            elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                return _name_to_phrase(node.name)
+        return ""
     except (OSError, SyntaxError):
         return ""
 
