@@ -515,6 +515,7 @@ jobs:
       api_key_env: {api_key_env}
       deploy_branch: gh-pages
       deploy_path: site_repoquill
+      clean: ${{{{ github.event_name == 'workflow_dispatch' && github.event.inputs.clean || 'false' }}}}
     secrets:
       LLM_API_KEY: ${{{{ secrets.LLM_API_KEY }}}}
 """
@@ -530,12 +531,24 @@ def _workflow_on_block(trigger: str, branch: str = "main") -> str:
     Returns:
         The indented ``on:`` block (no trailing newline).
     """
+    dispatch = (
+        "  workflow_dispatch:\n"
+        "    inputs:\n"
+        "      clean:\n"
+        "        description: \"Delete docs/ before generating (forces full regeneration)\"\n"
+        "        required: false\n"
+        "        default: \"false\"\n"
+        "        type: choice\n"
+        "        options:\n"
+        "          - \"false\"\n"
+        "          - \"true\"\n"
+    )
     if trigger == "push_all":
         return (
             "on:\n"
             "  push:\n"
             "  pull_request:\n"
-            "  workflow_dispatch:\n"
+            + dispatch
         )
     if trigger == "release":
         return (
@@ -543,20 +556,20 @@ def _workflow_on_block(trigger: str, branch: str = "main") -> str:
             "  push:\n"
             "    tags:\n"
             "      - 'v*'\n"
-            "  workflow_dispatch:\n"
+            + dispatch
         )
     if trigger == "push_main":
         return (
             "on:\n"
             f"  push:\n"
             f"    branches: [{branch}]\n"
-            "  workflow_dispatch:\n"
+            + dispatch
         )
     # manual (default): only runs when triggered from the Actions UI
     return (
         "on:\n"
-        "  workflow_dispatch:\n"
-        "  # To auto-run on push, uncomment one of:\n"
+        + dispatch
+        + "  # To auto-run on push, uncomment one of:\n"
         "  #   push:\n"
         "  #     branches: [main]\n"
         "  #   push:            # all branches\n"
