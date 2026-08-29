@@ -1,6 +1,6 @@
 # repoquill
 
-A two-layer developer-docs generator that produces accurate API references via static analysis and narrative guides via LLM, packaged as a searchable MkDocs Material site.
+Generates a complete, always-accurate documentation site for any Python package by combining deterministic API references with LLM-written narrative guides.
 
 ## Quick Start
 
