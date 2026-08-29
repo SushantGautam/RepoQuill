@@ -115,8 +115,9 @@ def load_config(config_path: Optional[str] = None) -> RepoQuillConfig:
     config_dir = os.path.dirname(os.path.abspath(path))
 
     # --- Root of the source repo ---
-    # Priority: SOURCE_ROOT env var > `root:` in YAML > parent of config dir.
-    root = os.environ.get("SOURCE_ROOT") or cfg_dict.get("root") or os.path.dirname(config_dir)
+    # Priority: SOURCE_ROOT env var > `root:` in YAML > config dir itself.
+    # The config file is typically at the repo root, so config_dir IS the root.
+    root = os.environ.get("SOURCE_ROOT") or cfg_dict.get("root") or config_dir
     root = os.path.abspath(root)
 
     # --- LLM block ---
