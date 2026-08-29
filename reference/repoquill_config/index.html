@@ -16,7 +16,7 @@
         <link rel="prev" href="../repoquill_cli/">
       
       
-        <link rel="next" href="../repoquill_llm/">
+        <link rel="next" href="../repoquill_grounding/">
       
       
         
@@ -52,6 +52,8 @@
         <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
       
     
+    
+      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
     
     <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
@@ -151,6 +153,48 @@
       <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
     
     
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
     
     
       <div class="md-header__source">
@@ -518,175 +562,6 @@
 
               
             
-              
-                
-  
-  
-  
-  
-    
-    
-    
-    
-      
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_3" >
-        
-          
-          <label class="md-nav__link" for="__nav_2_3" id="__nav_2_3_label" tabindex="0">
-            
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    More
-  
-
-    
-  </span>
-  
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_3_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_2_3">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    More
-  
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../guides/configuration/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Configuration
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../guides/llm-providers/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Llm providers
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../guides/cli-commands/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Cli commands
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../guides/ci-cd/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Ci cd
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-              
-            
           </ul>
         </nav>
       
@@ -928,10 +803,82 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#repoquill.config" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        config
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#repoquill.config.LLMConfig" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        LLMConfig
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#repoquill.config.RepoQuillConfig" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        RepoQuillConfig
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#repoquill.config.load_config" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        load_config
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
       
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../repoquill_grounding/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Repoquill grounding
+  
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -1077,6 +1024,62 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../repoquill_surgical_verify/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Repoquill surgical verify
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../repoquill_verify/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Repoquill verify
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -1127,6 +1130,50 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#repoquill.config" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        config
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#repoquill.config.LLMConfig" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        LLMConfig
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#repoquill.config.RepoQuillConfig" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        RepoQuillConfig
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#repoquill.config.load_config" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        load_config
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1150,7 +1197,627 @@
   <h1>Repoquill config</h1>
 
 <h2 id="repoquillconfig">repoquill.config</h2>
-<p>::: repoquill.config</p>
+
+
+<div class="doc doc-object doc-module">
+
+
+
+<a id="repoquill.config"></a>
+    <div class="doc doc-contents first">
+
+        <p>Config loading for RepoQuill.</p>
+<p>Loads <code>repoquill.yml</code> from the consuming repository and exposes a
+normalized :class:<code>RepoQuillConfig</code> with all derived paths and values.</p>
+<p>The config file is the single source of truth for everything
+project-specific: package name, site identity, LLM provider, narrative
+sections, index content, and build options.</p>
+
+
+<details class="config-file-location" open>
+  <summary>Config file location</summary>
+  <p><code>repoquill.yml</code> in the current working directory (the repo root),
+or the path given by the <code>--config</code> CLI flag / <code>REPOQUILL_CONFIG</code>
+env var.</p>
+</details>
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-class">
+
+
+
+<h2 id="repoquill.config.LLMConfig" class="doc doc-heading">
+            <code>LLMConfig</code>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-dataclass"><code>dataclass</code></small>
+  </span>
+
+</h2>
+
+
+    <div class="doc doc-contents ">
+
+
+
+        <p>LLM provider settings (LiteLLM-backed).</p>
+
+
+
+
+
+
+
+
+              <details class="mkdocstrings-source">
+                <summary>Source code in <code>repoquill/config.py</code></summary>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">23</span>
+<span class="normal">24</span>
+<span class="normal">25</span>
+<span class="normal">26</span>
+<span class="normal">27</span>
+<span class="normal">28</span>
+<span class="normal">29</span>
+<span class="normal">30</span>
+<span class="normal">31</span>
+<span class="normal">32</span>
+<span class="normal">33</span>
+<span class="normal">34</span>
+<span class="normal">35</span>
+<span class="normal">36</span>
+<span class="normal">37</span>
+<span class="normal">38</span>
+<span class="normal">39</span>
+<span class="normal">40</span>
+<span class="normal">41</span>
+<span class="normal">42</span>
+<span class="normal">43</span>
+<span class="normal">44</span>
+<span class="normal">45</span>
+<span class="normal">46</span>
+<span class="normal">47</span>
+<span class="normal">48</span>
+<span class="normal">49</span>
+<span class="normal">50</span>
+<span class="normal">51</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">LLMConfig</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""LLM provider settings (LiteLLM-backed)."""</span>
+
+    <span class="n">provider</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"openai"</span>
+    <span class="n">model</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"gpt-4o"</span>
+    <span class="n">api_key_env</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"OPENAI_API_KEY"</span>
+    <span class="n">base_url</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">rag</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">dict</span><span class="p">)</span>
+    <span class="n">max_concurrent</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span>  <span class="c1"># Max parallel LLM calls (1 = sequential)</span>
+
+    <span class="c1"># --- Narrative generation knobs (Layer 2) ---</span>
+    <span class="c1"># Sampling</span>
+    <span class="n">temperature</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.7</span>          <span class="c1"># new pages</span>
+    <span class="n">update_temperature</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.3</span>   <span class="c1"># updating existing pages</span>
+    <span class="n">plan_temperature</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.1</span>     <span class="c1"># structure planning</span>
+    <span class="n">max_tokens</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">8192</span>            <span class="c1"># per page generation</span>
+    <span class="c1"># Context budgets (chars)</span>
+    <span class="n">context_budget</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">60000</span>       <span class="c1"># total source context per page</span>
+    <span class="n">per_file_budget</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">12000</span>      <span class="c1"># per source file</span>
+    <span class="c1"># Prompt enrichment (all generic — derived from the source tree)</span>
+    <span class="n">include_api_surface</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>  <span class="c1"># inject AST-extracted API surface</span>
+    <span class="n">include_readme</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>       <span class="c1"># inject README excerpt</span>
+    <span class="n">include_examples</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>     <span class="c1"># inject examples/ listing + key files</span>
+    <span class="n">include_tests</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>       <span class="c1"># inject top test files as behavior ground truth</span>
+    <span class="n">strict_prompt</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>        <span class="c1"># anti-hallucination prompt variant</span>
+    <span class="c1"># Post-generation verification (hallucination check + fix passes)</span>
+    <span class="n">verify_passes</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>            <span class="c1"># 0 = off; 1-2 recommended</span>
+    <span class="n">grounding_pass</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>      <span class="c1"># LLM correction pass fed by prose-checker findings</span>
+</code></pre></div></td></tr></table></div>
+              </details>
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h2 id="repoquill.config.RepoQuillConfig" class="doc doc-heading">
+            <code>RepoQuillConfig</code>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-dataclass"><code>dataclass</code></small>
+  </span>
+
+</h2>
+
+
+    <div class="doc doc-contents ">
+
+
+
+        <p>Normalized RepoQuill configuration with derived paths.</p>
+
+
+
+
+
+
+
+
+              <details class="mkdocstrings-source">
+                <summary>Source code in <code>repoquill/config.py</code></summary>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 54</span>
+<span class="normal"> 55</span>
+<span class="normal"> 56</span>
+<span class="normal"> 57</span>
+<span class="normal"> 58</span>
+<span class="normal"> 59</span>
+<span class="normal"> 60</span>
+<span class="normal"> 61</span>
+<span class="normal"> 62</span>
+<span class="normal"> 63</span>
+<span class="normal"> 64</span>
+<span class="normal"> 65</span>
+<span class="normal"> 66</span>
+<span class="normal"> 67</span>
+<span class="normal"> 68</span>
+<span class="normal"> 69</span>
+<span class="normal"> 70</span>
+<span class="normal"> 71</span>
+<span class="normal"> 72</span>
+<span class="normal"> 73</span>
+<span class="normal"> 74</span>
+<span class="normal"> 75</span>
+<span class="normal"> 76</span>
+<span class="normal"> 77</span>
+<span class="normal"> 78</span>
+<span class="normal"> 79</span>
+<span class="normal"> 80</span>
+<span class="normal"> 81</span>
+<span class="normal"> 82</span>
+<span class="normal"> 83</span>
+<span class="normal"> 84</span>
+<span class="normal"> 85</span>
+<span class="normal"> 86</span>
+<span class="normal"> 87</span>
+<span class="normal"> 88</span>
+<span class="normal"> 89</span>
+<span class="normal"> 90</span>
+<span class="normal"> 91</span>
+<span class="normal"> 92</span>
+<span class="normal"> 93</span>
+<span class="normal"> 94</span>
+<span class="normal"> 95</span>
+<span class="normal"> 96</span>
+<span class="normal"> 97</span>
+<span class="normal"> 98</span>
+<span class="normal"> 99</span>
+<span class="normal">100</span>
+<span class="normal">101</span>
+<span class="normal">102</span>
+<span class="normal">103</span>
+<span class="normal">104</span>
+<span class="normal">105</span>
+<span class="normal">106</span>
+<span class="normal">107</span>
+<span class="normal">108</span>
+<span class="normal">109</span>
+<span class="normal">110</span>
+<span class="normal">111</span>
+<span class="normal">112</span>
+<span class="normal">113</span>
+<span class="normal">114</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">RepoQuillConfig</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Normalized RepoQuill configuration with derived paths."""</span>
+
+    <span class="c1"># Raw config dict (for advanced access)</span>
+    <span class="n">raw</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">dict</span><span class="p">)</span>
+
+    <span class="c1"># Project identity</span>
+    <span class="n">project_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"Project"</span>
+
+    <span class="c1"># Package discovery</span>
+    <span class="n">package_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">""</span>
+    <span class="n">root</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">""</span>
+
+    <span class="c1"># Source repo (for docs-only repos where source lives elsewhere)</span>
+    <span class="n">source_repo</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">""</span>
+    <span class="n">source_ref</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">""</span>
+
+    <span class="c1"># LLM</span>
+    <span class="n">llm</span><span class="p">:</span> <span class="n">LLMConfig</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">LLMConfig</span><span class="p">)</span>
+
+    <span class="c1"># Site identity</span>
+    <span class="n">site</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">dict</span><span class="p">)</span>
+
+    <span class="c1"># Narrative sections (Layer 2)</span>
+    <span class="n">narrative_sections</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">list</span><span class="p">)</span>
+
+    <span class="c1"># Index page content</span>
+    <span class="n">index</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">dict</span><span class="p">)</span>
+
+    <span class="c1"># Build options</span>
+    <span class="n">build</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">dict</span><span class="p">)</span>
+
+    <span class="c1"># Theme / plugins / markdown extensions (passed through to mkdocs.yml)</span>
+    <span class="n">theme</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">dict</span><span class="p">)</span>
+    <span class="n">plugins</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">list</span><span class="p">)</span>
+    <span class="n">markdown_extensions</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">list</span><span class="p">)</span>
+
+    <span class="c1"># --- Derived paths (set by load_config) ---</span>
+    <span class="n">config_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">""</span>
+    <span class="n">site_src</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">""</span>
+    <span class="n">out_guides</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">""</span>
+    <span class="n">ref_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">""</span>
+    <span class="n">pkg_path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">""</span>
+    <span class="n">plan_file</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">""</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">site_name</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">site</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"name"</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">project_name</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">site_url</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">site</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"url"</span><span class="p">,</span> <span class="s2">""</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">repo_url</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">site</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"repo_url"</span><span class="p">,</span> <span class="s2">""</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">repo_name</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">site</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"repo_name"</span><span class="p">,</span> <span class="s2">""</span><span class="p">)</span>
+</code></pre></div></td></tr></table></div>
+              </details>
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+
+<div class="doc doc-object doc-function">
+
+
+<h2 id="repoquill.config.load_config" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">load_config</span><span class="p">(</span><span class="n">config_path</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+
+</h2>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Load and normalize a <code>repoquill.yml</code> config file.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>config_path</code>
+            </td>
+            <td>
+                  <code><span title="typing.Optional">Optional</span>[<span title="str">str</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Explicit path to the config file. If None, looks for
+<code>repoquill.yml</code> in the current working directory, then the
+<code>REPOQUILL_CONFIG</code> env var.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="RepoQuillConfig
+
+
+  
+      dataclass
+   (repoquill.config.RepoQuillConfig)" href="#repoquill.config.RepoQuillConfig">RepoQuillConfig</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>A normalized :class:<code>RepoQuillConfig</code>.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="FileNotFoundError">FileNotFoundError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If no config file can be located.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+            <details class="mkdocstrings-source">
+              <summary>Source code in <code>repoquill/config.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">117</span>
+<span class="normal">118</span>
+<span class="normal">119</span>
+<span class="normal">120</span>
+<span class="normal">121</span>
+<span class="normal">122</span>
+<span class="normal">123</span>
+<span class="normal">124</span>
+<span class="normal">125</span>
+<span class="normal">126</span>
+<span class="normal">127</span>
+<span class="normal">128</span>
+<span class="normal">129</span>
+<span class="normal">130</span>
+<span class="normal">131</span>
+<span class="normal">132</span>
+<span class="normal">133</span>
+<span class="normal">134</span>
+<span class="normal">135</span>
+<span class="normal">136</span>
+<span class="normal">137</span>
+<span class="normal">138</span>
+<span class="normal">139</span>
+<span class="normal">140</span>
+<span class="normal">141</span>
+<span class="normal">142</span>
+<span class="normal">143</span>
+<span class="normal">144</span>
+<span class="normal">145</span>
+<span class="normal">146</span>
+<span class="normal">147</span>
+<span class="normal">148</span>
+<span class="normal">149</span>
+<span class="normal">150</span>
+<span class="normal">151</span>
+<span class="normal">152</span>
+<span class="normal">153</span>
+<span class="normal">154</span>
+<span class="normal">155</span>
+<span class="normal">156</span>
+<span class="normal">157</span>
+<span class="normal">158</span>
+<span class="normal">159</span>
+<span class="normal">160</span>
+<span class="normal">161</span>
+<span class="normal">162</span>
+<span class="normal">163</span>
+<span class="normal">164</span>
+<span class="normal">165</span>
+<span class="normal">166</span>
+<span class="normal">167</span>
+<span class="normal">168</span>
+<span class="normal">169</span>
+<span class="normal">170</span>
+<span class="normal">171</span>
+<span class="normal">172</span>
+<span class="normal">173</span>
+<span class="normal">174</span>
+<span class="normal">175</span>
+<span class="normal">176</span>
+<span class="normal">177</span>
+<span class="normal">178</span>
+<span class="normal">179</span>
+<span class="normal">180</span>
+<span class="normal">181</span>
+<span class="normal">182</span>
+<span class="normal">183</span>
+<span class="normal">184</span>
+<span class="normal">185</span>
+<span class="normal">186</span>
+<span class="normal">187</span>
+<span class="normal">188</span>
+<span class="normal">189</span>
+<span class="normal">190</span>
+<span class="normal">191</span>
+<span class="normal">192</span>
+<span class="normal">193</span>
+<span class="normal">194</span>
+<span class="normal">195</span>
+<span class="normal">196</span>
+<span class="normal">197</span>
+<span class="normal">198</span>
+<span class="normal">199</span>
+<span class="normal">200</span>
+<span class="normal">201</span>
+<span class="normal">202</span>
+<span class="normal">203</span>
+<span class="normal">204</span>
+<span class="normal">205</span>
+<span class="normal">206</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">load_config</span><span class="p">(</span><span class="n">config_path</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RepoQuillConfig</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Load and normalize a ``repoquill.yml`` config file.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        config_path: Explicit path to the config file. If None, looks for</span>
+<span class="sd">            ``repoquill.yml`` in the current working directory, then the</span>
+<span class="sd">            ``REPOQUILL_CONFIG`` env var.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        A normalized :class:`RepoQuillConfig`.</span>
+
+<span class="sd">    Raises:</span>
+<span class="sd">        FileNotFoundError: If no config file can be located.</span>
+<span class="sd">    """</span>
+    <span class="n">path</span> <span class="o">=</span> <span class="n">_resolve_config_path</span><span class="p">(</span><span class="n">config_path</span><span class="p">)</span>
+    <span class="n">cfg_dict</span> <span class="o">=</span> <span class="n">_load_yaml</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+
+    <span class="n">config_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">path</span><span class="p">))</span>
+
+    <span class="c1"># --- Root of the source repo ---</span>
+    <span class="c1"># Priority: SOURCE_ROOT env var &gt; `root:` in YAML &gt; config dir itself.</span>
+    <span class="c1"># The config file is typically at the repo root, so config_dir IS the root.</span>
+    <span class="n">root</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"SOURCE_ROOT"</span><span class="p">)</span> <span class="ow">or</span> <span class="n">cfg_dict</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"root"</span><span class="p">)</span> <span class="ow">or</span> <span class="n">config_dir</span>
+    <span class="n">root</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">root</span><span class="p">)</span>
+
+    <span class="c1"># --- LLM block ---</span>
+    <span class="n">llm_raw</span> <span class="o">=</span> <span class="n">cfg_dict</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"llm"</span><span class="p">,</span> <span class="p">{})</span> <span class="ow">or</span> <span class="p">{}</span>
+    <span class="n">llm</span> <span class="o">=</span> <span class="n">LLMConfig</span><span class="p">(</span>
+        <span class="n">provider</span><span class="o">=</span><span class="n">llm_raw</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"provider"</span><span class="p">,</span> <span class="s2">"openai"</span><span class="p">),</span>
+        <span class="n">model</span><span class="o">=</span><span class="n">llm_raw</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"model"</span><span class="p">,</span> <span class="s2">"gpt-4o"</span><span class="p">),</span>
+        <span class="n">api_key_env</span><span class="o">=</span><span class="n">llm_raw</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"api_key_env"</span><span class="p">,</span> <span class="s2">"OPENAI_API_KEY"</span><span class="p">),</span>
+        <span class="n">base_url</span><span class="o">=</span><span class="n">llm_raw</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"base_url"</span><span class="p">),</span>
+        <span class="n">rag</span><span class="o">=</span><span class="n">llm_raw</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"rag"</span><span class="p">,</span> <span class="p">{})</span> <span class="ow">or</span> <span class="p">{},</span>
+        <span class="n">max_concurrent</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">llm_raw</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"max_concurrent"</span><span class="p">,</span> <span class="mi">1</span><span class="p">)),</span>
+        <span class="n">temperature</span><span class="o">=</span><span class="nb">float</span><span class="p">(</span><span class="n">llm_raw</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"temperature"</span><span class="p">,</span> <span class="mf">0.7</span><span class="p">)),</span>
+        <span class="n">update_temperature</span><span class="o">=</span><span class="nb">float</span><span class="p">(</span><span class="n">llm_raw</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"update_temperature"</span><span class="p">,</span> <span class="mf">0.3</span><span class="p">)),</span>
+        <span class="n">plan_temperature</span><span class="o">=</span><span class="nb">float</span><span class="p">(</span><span class="n">llm_raw</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"plan_temperature"</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">)),</span>
+        <span class="n">max_tokens</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">llm_raw</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"max_tokens"</span><span class="p">,</span> <span class="mi">8192</span><span class="p">)),</span>
+        <span class="n">context_budget</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">llm_raw</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"context_budget"</span><span class="p">,</span> <span class="mi">60000</span><span class="p">)),</span>
+        <span class="n">per_file_budget</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">llm_raw</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"per_file_budget"</span><span class="p">,</span> <span class="mi">12000</span><span class="p">)),</span>
+        <span class="n">include_api_surface</span><span class="o">=</span><span class="nb">bool</span><span class="p">(</span><span class="n">llm_raw</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"include_api_surface"</span><span class="p">,</span> <span class="kc">True</span><span class="p">)),</span>
+        <span class="n">include_readme</span><span class="o">=</span><span class="nb">bool</span><span class="p">(</span><span class="n">llm_raw</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"include_readme"</span><span class="p">,</span> <span class="kc">True</span><span class="p">)),</span>
+        <span class="n">include_examples</span><span class="o">=</span><span class="nb">bool</span><span class="p">(</span><span class="n">llm_raw</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"include_examples"</span><span class="p">,</span> <span class="kc">True</span><span class="p">)),</span>
+        <span class="n">include_tests</span><span class="o">=</span><span class="nb">bool</span><span class="p">(</span><span class="n">llm_raw</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"include_tests"</span><span class="p">,</span> <span class="kc">False</span><span class="p">)),</span>
+        <span class="n">strict_prompt</span><span class="o">=</span><span class="nb">bool</span><span class="p">(</span><span class="n">llm_raw</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"strict_prompt"</span><span class="p">,</span> <span class="kc">True</span><span class="p">)),</span>
+        <span class="n">verify_passes</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">llm_raw</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"verify_passes"</span><span class="p">,</span> <span class="mi">0</span><span class="p">)),</span>
+        <span class="n">grounding_pass</span><span class="o">=</span><span class="nb">bool</span><span class="p">(</span><span class="n">llm_raw</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"grounding_pass"</span><span class="p">,</span> <span class="kc">False</span><span class="p">)),</span>
+    <span class="p">)</span>
+
+    <span class="c1"># --- Build block ---</span>
+    <span class="n">build</span> <span class="o">=</span> <span class="n">cfg_dict</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"build"</span><span class="p">,</span> <span class="p">{})</span> <span class="ow">or</span> <span class="p">{}</span>
+    <span class="n">docs_dir</span> <span class="o">=</span> <span class="n">build</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"docs_dir"</span><span class="p">,</span> <span class="s2">"docs"</span><span class="p">)</span>
+
+    <span class="c1"># site_src resolution (priority high to low):</span>
+    <span class="c1">#   1. Explicit `site_src:` key in YAML</span>
+    <span class="c1">#   2. `output_dir:` key (same-repo integration: all artifacts in one folder)</span>
+    <span class="c1">#   3. &lt;config_dir&gt;/&lt;docs_dir&gt; (default: &lt;config_dir&gt;/docs)</span>
+    <span class="k">if</span> <span class="n">cfg_dict</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"site_src"</span><span class="p">):</span>
+        <span class="n">site_src</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">cfg_dict</span><span class="p">[</span><span class="s2">"site_src"</span><span class="p">])</span>
+    <span class="k">elif</span> <span class="n">cfg_dict</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"output_dir"</span><span class="p">):</span>
+        <span class="c1"># Same-repo integration: everything (site_src, site, plan) lives</span>
+        <span class="c1"># inside output_dir/. The mkdocs.yml is written to output_dir/ and</span>
+        <span class="c1"># the built site goes to output_dir/site/.</span>
+        <span class="n">site_src</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">config_dir</span><span class="p">,</span> <span class="n">cfg_dict</span><span class="p">[</span><span class="s2">"output_dir"</span><span class="p">]))</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">site_src</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">config_dir</span><span class="p">,</span> <span class="n">docs_dir</span><span class="p">))</span>
+
+    <span class="n">cfg</span> <span class="o">=</span> <span class="n">RepoQuillConfig</span><span class="p">(</span>
+        <span class="n">raw</span><span class="o">=</span><span class="n">cfg_dict</span><span class="p">,</span>
+        <span class="n">project_name</span><span class="o">=</span><span class="n">cfg_dict</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"project_name"</span><span class="p">,</span> <span class="s2">"Project"</span><span class="p">),</span>
+        <span class="n">package_dir</span><span class="o">=</span><span class="n">cfg_dict</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"package_dir"</span><span class="p">,</span> <span class="s2">""</span><span class="p">),</span>
+        <span class="n">root</span><span class="o">=</span><span class="n">root</span><span class="p">,</span>
+        <span class="n">source_repo</span><span class="o">=</span><span class="n">cfg_dict</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"source_repo"</span><span class="p">,</span> <span class="s2">""</span><span class="p">)</span> <span class="ow">or</span> <span class="s2">""</span><span class="p">,</span>
+        <span class="n">source_ref</span><span class="o">=</span><span class="n">cfg_dict</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"source_ref"</span><span class="p">,</span> <span class="s2">""</span><span class="p">)</span> <span class="ow">or</span> <span class="s2">""</span><span class="p">,</span>
+        <span class="n">llm</span><span class="o">=</span><span class="n">llm</span><span class="p">,</span>
+        <span class="n">site</span><span class="o">=</span><span class="n">cfg_dict</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"site"</span><span class="p">,</span> <span class="p">{})</span> <span class="ow">or</span> <span class="p">{},</span>
+        <span class="n">narrative_sections</span><span class="o">=</span><span class="n">cfg_dict</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"narrative_sections"</span><span class="p">,</span> <span class="p">[])</span> <span class="ow">or</span> <span class="p">[],</span>
+        <span class="n">index</span><span class="o">=</span><span class="n">cfg_dict</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"index"</span><span class="p">,</span> <span class="p">{})</span> <span class="ow">or</span> <span class="p">{},</span>
+        <span class="n">build</span><span class="o">=</span><span class="n">build</span><span class="p">,</span>
+        <span class="n">theme</span><span class="o">=</span><span class="n">cfg_dict</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"theme"</span><span class="p">,</span> <span class="p">{})</span> <span class="ow">or</span> <span class="p">{},</span>
+        <span class="n">plugins</span><span class="o">=</span><span class="n">cfg_dict</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"plugins"</span><span class="p">,</span> <span class="p">[])</span> <span class="ow">or</span> <span class="p">[],</span>
+        <span class="n">markdown_extensions</span><span class="o">=</span><span class="n">cfg_dict</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"markdown_extensions"</span><span class="p">,</span> <span class="p">[])</span> <span class="ow">or</span> <span class="p">[],</span>
+        <span class="n">config_dir</span><span class="o">=</span><span class="n">config_dir</span><span class="p">,</span>
+        <span class="n">site_src</span><span class="o">=</span><span class="n">site_src</span><span class="p">,</span>
+        <span class="n">out_guides</span><span class="o">=</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">site_src</span><span class="p">,</span> <span class="s2">"guides"</span><span class="p">),</span>
+        <span class="n">ref_dir</span><span class="o">=</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">site_src</span><span class="p">,</span> <span class="s2">"reference"</span><span class="p">),</span>
+        <span class="n">pkg_path</span><span class="o">=</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">root</span><span class="p">,</span> <span class="n">cfg_dict</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"package_dir"</span><span class="p">)</span> <span class="ow">or</span> <span class="s2">""</span><span class="p">),</span>
+        <span class="n">plan_file</span><span class="o">=</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">site_src</span><span class="p">,</span> <span class="s2">".plan.json"</span><span class="p">),</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="n">cfg</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
 
 
 
@@ -1203,13 +1870,13 @@
         
         
           
-          <a href="../repoquill_llm/" class="md-footer__link md-footer__link--next" aria-label="Next: Repoquill llm">
+          <a href="../repoquill_grounding/" class="md-footer__link md-footer__link--next" aria-label="Next: Repoquill grounding">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Repoquill llm
+                Repoquill grounding
               </div>
             </div>
             <div class="md-footer__button md-icon">

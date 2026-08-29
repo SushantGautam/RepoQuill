@@ -53,6 +53,8 @@
       
     
     
+      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
+    
     <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
@@ -151,6 +153,48 @@
       <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
     
     
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
     
     
       <div class="md-header__source">
@@ -454,10 +498,10 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#step-1-create-a-sample-module" class="md-nav__link">
+  <a href="#step-1-initialize-your-repository" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Step 1: Create a Sample Module
+        Step 1: Initialize Your Repository
       
     </span>
   </a>
@@ -465,21 +509,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#step-2-initialize-the-generator" class="md-nav__link">
+  <a href="#step-2-configure-llm-authentication" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Step 2: Initialize the Generator
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#step-3-generate-documentation" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Step 3: Generate Documentation
+        Step 2: Configure LLM Authentication
       
     </span>
   </a>
@@ -492,22 +525,55 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#configuration-options" class="md-nav__link">
+  <a href="#configuration" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Configuration Options
+        Configuration
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Configuration Options">
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#advanced-usage-programmatic-generation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Advanced Usage: Programmatic Generation
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Advanced Usage: Programmatic Generation">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#example-custom-configuration" class="md-nav__link">
+  <a href="#llm-client" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Example: Custom Configuration
+        LLM Client
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#api-reference-generation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        API Reference Generation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#site-building" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Site Building
       
     </span>
   </a>
@@ -516,17 +582,6 @@
         
       </ul>
     </nav>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#advanced-usage-specific-files" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Advanced Usage: Specific Files
-      
-    </span>
-  </a>
   
 </li>
         
@@ -716,175 +771,6 @@
     
   
     Key ideas
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    
-    
-    
-    
-      
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_3" >
-        
-          
-          <label class="md-nav__link" for="__nav_2_3" id="__nav_2_3_label" tabindex="0">
-            
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    More
-  
-
-    
-  </span>
-  
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_3_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_2_3">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    More
-  
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../configuration/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Configuration
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../llm-providers/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Llm providers
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../cli-commands/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Cli commands
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../ci-cd/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Ci cd
   
 
     
@@ -1105,6 +991,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../reference/repoquill_grounding/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Repoquill grounding
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../reference/repoquill_llm/" class="md-nav__link">
         
   
@@ -1238,6 +1152,62 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/repoquill_surgical_verify/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Repoquill surgical verify
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/repoquill_verify/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Repoquill verify
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -1324,10 +1294,10 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#step-1-create-a-sample-module" class="md-nav__link">
+  <a href="#step-1-initialize-your-repository" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Step 1: Create a Sample Module
+        Step 1: Initialize Your Repository
       
     </span>
   </a>
@@ -1335,21 +1305,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#step-2-initialize-the-generator" class="md-nav__link">
+  <a href="#step-2-configure-llm-authentication" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Step 2: Initialize the Generator
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#step-3-generate-documentation" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Step 3: Generate Documentation
+        Step 2: Configure LLM Authentication
       
     </span>
   </a>
@@ -1362,22 +1321,55 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#configuration-options" class="md-nav__link">
+  <a href="#configuration" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Configuration Options
+        Configuration
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Configuration Options">
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#advanced-usage-programmatic-generation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Advanced Usage: Programmatic Generation
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Advanced Usage: Programmatic Generation">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#example-custom-configuration" class="md-nav__link">
+  <a href="#llm-client" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Example: Custom Configuration
+        LLM Client
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#api-reference-generation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        API Reference Generation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#site-building" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Site Building
       
     </span>
   </a>
@@ -1386,17 +1378,6 @@
         
       </ul>
     </nav>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#advanced-usage-specific-files" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Advanced Usage: Specific Files
-      
-    </span>
-  </a>
   
 </li>
         
@@ -1472,7 +1453,11 @@
   <h1>Quickstart</h1>
 
 <h2 id="quickstart">Quickstart</h2>
-<p>Welcome to <strong>repoquill</strong>. This guide provides a minimal, step-by-step example to help you get the library running in under five minutes. <code>repoquill</code> is designed to streamline the process of generating and managing technical documentation directly from your Python codebase. It parses source files, extracts docstrings and metadata, and formats them into clean, structured Markdown or HTML output.</p>
+<p>Welcome to <strong>RepoQuill</strong>. This guide provides a minimal, step-by-step example to help you get the library running in under five minutes. <code>repoquill</code> is a generic two-layer developer-docs generator. Point it at any Python package and it produces a complete, always-accurate documentation site.</p>
+<p>It operates in two layers:
+1.  <strong>Layer 1 — API Reference (Deterministic):</strong> Uses Griffe to parse your source code and renders classes, functions, signatures, and docstrings via mkdocstrings. This layer is fast, free, and never hallucinates.
+2.  <strong>Layer 2 — Narrative Guides (LLM):</strong> Uses LiteLLM to write conceptual guide pages (quickstart, concepts, workflows) grounded in your actual source code. It is incremental, regenerating only pages whose source has changed.</p>
+<p>The final output is a polished, searchable MkDocs Material site, including <code>llms.txt</code> / <code>llms-full.txt</code> for AI agents and a <code>SKILL.md</code> for coding agents.</p>
 <h3 id="prerequisites">Prerequisites</h3>
 <p>Before you begin, ensure your environment meets the following requirements:</p>
 <ul>
@@ -1484,203 +1469,153 @@
 <p>You can install <code>repoquill</code> using <code>pip</code>. Open your terminal and run the following command:</p>
 <pre><code class="language-bash">pip install repoquill
 </code></pre>
-<p>If you are working within a specific virtual environment, ensure it is activated before running the installation command.</p>
+<p>Alternatively, you can use <code>uv</code> to run RepoQuill in an isolated environment without a persistent installation:</p>
+<pre><code class="language-bash">uvx repoquill
+</code></pre>
+<p>If you prefer a persistent tool installation via <code>uv</code>:</p>
+<pre><code class="language-bash">uv tool install repoquill
+</code></pre>
 <h3 id="basic-usage">Basic Usage</h3>
-<p>The core functionality of <code>repoquill</code> revolves around the <code>QuillGenerator</code> class. This class handles the scanning of directories, parsing of Python modules, and the generation of documentation files.</p>
-<p>Below is a minimal example demonstrating how to generate documentation for a single Python file.</p>
-<h4 id="step-1-create-a-sample-module">Step 1: Create a Sample Module</h4>
-<p>First, create a simple Python file named <code>example_module.py</code> in your working directory. This file will serve as the source for our documentation.</p>
-<pre><code class="language-python"># example_module.py
-
-def calculate_area(radius: float) -&gt; float:
-    &quot;&quot;&quot;
-    Calculate the area of a circle.
-
-    Args:
-        radius (float): The radius of the circle. Must be a positive number.
-
-    Returns:
-        float: The calculated area of the circle.
-
-    Raises:
-        ValueError: If the radius is negative.
-    &quot;&quot;&quot;
-    if radius &lt; 0:
-        raise ValueError(&quot;Radius cannot be negative&quot;)
-    return 3.14159 * (radius ** 2)
-
-class DataProcessor:
-    &quot;&quot;&quot;
-    A class to process data streams.
-
-    Attributes:
-        buffer (list): A list to hold processed data items.
-    &quot;&quot;&quot;
-
-    def __init__(self):
-        self.buffer = []
-
-    def add_item(self, item: str):
-        &quot;&quot;&quot;
-        Add a single item to the buffer.
-
-        Args:
-            item (str): The string item to add.
-        &quot;&quot;&quot;
-        self.buffer.append(item)
-
-    def get_summary(self) -&gt; str:
-        &quot;&quot;&quot;
-        Return a summary of the buffered items.
-
-        Returns:
-            str: A comma-separated string of all items in the buffer.
-        &quot;&quot;&quot;
-        return &quot;, &quot;.join(self.buffer)
+<p>The core functionality of <code>repoquill</code> is driven by the command-line interface (CLI). The primary entry point is the <code>init</code> command, which scaffolds the necessary configuration and CI workflow files for your repository.</p>
+<h4 id="step-1-initialize-your-repository">Step 1: Initialize Your Repository</h4>
+<p>Navigate to the root of your Python package and run the <code>init</code> command. This command auto-detects your package name, project name, and GitHub repository. It will prompt you to select an LLM provider (e.g., OpenAI, Anthropic, GitHub Copilot, OpenRouter, Groq, Ollama) and configure the corresponding model and authentication.</p>
+<pre><code class="language-bash">cd your-repo
+repoquill init
 </code></pre>
-<h4 id="step-2-initialize-the-generator">Step 2: Initialize the Generator</h4>
-<p>Import the <code>QuillGenerator</code> class and instantiate it. The constructor accepts a <code>target_path</code> parameter, which specifies the directory containing the source code, and an <code>output_dir</code> parameter, which specifies where the generated documentation should be saved.</p>
-<pre><code class="language-python">from repoquill import QuillGenerator
-
-# Initialize the generator
-# 'target_path' is the directory containing your Python files
-# 'output_dir' is where the generated Markdown files will be saved
-generator = QuillGenerator(
-    target_path=&quot;./&quot;, 
-    output_dir=&quot;./docs&quot;
-)
+<p>If you prefer to skip the interactive prompts, you can specify the provider and model directly using flags:</p>
+<pre><code class="language-bash">repoquill init --provider anthropic --model claude-sonnet-4-5
 </code></pre>
-<h4 id="step-3-generate-documentation">Step 3: Generate Documentation</h4>
-<p>Use the <code>generate</code> method to process the files. This method scans the target directory, identifies Python modules, and writes the corresponding documentation files to the output directory.</p>
-<pre><code class="language-python"># Generate documentation for all Python files in the target path
-generator.generate()
-</code></pre>
-<p>After running this code, you will find a new directory named <code>docs</code> in your current working directory. Inside, you will see a file named <code>example_module.md</code> containing the generated documentation.</p>
-<h3 id="configuration-options">Configuration Options</h3>
-<p>The <code>QuillGenerator</code> class supports several configuration options to customize the output. These options can be passed during initialization or modified via properties.</p>
+<p>Running <code>repoquill init</code> creates the following files in your repository:</p>
+<ul>
+<li><code>repoquill.yml</code>: The configuration file containing provider, model, and authentication settings.</li>
+<li><code>.github/workflows/docs.yml</code>: The CI workflow that calls RepoQuill's reusable workflow to generate documentation on push.</li>
+</ul>
+<h4 id="step-2-configure-llm-authentication">Step 2: Configure LLM Authentication</h4>
+<p>For most providers, you need to provide an API key. If you are using GitHub Actions, add your API key as a repository secret:</p>
+<ol>
+<li>Go to your repository's <strong>Settings</strong> → <strong>Secrets and variables</strong> → <strong>Actions</strong>.</li>
+<li>Click <strong>New repository secret</strong>.</li>
+<li>Name: <code>LLM_API_KEY</code></li>
+<li>Value: Your provider's API key (e.g., <code>sk-...</code>).</li>
+</ol>
+<blockquote>
+<p><strong>Note:</strong> No API key is required for <code>github_copilot</code> (which uses device-code login) or local providers (such as <code>lm_studio</code>, <code>ollama</code>, <code>vllm</code>, or <code>local</code>).</p>
+</blockquote>
+<h3 id="configuration">Configuration</h3>
+<p>The <code>repoquill.yml</code> file controls the behavior of the documentation generator. It is managed by the <code>RepoQuillConfig</code> class.</p>
+<p>Key configuration properties include:</p>
 <table>
 <thead>
 <tr>
-<th style="text-align: left;">Parameter</th>
-<th style="text-align: left;">Type</th>
-<th style="text-align: left;">Default</th>
+<th style="text-align: left;">Property</th>
 <th style="text-align: left;">Description</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td style="text-align: left;"><code>target_path</code></td>
-<td style="text-align: left;"><code>str</code></td>
-<td style="text-align: left;"><code>"."</code></td>
-<td style="text-align: left;">The root directory to scan for Python files.</td>
+<td style="text-align: left;"><code>site_name</code></td>
+<td style="text-align: left;">The name of the documentation site.</td>
 </tr>
 <tr>
-<td style="text-align: left;"><code>output_dir</code></td>
-<td style="text-align: left;"><code>str</code></td>
-<td style="text-align: left;"><code>"./docs"</code></td>
-<td style="text-align: left;">The directory where generated documentation files are saved.</td>
+<td style="text-align: left;"><code>site_url</code></td>
+<td style="text-align: left;">The URL where the documentation site will be hosted.</td>
 </tr>
 <tr>
-<td style="text-align: left;"><code>include_private</code></td>
-<td style="text-align: left;"><code>bool</code></td>
-<td style="text-align: left;"><code>False</code></td>
-<td style="text-align: left;">If <code>True</code>, includes private methods and classes (prefixed with <code>_</code>) in the documentation.</td>
+<td style="text-align: left;"><code>repo_url</code></td>
+<td style="text-align: left;">The URL of the source code repository.</td>
 </tr>
 <tr>
-<td style="text-align: left;"><code>template</code></td>
-<td style="text-align: left;"><code>str</code></td>
-<td style="text-align: left;"><code>"default"</code></td>
-<td style="text-align: left;">The name of the template to use for formatting. Currently, only <code>"default"</code> is supported.</td>
+<td style="text-align: left;"><code>repo_name</code></td>
+<td style="text-align: left;">The name of the repository.</td>
 </tr>
 </tbody>
 </table>
-<h4 id="example-custom-configuration">Example: Custom Configuration</h4>
-<p>You can customize the generator to include private methods and specify a different output location:</p>
-<pre><code class="language-python">from repoquill import QuillGenerator
+<p>You can load and inspect the configuration programmatically using the <code>load_config</code> function:</p>
+<pre><code class="language-python">from repoquill.config import load_config
 
-generator = QuillGenerator(
-    target_path=&quot;./src&quot;,
-    output_dir=&quot;./generated_docs&quot;,
-    include_private=True
+# Load the configuration from the default 'repoquill.yml'
+config = load_config(&quot;repoquill.yml&quot;)
+
+print(config.site_name)
+print(config.repo_url)
+</code></pre>
+<h3 id="advanced-usage-programmatic-generation">Advanced Usage: Programmatic Generation</h3>
+<p>While the CLI is the recommended way to manage documentation in a CI/CD pipeline, you can also interact with the underlying modules for custom workflows.</p>
+<h4 id="llm-client">LLM Client</h4>
+<p>The <code>LLMClient</code> class handles communication with the LLM provider. It is initialized with an <code>LLMConfig</code> object.</p>
+<pre><code class="language-python">from repoquill.config import LLMConfig
+from repoquill.llm import LLMClient
+
+# Initialize LLM configuration (parameters depend on provider)
+llm_cfg = LLMConfig()
+
+# Initialize the client
+client = LLMClient(llm_cfg
+    # NOTE: llm_cfg is required (no default)
 )
 
-generator.generate()
+# Example: Chat with the LLM
+# Note: 'messages' format depends on the specific LLM provider
+response = client.chat(
+    messages=[{&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: &quot;Hello&quot;}],
+    max_tokens=100,
+    temperature=0.7,
+    retries=3
+)
 </code></pre>
-<h3 id="advanced-usage-specific-files">Advanced Usage: Specific Files</h3>
-<p>If you only want to document specific files rather than the entire directory, you can use the <code>generate_file</code> method. This method accepts a single file path as an argument.</p>
-<pre><code class="language-python">from repoquill import QuillGenerator
+<h4 id="api-reference-generation">API Reference Generation</h4>
+<p>The <code>reference</code> module contains functions to extract and build the deterministic API reference (Layer 1).</p>
+<pre><code class="language-python">from repoquill.reference import build_api_reference, get_source_files
 
-generator = QuillGenerator(output_dir=&quot;./docs&quot;)
+# Get source files from the package path
+source_files = get_source_files(&quot;./src/my_package&quot;)
 
-# Generate documentation for a specific file only
-generator.generate_file(&quot;example_module.py&quot;)
+# Build the API reference content
+# 'cfg' is a RepoQuillConfig instance
+api_ref = build_api_reference(cfg)
 </code></pre>
-<p>This approach is useful when you are working on a large codebase and only need to update documentation for modules that have recently changed.</p>
+<h4 id="site-building">Site Building</h4>
+<p>The <code>site</code> module handles the generation of the MkDocs site structure and auxiliary files.</p>
+<pre><code class="language-python">from repoquill.site import build_index_md, build_llms_txt
+
+# Build the main index.md file
+# 'pages' is a list of page definitions
+# 'reference_modules' is a list of module names
+index_content = build_index_md(cfg, pages, reference_modules)
+
+# Build the llms.txt file for AI agents
+llms_txt_content = build_llms_txt(cfg, pages, reference_modules)
+</code></pre>
 <h3 id="output-format">Output Format</h3>
-<p>The generated documentation follows a standard Markdown format. Each Python module generates a corresponding <code>.md</code> file. The structure typically includes:</p>
+<p>The generated documentation is a standard MkDocs Material site. The structure typically includes:</p>
 <ol>
-<li><strong>Module Docstring:</strong> If the module has a top-level docstring, it is placed at the beginning of the file.</li>
-<li><strong>Classes:</strong> Each public class is documented with its docstring, attributes, and methods.</li>
-<li><strong>Functions:</strong> Each public function is documented with its docstring, parameters, and return values.</li>
-<li><strong>Code Examples:</strong> If docstrings contain code blocks (using triple backticks), they are preserved in the output.</li>
+<li><strong>API Reference:</strong> Automatically generated from source code using Griffe and mkdocstrings.</li>
+<li><strong>Narrative Guides:</strong> LLM-generated pages such as Quickstart, Concepts, and Workflows.</li>
+<li><strong>AI Agent Files:</strong><ul>
+<li><code>llms.txt</code>: A lightweight index for LLMs.</li>
+<li><code>llms-full.txt</code>: A full-text version for detailed context.</li>
+<li><code>SKILL.md</code>: A skill definition for coding agents.</li>
+</ul>
+</li>
 </ol>
-<p>Here is a snippet of what the generated <code>example_module.md</code> might look like:</p>
-<pre><code class="language-markdown"># example_module
-
-## calculate_area(radius: float) -&gt; float
-
-Calculate the area of a circle.
-
-**Args:**
-*   `radius` (float): The radius of the circle. Must be a positive number.
-
-**Returns:**
-*   float: The calculated area of the circle.
-
-**Raises:**
-*   ValueError: If the radius is negative.
-
-## DataProcessor
-
-A class to process data streams.
-
-**Attributes:**
-*   `buffer` (list): A list to hold processed data items.
-
-### DataProcessor.add_item(item: str)
-
-Add a single item to the buffer.
-
-**Args:**
-*   `item` (str): The string item to add.
-
-### DataProcessor.get_summary() -&gt; str
-
-Return a summary of the buffered items.
-
-**Returns:**
-*   str: A comma-separated string of all items in the buffer.
-</code></pre>
 <h3 id="troubleshooting">Troubleshooting</h3>
 <ul>
-<li><strong>File Not Found:</strong> Ensure that the <code>target_path</code> or file path provided to <code>generate_file</code> is correct and accessible.</li>
-<li><strong>Permission Errors:</strong> Ensure that your user has write permissions to the <code>output_dir</code>.</li>
-<li><strong>Syntax Errors in Source:</strong> <code>repoquill</code> relies on Python's AST (Abstract Syntax Tree) for parsing. If your source code contains syntax errors, the generator may fail to parse those files. Ensure your code is valid Python before running the generator.</li>
+<li><strong>Configuration Errors:</strong> Ensure that <code>repoquill.yml</code> is valid YAML and that the <code>provider</code> and <code>model</code> fields match a supported provider.</li>
+<li><strong>Authentication Failures:</strong> Verify that your <code>LLM_API_KEY</code> secret is correctly set in your CI environment or local environment variables.</li>
+<li><strong>Parsing Errors:</strong> If the API reference layer fails, ensure your Python source code is syntactically correct. Griffe relies on valid AST parsing.</li>
 </ul>
 <h3 id="next-steps">Next Steps</h3>
-<p>Now that you have successfully generated documentation for a simple module, you can explore the following topics:</p>
+<p>Now that you have successfully initialized <code>repoquill</code>, you can explore the following topics:</p>
 <ul>
 <li><a href="./api-reference.md">API Reference</a>: Detailed documentation for all classes and methods.</li>
-<li><a href="../configuration/">Configuration Guide</a>: Advanced configuration options and templates.</li>
-<li><a href="../ci-cd/">Integration with CI/CD</a>: How to automate documentation generation in your build pipeline.</li>
+<li><a href="./configuration.md">Configuration Guide</a>: Advanced configuration options and templates.</li>
+<li><a href="./ci-cd.md">Integration with CI/CD</a>: How to automate documentation generation in your build pipeline.</li>
 </ul>
 <p>By following this quickstart guide, you should now be able to integrate <code>repoquill</code> into your development workflow and maintain up-to-date documentation for your Python projects.</p>
 <h3 id="see-also">See Also</h3>
 <ul>
 <li><a href="../installation/">Installation</a></li>
-<li><a href="../ci-cd/">CI/CD Integration</a></li>
-<li><a href="../cli-commands/">CLI Commands</a></li>
-<li><a href="../configuration/">Configuration Reference</a></li>
+<li><a href="../key-ideas/">Key Ideas</a></li>
 </ul>
 
 

@@ -16,7 +16,7 @@
         <link rel="prev" href="../architecture/">
       
       
-        <link rel="next" href="../configuration/">
+        <link rel="next" href="../../reference/repoquill/">
       
       
         
@@ -52,6 +52,8 @@
         <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
       
     
+    
+      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
     
     <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
@@ -151,6 +153,48 @@
       <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
     
     
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
     
     
       <div class="md-header__source">
@@ -561,10 +605,10 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#1-source-abstraction" class="md-nav__link">
+  <a href="#1-configuration" class="md-nav__link">
     <span class="md-ellipsis">
       
-        1. Source Abstraction
+        1. Configuration
       
     </span>
   </a>
@@ -572,22 +616,22 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#2-transformation-pipelines" class="md-nav__link">
+  <a href="#2-llm-interaction" class="md-nav__link">
     <span class="md-ellipsis">
       
-        2. Transformation Pipelines
+        2. LLM Interaction
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="2. Transformation Pipelines">
+    <nav class="md-nav" aria-label="2. LLM Interaction">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#the-document-model" class="md-nav__link">
+  <a href="#the-llmclient" class="md-nav__link">
     <span class="md-ellipsis">
       
-        The Document Model
+        The LLMClient
       
     </span>
   </a>
@@ -595,10 +639,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#building-a-pipeline" class="md-nav__link">
+  <a href="#local-rag" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Building a Pipeline
+        Local RAG
       
     </span>
   </a>
@@ -610,16 +654,44 @@
   
 </li>
         
-          <li class="md-nav__item">
-  <a href="#3-artifact-management" class="md-nav__link">
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#initialize-rag-with-configuration-and-source-files" class="md-nav__link">
     <span class="md-ellipsis">
       
-        3. Artifact Management
+        Initialize RAG with configuration and source files
       
     </span>
   </a>
   
 </li>
+      
+        <li class="md-nav__item">
+  <a href="#build-the-index" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Build the index
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#retrieve-relevant-context" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Retrieve relevant context
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Retrieve relevant context">
+      <ul class="md-nav__list">
         
           <li class="md-nav__item">
   <a href="#core-workflow" class="md-nav__link">
@@ -685,175 +757,6 @@
   
 </nav>
       
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    
-    
-    
-    
-      
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_3" >
-        
-          
-          <label class="md-nav__link" for="__nav_2_3" id="__nav_2_3_label" tabindex="0">
-            
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    More
-  
-
-    
-  </span>
-  
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_3_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_2_3">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    More
-  
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../configuration/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Configuration
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../llm-providers/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Llm providers
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../cli-commands/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Cli commands
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../ci-cd/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Ci cd
-  
-
-    
-  </span>
-  
-  
-
-      </a>
     </li>
   
 
@@ -1066,6 +969,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../reference/repoquill_grounding/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Repoquill grounding
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../reference/repoquill_llm/" class="md-nav__link">
         
   
@@ -1199,6 +1130,62 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/repoquill_surgical_verify/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Repoquill surgical verify
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/repoquill_verify/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Repoquill verify
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -1251,10 +1238,10 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#1-source-abstraction" class="md-nav__link">
+  <a href="#1-configuration" class="md-nav__link">
     <span class="md-ellipsis">
       
-        1. Source Abstraction
+        1. Configuration
       
     </span>
   </a>
@@ -1262,22 +1249,22 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#2-transformation-pipelines" class="md-nav__link">
+  <a href="#2-llm-interaction" class="md-nav__link">
     <span class="md-ellipsis">
       
-        2. Transformation Pipelines
+        2. LLM Interaction
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="2. Transformation Pipelines">
+    <nav class="md-nav" aria-label="2. LLM Interaction">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#the-document-model" class="md-nav__link">
+  <a href="#the-llmclient" class="md-nav__link">
     <span class="md-ellipsis">
       
-        The Document Model
+        The LLMClient
       
     </span>
   </a>
@@ -1285,10 +1272,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#building-a-pipeline" class="md-nav__link">
+  <a href="#local-rag" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Building a Pipeline
+        Local RAG
       
     </span>
   </a>
@@ -1300,16 +1287,44 @@
   
 </li>
         
-          <li class="md-nav__item">
-  <a href="#3-artifact-management" class="md-nav__link">
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#initialize-rag-with-configuration-and-source-files" class="md-nav__link">
     <span class="md-ellipsis">
       
-        3. Artifact Management
+        Initialize RAG with configuration and source files
       
     </span>
   </a>
   
 </li>
+      
+        <li class="md-nav__item">
+  <a href="#build-the-index" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Build the index
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#retrieve-relevant-context" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Retrieve relevant context
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Retrieve relevant context">
+      <ul class="md-nav__list">
         
           <li class="md-nav__item">
   <a href="#core-workflow" class="md-nav__link">
@@ -1391,157 +1406,125 @@
   
 
 
-  <h1>Key ideas</h1>
-
 <h2 id="key-ideas">Key Ideas</h2>
-<p><strong>repoquill</strong> is a Python library designed to streamline the process of generating, managing, and versioning technical documentation directly from source code repositories. Its core philosophy centers on treating documentation as a first-class citizen in the software development lifecycle, ensuring that documentation remains synchronized with the code it describes.</p>
-<p>The library is built upon three fundamental abstractions: <strong>Source Abstraction</strong>, <strong>Transformation Pipelines</strong>, and <strong>Artifact Management</strong>. These concepts work together to decouple the source of truth (the code) from the final output format (Markdown, HTML, PDF, etc.), allowing developers to maintain a single source of documentation logic while targeting multiple distribution channels.</p>
-<h3 id="1-source-abstraction">1. Source Abstraction</h3>
-<p>At the heart of <code>repoquill</code> is the <code>Source</code> interface. This abstraction allows the library to ingest documentation content from various origins without coupling the core engine to specific file systems or version control systems.</p>
-<p>The primary implementation is <code>FileSource</code>, which reads documentation templates and metadata from local files or directories. However, the architecture supports custom sources, enabling integration with remote APIs or database-backed documentation stores.</p>
-<pre><code class="language-python">from repoquill.source import FileSource, Source
+<p><strong>repoquill</strong> is a Python library designed to generate, manage, and version technical documentation directly from source code repositories. It operates as a generic two-layer developer-docs generator:</p>
+<ol>
+<li><strong>Layer 1 — API Reference (Deterministic):</strong> Uses <code>Griffe</code> to parse source code and <code>mkdocstrings</code> to render classes, functions, signatures, and docstrings. This layer is fast, free, and does not rely on LLMs.</li>
+<li><strong>Layer 2 — Narrative Guides (LLM):</strong> Uses <code>LiteLLM</code> to write conceptual guide pages (quickstart, concepts, workflows) grounded in the actual source code. This layer is incremental, regenerating only pages whose source files have changed.</li>
+<li><strong>Output:</strong> A polished MkDocs Material site, including <code>llms.txt</code> / <code>llms-full.txt</code> for AI agents and a <code>SKILL.md</code> for coding agents.</li>
+</ol>
+<p>The library is built upon three fundamental abstractions: <strong>Configuration</strong>, <strong>LLM Interaction</strong>, and <strong>Site Generation</strong>. These concepts work together to decouple the source of truth (the code) from the final output format, allowing developers to maintain a single configuration file (<code>repoquill.yml</code>) while targeting a complete documentation site.</p>
+<h3 id="1-configuration">1. Configuration</h3>
+<p>At the heart of <code>repoquill</code> is the <code>RepoQuillConfig</code> class. This abstraction allows the library to ingest project-specific settings from a <code>repoquill.yml</code> file without coupling the core engine to specific file systems or version control systems.</p>
+<p>The primary implementation is <code>RepoQuillConfig</code>, which holds the site metadata and repository details. It exposes the following properties:
+*   <code>site_name</code>: The name of the documentation site.
+*   <code>site_url</code>: The base URL of the deployed site.
+*   <code>repo_url</code>: The URL of the source code repository.
+*   <code>repo_name</code>: The name of the repository.</p>
+<pre><code class="language-python">from repoquill.config import RepoQuillConfig, LLMConfig, load_config
 
-class FileSource(Source):
-    &quot;&quot;&quot;
-    A source that loads documentation content from the local file system.
+# Load configuration from a YAML file
+cfg = load_config(&quot;repoquill.yml&quot;)
 
-    Parameters:
-        root_path (str): The root directory containing documentation files.
-        pattern (str): A glob pattern to match documentation files (default: '*.md').
-    &quot;&quot;&quot;
-    def __init__(self, root_path: str, pattern: str = &quot;*.md&quot;):
-        self.root_path = root_path
-        self.pattern = pattern
-
-    def load(self) -&gt; dict:
-        &quot;&quot;&quot;
-        Loads all matching files and returns a dictionary mapping file paths to content.
-        &quot;&quot;&quot;
-        # Implementation details...
-        pass
+# Access configuration properties
+print(cfg.site_name)
+print(cfg.repo_url)
 </code></pre>
-<p><strong>Design Pattern:</strong> The <em>Strategy Pattern</em> is employed here. By defining a common <code>Source</code> interface, <code>repoquill</code> can swap out the data retrieval mechanism at runtime without altering the downstream processing logic.</p>
-<h3 id="2-transformation-pipelines">2. Transformation Pipelines</h3>
-<p>Documentation rarely exists in its final form within the source files. It often requires processing steps such as variable substitution, code block execution, or formatting adjustments. <code>repoquill</code> models this process as a <strong>Pipeline</strong> of <strong>Transformers</strong>.</p>
-<p>A <code>Transformer</code> is a callable object that takes a <code>Document</code> object and returns a modified <code>Document</code>. The <code>Pipeline</code> class manages the execution order of these transformers.</p>
-<h4 id="the-document-model">The <code>Document</code> Model</h4>
-<p>The <code>Document</code> class serves as the data carrier through the pipeline. It encapsulates:
-*   <code>content</code>: The raw text or structured data of the document.
-*   <code>metadata</code>: A dictionary containing key-value pairs (e.g., title, author, version).
-*   <code>context</code>: A shared state object available to all transformers in the pipeline.</p>
-<pre><code class="language-python">from repoquill.core import Document, Transformer, Pipeline
+<p><strong>Design Pattern:</strong> The <em>Configuration Object</em> pattern is employed here. By defining a common <code>RepoQuillConfig</code> interface, <code>repoquill</code> can swap out the data retrieval mechanism (YAML, JSON, etc.) at runtime without altering the downstream processing logic.</p>
+<h3 id="2-llm-interaction">2. LLM Interaction</h3>
+<p>Documentation narrative generation requires interaction with Large Language Models. <code>repoquill</code> models this process through the <code>LLMClient</code> and <code>LocalRAG</code> classes.</p>
+<h4 id="the-llmclient">The <code>LLMClient</code></h4>
+<p>The <code>LLMClient</code> class serves as the interface for communicating with LLM providers. It encapsulates the logic for sending messages and handling responses.</p>
+<pre><code class="language-python">from repoquill.llm import LLMClient
+from repoquill.config import LLMConfig
 
-class VariableSubstitutionTransformer(Transformer):
-    &quot;&quot;&quot;
-    Replaces {{variable}} placeholders in the document content with values from the context.
-    &quot;&quot;&quot;
-    def transform(self, doc: Document) -&gt; Document:
-        for key, value in doc.context.items():
-            doc.content = doc.content.replace(f&quot;{{{{{key}}}}}&quot;, str(value))
-        return doc
+# Initialize the client with LLM configuration
+llm_cfg = LLMConfig()
+client = LLMClient(llm_cfg
+    # NOTE: llm_cfg is required (no default)
+)
 
-class CodeBlockExecutor(Transformer):
-    &quot;&quot;&quot;
-    Executes Python code blocks marked with ```python and replaces them with their output.
-    &quot;&quot;&quot;
-    def transform(self, doc: Document) -&gt; Document:
-        # Logic to find, execute, and replace code blocks
-        return doc
+# Send a chat request
+response = client.chat(
+    messages=[{&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: &quot;Hello&quot;}],
+    max_tokens=100,
+    temperature=0.7,
+    retries=3
+)
 </code></pre>
-<h4 id="building-a-pipeline">Building a Pipeline</h4>
-<p>The <code>Pipeline</code> class allows developers to chain transformers together. The order of execution is critical; for example, variable substitution should typically occur before code execution if the code relies on substituted variables.</p>
-<pre><code class="language-python">from repoquill.pipeline import Pipeline
-from repoquill.transformers import MarkdownFormatter, TimestampInjector
+<h4 id="local-rag">Local RAG</h4>
+<p>For grounding LLM responses in local source code, <code>repoquill</code> provides the <code>LocalRAG</code> class. This class builds a retrieval-augmented gfrom repoquill.llm import LocalRAG</p>
+<h1 id="initialize-rag-with-configuration-and-source-files">Initialize RAG with configuration and source files</h1>
+<p>rag_cfg = {"chunk_size": 500}
+source_files = {"main.py": "print('hello')"}
+rag = LocalRAG(rag_cfg, source_files
+    # NOTE: rag_cfg is required (no default),
+    # NOTE: source_files is required (no default)
+)</p>
+<h1 id="build-the-index">Build the index</h1>
+<p>rag.build()</p>
+<h1 id="retrieve-relevant-context">Retrieve relevant context</h1>
+<p>results = rag.retrieve(query="how to print", top_k=3)
+= rag.retrieve(query="how to print", top_k=3)</p>
+<pre><code>
+### 3. Site Generation
 
-def create_default_pipeline():
-    pipeline = Pipeline()
+Once the API reference and narrative guides are generated, they need to be assembled into a documentation site. `repoquill` abstracts this through the `site` module functions.
 
-    # 1. Inject current timestamp into metadata
-    pipeline.add(TimestampInjector())
+The `build_nav` function constructs the navigation structure for the MkDocs site. The `build_index_md` function generates the main index page.
 
-    # 2. Substitute variables
-    pipeline.add(VariableSubstitutionTransformer())
+```python
+from repoquill.site import build_nav, build_index_md
 
-    # 3. Format Markdown for consistent styling
-    pipeline.add(MarkdownFormatter())
+# Build navigation structure
+nav = build_nav(cfg, pages, reference_modules)
 
-    return pipeline
+# Build the index page
+index_md = build_index_md(cfg, pages, reference_modules)
 </code></pre>
-<p><strong>Design Pattern:</strong> The <em>Chain of Responsibility</em> pattern is used here. Each transformer handles a specific aspect of the document processing and passes the result to the next transformer in the chain. This promotes modularity and reusability of individual processing steps.</p>
-<h3 id="3-artifact-management">3. Artifact Management</h3>
-<p>Once a document has passed through the transformation pipeline, it needs to be written to a destination. <code>repoquill</code> abstracts this through the <code>Artifact</code> and <code>Writer</code> interfaces.</p>
-<p>An <code>Artifact</code> represents the final output of a document, including its target file path and format. The <code>Writer</code> is responsible for persisting the artifact to the chosen medium (file system, S3, GitHub Pages, etc.).</p>
-<pre><code class="language-python">from repoquill.writer import FileWriter, Writer
-
-class FileWriter(Writer):
-    &quot;&quot;&quot;
-    Writes artifacts to the local file system.
-
-    Parameters:
-        output_dir (str): The directory where output files will be saved.
-    &quot;&quot;&quot;
-    def __init__(self, output_dir: str):
-        self.output_dir = output_dir
-
-    def write(self, artifact: Artifact) -&gt; None:
-        &quot;&quot;&quot;
-        Writes the artifact content to the specified file path.
-        &quot;&quot;&quot;
-        file_path = os.path.join(self.output_dir, artifact.filename)
-        with open(file_path, 'w', encoding='utf-8') as f:
-            f.write(artifact.content)
-</code></pre>
+<p><strong>Design Pattern:</strong> The <em>Builder Pattern</em> is used here. Each function in the <code>site</code> module handles a specific aspect of the site generation (navigation, index, llms.txt) and returns the resulting content. This promotes modularity and reusability of individual generation steps.</p>
 <h3 id="core-workflow">Core Workflow</h3>
 <p>The typical usage of <code>repoquill</code> follows a clear, linear workflow:</p>
 <ol>
-<li><strong>Initialize Source</strong>: Create a <code>Source</code> instance to locate raw documentation files.</li>
-<li><strong>Define Pipeline</strong>: Construct a <code>Pipeline</code> with the necessary <code>Transformer</code>s.</li>
-<li><strong>Configure Writer</strong>: Set up a <code>Writer</code> to handle output.</li>
-<li><strong>Execute</strong>: Run the <code>RepoQuill</code> engine to process all documents.</li>
+<li><strong>Initialize Config</strong>: Load the <code>RepoQuillConfig</code> from <code>repoquill.yml</code>.</li>
+<li><strong>Generate API Reference</strong>: Use <code>reference.build_api_reference</code> to create the deterministic API docs.</li>
+<li><strong>Generate Narrative Guides</strong>: Use <code>narrative.generate_all_pages</code> to create LLM-generated guides.</li>
+<li><strong>Build Site</strong>: Use <code>site</code> functions to assemble the final MkDocs site.</li>
 </ol>
-<pre><code class="language-python">from repoquill import RepoQuill, FileSource, FileWriter
-from repoquill.pipeline import Pipeline
-from repoquill.transformers import MarkdownFormatter
+<pre><code class="language-python">from repoquill.config import load_config
+from repoquill.reference import build_api_reference
+from repoquill.narrative import generate_all_pages
+from repoquill.site import build_nav, build_index_md
 
-# 1. Setup Source
-source = FileSource(root_path=&quot;./docs&quot;, pattern=&quot;*.md&quot;)
+# 1. Load Config
+cfg = load_config(&quot;repoquill.yml&quot;)
 
-# 2. Setup Pipeline
-pipeline = Pipeline()
-pipeline.add(MarkdownFormatter())
+# 2. Generate API Reference
+api_ref = build_api_reference(cfg)
 
-# 3. Setup Writer
-writer = FileWriter(output_dir=&quot;./build/docs&quot;)
+# 3. Generate Narrative Guides
+# Note: This requires an LLM client and source files
+# pages = generate_all_pages(pages, source_files, client, cfg, old_hashes, new_hashes)
 
-# 4. Initialize and Run Engine
-engine = RepoQuill(
-    source=source,
-    pipeline=pipeline,
-    writer=writer
-)
-
-engine.run()
+# 4. Build Site
+nav = build_nav(cfg, pages, reference_modules)
+index_md = build_index_md(cfg, pages, reference_modules)
 </code></pre>
 <h3 id="configuration-and-context">Configuration and Context</h3>
-<p>The <code>context</code> parameter in the <code>RepoQuill</code> engine allows global variables to be injected into every document's processing context. This is useful for injecting build information, such as the current version number or build timestamp, into all generated documents.</p>
-<pre><code class="language-python">engine = RepoQuill(
-    source=source,
-    pipeline=pipeline,
-    writer=writer,
-    context={
-        &quot;version&quot;: &quot;1.0.0&quot;,
-        &quot;build_date&quot;: &quot;2023-10-27&quot;
-    }
-)
+<p>The <code>repoquill.yml</code> file allows global variables to be injected into the documentation generation process. This is useful for injecting build information, such as the current version number or build timestamp, into all generated documents.</p>
+<pre><code class="language-yaml"># repoquill.yml
+site_name: &quot;My Project Docs&quot;
+site_url: &quot;https://example.com/docs&quot;
+repo_url: &quot;https://github.com/user/repo&quot;
+repo_name: &quot;my-project&quot;
 </code></pre>
-<p>Within a <code>Transformer</code>, these context variables can be accessed via <code>doc.context</code>, enabling dynamic content generation based on the build environment.</p>
+<p>Within the <code>RepoQuillConfig</code>, these values can be accessed via properties, enabling dynamic content generation based on the project configuration.</p>
 <h3 id="error-handling-and-logging">Error Handling and Logging</h3>
-<p><code>repoquill</code> employs standard Python exception handling. If a <code>Transformer</code> fails during execution, the <code>Pipeline</code> will raise a <code>TransformationError</code> containing the original exception and the document identifier that caused the failure. This allows developers to identify problematic documents without halting the entire build process if configured to continue on error.</p>
+<p><code>repoquill</code> employs standard Python exception handling. If an LLM request fails, the <code>LLMClient</code> will raise an exception containing the original error. This allows developers to identify problematic requests without halting the entire build process if configured to continue on error.</p>
 <pre><code class="language-python">try:
-    engine.run()
-except TransformationError as e:
-    logger.error(f&quot;Failed to process document: {e.document_id}&quot;)
-    logger.error(f&quot;Reason: {e.original_exception}&quot;)
+    response = client.chat(messages, max_tokens, temperature, retries)
+except Exception as e:
+    logger.error(f&quot;Failed to process LLM request: {e}&quot;)
 </code></pre>
 <h3 id="summary-of-key-classes">Summary of Key Classes</h3>
 <table>
@@ -1554,44 +1537,29 @@ except TransformationError as e:
 </thead>
 <tbody>
 <tr>
-<td style="text-align: left;"><code>Source</code></td>
-<td style="text-align: left;"><code>repoquill.source</code></td>
-<td style="text-align: left;">Abstract base class for data retrieval.</td>
+<td style="text-align: left;"><code>RepoQuillConfig</code></td>
+<td style="text-align: left;"><code>repoquill.config</code></td>
+<td style="text-align: left;">Configuration object for the documentation site.</td>
 </tr>
 <tr>
-<td style="text-align: left;"><code>FileSource</code></td>
-<td style="text-align: left;"><code>repoquill.source</code></td>
-<td style="text-align: left;">Implementation for local file system sources.</td>
+<td style="text-align: left;"><code>LLMConfig</code></td>
+<td style="text-align: left;"><code>repoquill.config</code></td>
+<td style="text-align: left;">Configuration object for LLM provider settings.</td>
 </tr>
 <tr>
-<td style="text-align: left;"><code>Document</code></td>
-<td style="text-align: left;"><code>repoquill.core</code></td>
-<td style="text-align: left;">Data model representing a single document.</td>
+<td style="text-align: left;"><code>LLMClient</code></td>
+<td style="text-align: left;"><code>repoquill.llm</code></td>
+<td style="text-align: left;">Client for interacting with LLM providers.</td>
 </tr>
 <tr>
-<td style="text-align: left;"><code>Transformer</code></td>
-<td style="text-align: left;"><code>repoquill.core</code></td>
-<td style="text-align: left;">Abstract base class for document processing steps.</td>
+<td style="text-align: left;"><code>LocalRAG</code></td>
+<td style="text-align: left;"><code>repoquill.llm</code></td>
+<td style="text-align: left;">Retrieval-augmented generation for local source code.</td>
 </tr>
 <tr>
-<td style="text-align: left;"><code>Pipeline</code></td>
-<td style="text-align: left;"><code>repoquill.pipeline</code></td>
-<td style="text-align: left;">Manages the execution order of transformers.</td>
-</tr>
-<tr>
-<td style="text-align: left;"><code>Writer</code></td>
-<td style="text-align: left;"><code>repoquill.writer</code></td>
-<td style="text-align: left;">Abstract base class for output persistence.</td>
-</tr>
-<tr>
-<td style="text-align: left;"><code>FileWriter</code></td>
-<td style="text-align: left;"><code>repoquill.writer</code></td>
-<td style="text-align: left;">Implementation for local file system output.</td>
-</tr>
-<tr>
-<td style="text-align: left;"><code>RepoQuill</code></td>
-<td style="text-align: left;"><code>repoquill</code></td>
-<td style="text-align: left;">Main engine class that orchestrates the workflow.</td>
+<td style="text-align: left;"><code>SymbolIndex</code></td>
+<td style="text-align: left;"><code>repoquill.verify</code></td>
+<td style="text-align: left;">Index of symbols for verification purposes.</td>
 </tr>
 </tbody>
 </table>
@@ -1599,9 +1567,7 @@ except TransformationError as e:
 <h3 id="see-also">See Also</h3>
 <ul>
 <li><a href="../architecture/">Architecture</a></li>
-<li><a href="../ci-cd/">CI/CD Integration</a></li>
-<li><a href="../configuration/">Configuration Reference</a></li>
-<li><a href="../installation/">Installation</a></li>
+<li><a href="../quickstart/">Quickstart</a></li>
 </ul>
 
 
@@ -1655,13 +1621,13 @@ except TransformationError as e:
         
         
           
-          <a href="../configuration/" class="md-footer__link md-footer__link--next" aria-label="Next: Configuration">
+          <a href="../../reference/repoquill/" class="md-footer__link md-footer__link--next" aria-label="Next: Repoquill">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Configuration
+                Repoquill
               </div>
             </div>
             <div class="md-footer__button md-icon">

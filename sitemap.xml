@@ -9,27 +9,11 @@
          <lastmod>2026-08-29</lastmod>
     </url>
     <url>
-         <loc>https://SushantGautam.github.io/RepoQuill/guides/ci-cd/</loc>
-         <lastmod>2026-08-29</lastmod>
-    </url>
-    <url>
-         <loc>https://SushantGautam.github.io/RepoQuill/guides/cli-commands/</loc>
-         <lastmod>2026-08-29</lastmod>
-    </url>
-    <url>
-         <loc>https://SushantGautam.github.io/RepoQuill/guides/configuration/</loc>
-         <lastmod>2026-08-29</lastmod>
-    </url>
-    <url>
          <loc>https://SushantGautam.github.io/RepoQuill/guides/installation/</loc>
          <lastmod>2026-08-29</lastmod>
     </url>
     <url>
          <loc>https://SushantGautam.github.io/RepoQuill/guides/key-ideas/</loc>
-         <lastmod>2026-08-29</lastmod>
-    </url>
-    <url>
-         <loc>https://SushantGautam.github.io/RepoQuill/guides/llm-providers/</loc>
          <lastmod>2026-08-29</lastmod>
     </url>
     <url>
@@ -46,6 +30,10 @@
     </url>
     <url>
          <loc>https://SushantGautam.github.io/RepoQuill/reference/repoquill_config/</loc>
+         <lastmod>2026-08-29</lastmod>
+    </url>
+    <url>
+         <loc>https://SushantGautam.github.io/RepoQuill/reference/repoquill_grounding/</loc>
          <lastmod>2026-08-29</lastmod>
     </url>
     <url>
@@ -66,6 +54,14 @@
     </url>
     <url>
          <loc>https://SushantGautam.github.io/RepoQuill/reference/repoquill_site/</loc>
+         <lastmod>2026-08-29</lastmod>
+    </url>
+    <url>
+         <loc>https://SushantGautam.github.io/RepoQuill/reference/repoquill_surgical_verify/</loc>
+         <lastmod>2026-08-29</lastmod>
+    </url>
+    <url>
+         <loc>https://SushantGautam.github.io/RepoQuill/reference/repoquill_verify/</loc>
          <lastmod>2026-08-29</lastmod>
     </url>
 </urlset>
