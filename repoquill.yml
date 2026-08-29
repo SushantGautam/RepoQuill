@@ -1,13 +1,15 @@
 # RepoQuill configuration
 # Docs: https://github.com/SushantGautam/RepoQuill#config
+# Edit your .github/workflows/docs.yml for CI/CD configuration
 
 project_name: repoquill
 package_dir: repoquill
 
 llm:
   provider: openai
-  model: gpt-4o
-  api_key_env: OPENAI_API_KEY   # env var name the workflow exports your secret under
+  model: Qwen/Qwen3.8-27B-FP8
+  api_key_env: OPENAI_API_KEY
+  base_url: https://simulachat.sushant.info.np/api/v1
 
 site:
   name: repoquill
