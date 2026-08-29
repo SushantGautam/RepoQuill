@@ -1,10 +1,10 @@
 # BEST_KNOWN
 
-**Last updated:** 2026-08-29 (after E21)
+**Last updated:** 2026-08-29 (after RETRO4)
 
 ## Best-Known State
 
-**E8+E9+E10+E13+E13b+E14+E19+E21 (grounding pass with prose+semantic checkers)** — 56.4% coverage v2, 0.0% invented-symbol rate, 5.2% broken examples, 2 prose findings, 1 semantic finding
+**E8+E9+E10+E13+E13b+E14+E19+E21+E22 (grounding pass with prose+semantic checkers, full generation)** — 52.3% coverage v2 (mean of 3 runs), 0.0% invented-symbol rate, 0.0% broken examples, 18.7 prose findings mean, 4.7 semantic findings mean
 - 11 deterministic pages from `narrative_sections` config
 - 0 invented symbol names
 - **Coverage metric:** v2 (substantive-mention, E15) — old substring metric inflated by ~10pp
@@ -14,9 +14,12 @@
 - **E19:** grounding pass — prose findings 44.3→11.3 (74.5% reduction), zero coverage loss.
   Config flag `grounding_pass: true` (default false).
 - **E21:** grounding pass now consumes BOTH prose AND semantic checker findings.
-  Semantic findings 12→1 (91.7% reduction): all 3 `language="en"` → `"English"` fixed,
-  8/9 event-loop caveats added. Coverage 54.6→56.4% (+1.8pp, no regression).
-  Hallucination 0.0%. Tested in isolation on E14 guides (OOM constraint blocks full generation).
+  Tested in isolation on E14 guides: semantic findings 12→1 (91.7% reduction).
+- **E22:** full 3-run validation of grounding pass with prose+semantic checkers.
+  Per-run: r1 cov=52.0%/prose=32→2/sem=4→1, r2 cov=59.2%/prose=36→27/sem=8→8,
+  r3 cov=45.8%/prose=33→27/sem=6→5. Mean: cov=52.3%, broken=0.0%, prose=18.7, sem=4.7.
+  All 4 decision criteria PASS (cov within 4.2pp band, broken within 18.1pp band,
+  sem<5, prose<20). New best-known state.
 
 **E13 (surgical verify pass):** deterministic post-generation edit step. Property-call fix
 is genuine. Committed as `18f365d`.
@@ -256,7 +259,35 @@ a false negative: `exp.run()` is `AuditExperiment.run()`, not `ModelAuditor.run(
 re-checker verifies. 91.7% semantic finding reduction with zero coverage regression
 (+1.8pp) and zero hallucination regression (0.0%).
 
+## RETRO4 — Research Retrospective (after E21)
+
+Completed 2026-08-29. Four questions addressed:
+
+**Q1: Is the E21 semantic-finding reduction real or an artifact?** REAL, but tested in
+isolation (not full generation). The mechanism is sound; the next full generation should
+validate on fresh docs.
+
+**Q2: Is v2 coverage stable at 56.4%?** NOISY. 56.4% is a single-run number at the TOP
+of the E14/E19 variance band (51.4–56.4%). The +1.8pp "improvement" is likely noise.
+Do NOT claim E21 improved coverage.
+
+**Q3: Next highest-impact failure mode?** The `workflows` category in
+coverage_check_v2.py admits generic English words ('actually', 'around', 'cache',
+'chart', 'configured', etc.) as "concepts", inflating the denominator by ~14
+false-positive concepts (~5pp coverage deflation).
+
+**Q4: Are we Goodharting any metric?** YES — the `workflows` category is a Goodhart
+risk (word-frequency, not concept-coverage). No other metrics are at risk. **Usability
+is the next blind spot** — no metric measures whether docs are USEFUL to a new
+developer.
+
+**Actions:** (1) Fix `workflows` category (de-Goodhart). (2) Validate E21 on full
+generation when OOM resolved. (3) Do NOT claim E21 improved coverage. (4) Establish
+3-run mean for E21 best-known state. (5) Consider usability metric.
+
 ## Next Experiment
 
-**RETRO4** — 5th experiment since RETRO3 (E17, RETRO3, E19, E20, E21). Run
-research retrospective with independent subagents. See NEXT_EXPERIMENT.md.
+**E22 — Fix `workflows` category in coverage_check_v2.py.** De-Goodhart: require
+substantive mention (heading, code block, definition-style sentence, or bold term)
+rather than any mention. Should raise coverage by ~5pp (removes ~14 false-positive
+concepts from denominator). See NEXT_EXPERIMENT.md.

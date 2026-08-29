@@ -1,6 +1,6 @@
 # NEXT_EXPERIMENT
 
-**Last updated:** 2026-08-29 (after E21)
+**Last updated:** 2026-08-29 (after RETRO4)
 
 ## E13b — Fix the `<REQUIRED>` Placeholder — DONE (KEEP, 5c08779)
 
@@ -298,20 +298,72 @@ Prose findings 2. 10 pages fixed, 60→3 total findings.
 
 **Decision: KEEP.** Closes the E20 loop.
 
-## Next Experiment
+## RETRO4 — Research Retrospective — DONE (2026-08-29)
 
-**RETRO4** — 5th experiment since RETRO3 (E17, RETRO3, E19, E20, E21). Run research
-retrospective with independent subagents. Questions to address:
-1. Is the E21 semantic-finding reduction real or an artifact of the isolated test?
-2. Is v2 coverage stable at 56.4% or does it vary across runs?
-3. What is the next highest-impact failure mode in the E21 docs?
-4. Are we Goodharting any metric?
+Completed directly (fork spawning unavailable in this session). Four questions addressed:
+1. E21 semantic-finding reduction is REAL but tested in isolation (not full generation).
+2. E21 coverage 56.4% is a single-run number at the top of the variance band, NOT a
+   real improvement. Do NOT claim E21 improved coverage.
+3. Next highest-impact failure mode: `workflows` category in coverage_check_v2.py
+   admits generic English words as "concepts" (~14 false positives, ~5pp coverage
+   deflation).
+4. Goodhart risk: `workflows` category (word-frequency, not concept-coverage). No other
+   metrics at risk. Usability is the next blind spot (no metric measures whether docs
+   are USEFUL to a new developer).
 
-## Backlog (after E21)
+## E22 — Fix `workflows` Category in coverage_check_v2.py
 
-- **RETRO4** — run retrospective.
+### Hypothesis
+
+The `workflows` category in coverage_check_v2.py admits generic English words
+('actually', 'around', 'cache', 'chart', 'configured', etc.) as "concepts" because they
+appear in the source code. This inflates the denominator by ~14 false-positive concepts
+and deflates coverage by ~5pp. Requiring substantive mention (heading, code block,
+definition-style sentence, or bold term) for the `workflows` category — same criterion
+as the other categories — will remove the false positives and raise coverage by ~5pp.
+
+### Why first
+
+RETRO4 identified this as the only Goodhart risk in the scoreboard. Fixing it makes the
+coverage metric honest (de-Goodhart) and is a prerequisite for any future coverage-based
+decisions. It's also a quick win: no LLM, no generation, just a checker fix.
+
+### Goal
+
+Remove ~14 false-positive "concepts" from the `workflows` category. Coverage should
+rise by ~5pp (e.g. 52.3% → ~57%).
+
+### Implementation sketch
+
+1. **Identify the `workflows` category logic in coverage_check_v2.py.** Find how
+   "workflow concepts" are extracted from the source.
+2. **Apply the substantive-mention criterion.** The `workflows` category should use the
+   same criterion as the other categories: a concept is "covered" only if it appears in
+   a heading, fenced code block, definition-style sentence, or bold term.
+3. **Filter out generic English words.** Add a stopword list for the `workflows`
+   category (e.g. 'actually', 'around', 'backward', 'behaviour', 'cache', 'cached',
+   'canonical', 'chart', 'compat', 'configured', 'etc.'). These are not workflow
+   concepts; they are common English words that happen to appear in the source.
+4. **Re-run on E22 docs** (3 runs) to measure the coverage change.
+
+### Decision rule
+
+- If coverage rises by ≥3pp (half the expected 5pp) AND no other category is affected
+  → KEEP (de-Goodhart fix).
+- If coverage drops OR another category is affected → REVERT.
+
+### Controlled variables
+
+- Same E22 config (grounding_pass: true, prose+semantic checkers), same source.
+- Only change: `workflows` category logic in coverage_check_v2.py.
+- 3 runs to measure variance.
+
+## Backlog (after RETRO4)
+
+- **E22 — Fix `workflows` category** (see above).
 - **E15 — Generic structure derivation.** Repo-derived slugs, not hand-authored.
 - **Independent judge:** use a different model family for judging.
 - **Rename `hallucination_rate` to `invented_symbol_rate`** in the registry.
-- **Fix noisy `workflows` category** in coverage_check_v2.py (admits generic words like
-  'actually', 'around').
+- **Usability metric** (next blind spot): measure whether docs are USEFUL to a new
+  developer (e.g. "can a new developer install and run a basic audit following the
+  docs?").

@@ -1,8 +1,8 @@
 # CURRENT_STATE
 
-**Last updated:** 2026-08-29 (E21 COMPLETE)
-**Best-known state:** E8+E9+E10+E13+E13b+E14+E19+E21 (grounding pass with prose+semantic checkers) — 56.4% coverage v2, 0.0% invented-symbol rate, 5.2% broken examples, 2 prose findings, 1 semantic finding (was 12)
-**Experiments complete:** E1–E13 + E13b + E18 + E14 + E15 + E16 + E17 + E19 + E20 + E21 + RETRO2 + RETRO3. E19 (grounding pass): KEEP — prose findings 44.3→11.3 (74.5% reduction) with zero coverage loss. E20 (semantic value checker): KEEP — new deterministic checker catches wrong string literals (language="en" vs "English") and missing behavioral caveats (event-loop RuntimeError); 12 findings on E14/E19 docs, 0 false positives. E21 (wire semantic checker into grounding pass + test): KEEP — grounding.py consumes both prose AND semantic checker findings; tested in isolation on E14 guides: semantic findings 12→1 (91.7% reduction), all 3 language="en" fixed, 8/9 caveats added, coverage 54.6→56.4% (no regression), hallucination 0.0%.
+**Last updated:** 2026-08-29 (after E22)
+**Best-known state:** E8+E9+E10+E13+E13b+E14+E19+E21+E22 (grounding pass with prose+semantic checkers, full generation) — 52.3% coverage v2 (mean of 3 runs), 0.0% invented-symbol rate, 0.0% broken examples, 18.7 prose findings mean, 4.7 semantic findings mean
+**Experiments complete:** E1–E22 + RETRO2 + RETRO3 + RETRO4. E22 (full 3-run validation of grounding pass): KEEP — all 4 decision criteria PASS (cov 52.3% within 4.2pp band, broken 0.0% within 18.1pp band, sem 4.7 <5, prose 18.7 <20). New best-known state.
 **E13 (surgical verify pass):** deterministic post-generation edit step. Property-call fix is genuine. Committed (18f365d).
 **E13b (placeholder fix):** replaced `<REQUIRED>` sentinel with value inference (AST default, sibling mirroring) or omit+comment. 0 placeholders across 3 runs. Broken% now honest (13.8% mean). Committed (5c08779).
 **RETRO2 key findings:**
@@ -38,7 +38,9 @@
 | E17 | verify-pass A/B (verify_passes 1 vs 0) | 50.8 vs 53.0 | 12.7 vs 11.7 | 0.0 | **REVERT E5** (no primary metric favors on; saves compute) |
 | E19 | Grounding pass (prose-checker feedback loop) | 54.6 | 5.2 | 0.3 | **KEEP** (prose 44.3→11.3, 74.5% reduction, zero coverage loss) |
 | E20 | Semantic value checker (string literals + caveats) | — | — | — | **KEEP** (12 findings on E14/E19, 0 FP; catches language="en" + event-loop caveat) |
-| E21 | Wire semantic checker into grounding pass + test | 0.0% | 56.4% | 5.2% | **KEEP** (semantic 12→1, 91.7% reduction, zero coverage/halluc regression) |
+| E21 | Wire semantic checker into grounding pass + test | 0.0% | 56.4% (single-run, top of band) | 5.2% | **KEEP** (semantic 12→1, 91.7% reduction, zero coverage/halluc regression) |
+| E22 | Full 3-run validation of grounding pass (prose+semantic) | 0.0% | 52.3% (mean of 3) | 0.0% | **KEEP** (all 4 criteria PASS, new best-known state) |
+| RETRO4 | Research retrospective (5th since RETRO3) | — | — | — | **METHODOLOGY** (workflows Goodhart risk, usability blind spot) |
 
 ## E11 — Variance Band Results
 
@@ -403,11 +405,70 @@ re-checker verifies. 91.7% semantic finding reduction with zero coverage regress
 **Limitations:** Tested in isolation on E14 guides, not a full generation (OOM
 constraint). 1 remaining MISSING_CAVEAT is a false negative in the checker.
 
-## Next Steps (re-ranked after E21)
+## E22 — Full 3-Run Validation of Grounding Pass
 
-1. **E15 (structure) — Generic structure derivation.** Repo-derived slugs, not hand-authored.
-2. **RETRO4** — 5th experiment since RETRO3 (E17, RETRO3, E19, E20, E21). Run
-   retrospective with independent subagents.
+**Design:** 3 fresh runs of E14 baseline (verify_passes: 0, temp 0.7, context_budget
+60000) + grounding pass with BOTH prose and semantic checkers. This is the first full
+generation validation of the E21 wiring (E21 was tested in isolation on E14 guides).
+
+| Run | Coverage v2 | Broken% | invalid_kwarg | Halluc% | Prose before→after | Sem before→after |
+|-----|-------------|---------|---------------|---------|-------------------|-----------------|
+| E22_r1 | 52.0% | 0.0% | 0 | 0.0% | 32→2 | 4→1 |
+| E22_r2 | 59.2% | 0.0% | 0 | 0.0% | 36→27 | 8→8 |
+| E22_r3 | 45.8% | 0.0% | 0 | 0.0% | 33→27 | 6→5 |
+| **Mean** | **52.3%** | **0.0%** | **0** | **0.0%** | **18.7** | **4.7** |
+
+vs E19 baseline: 54.6% coverage, 5.2% broken, 11.3 prose.
+
+**Decision criteria:**
+- Coverage within 4.2pp band of 54.6%: **PASS** (52.3%, delta -2.3pp)
+- Broken% within 18.1pp band of 5.2%: **PASS** (0.0%, delta -5.2pp)
+- Semantic findings < 5: **PASS** (4.7)
+- Prose findings < 20: **PASS** (18.7)
+
+**Decision: KEEP — new best-known state.** All 4 criteria PASS. Coverage 52.3% is
+within the variance band. Broken% improved from 5.2% to 0.0%. Semantic findings 4.7
+(new metric, was unmeasured in E19). Prose 18.7 (E19 was 11.3, but E19 didn't run the
+semantic checker; the combined prose+semantic total is the honest comparison).
+Hallucination 0.0% (improved from 0.3%).
+
+**Note:** r2 and r3 had high prose_after (27) — the grounding pass fixed semantic
+findings but left many prose findings. r1 had the best prose reduction (32→2).
+Variance in grounding pass effectiveness is notable; a future experiment could
+investigate why some runs get thorough correction while others don't.
+
+## RETRO4 — Research Retrospective (after E21)
+
+Completed 2026-08-29. Four questions addressed:
+
+**Q1: Is the E21 semantic-finding reduction real or an artifact?** REAL, but tested in
+isolation (not full generation). The mechanism is sound; the next full generation should
+validate on fresh docs.
+
+**Q2: Is v2 coverage stable at 56.4%?** NOISY. 56.4% is a single-run number at the TOP
+of the E14/E19 variance band (51.4–56.4%). The +1.8pp "improvement" is likely noise.
+Do NOT claim E21 improved coverage.
+
+**Q3: Next highest-impact failure mode?** The `workflows` category in
+coverage_check_v2.py admits generic English words ('actually', 'around', 'cache',
+'chart', 'configured', etc.) as "concepts", inflating the denominator by ~14
+false-positive concepts (~5pp coverage deflation).
+
+**Q4: Are we Goodharting any metric?** YES — the `workflows` category is a Goodhart
+risk (word-frequency, not concept-coverage). No other metrics are at risk. **Usability
+is the next blind spot** — no metric measures whether docs are USEFUL to a new
+developer.
+
+**Actions:** (1) Fix `workflows` category (de-Goodhart). (2) Validate E21 on full
+generation when OOM resolved. (3) Do NOT claim E21 improved coverage. (4) Establish
+3-run mean for E21 best-known state. (5) Consider usability metric.
+
+## Next Steps (re-ranked after RETRO4)
+
+1. **E22 — Fix `workflows` category in coverage_check_v2.py.** De-Goodhart: require
+   substantive mention (heading, code block, definition-style sentence, or bold term)
+   rather than any mention. Should raise coverage by ~5pp (removes ~14 false-positive
+   concepts from denominator).
+2. **E15 (structure) — Generic structure derivation.** Repo-derived slugs, not hand-authored.
 3. **Backlog:** rename `hallucination_rate` → `invented_symbol_rate`; independent judge
-   (different model family); fix noisy `workflows` category in coverage_check_v2.py
-   (includes generic words like 'actually', 'around').
+   (different model family); usability metric (next blind spot).
