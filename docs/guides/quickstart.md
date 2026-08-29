@@ -114,6 +114,8 @@ llm_cfg = LLMConfig()
 # Initialize the client
 client = LLMClient(llm_cfg
     # NOTE: llm_cfg is required (no default)
+,
+    # NOTE: llm_cfg is required (no default)
 )
 
 # Example: Chat with the LLM

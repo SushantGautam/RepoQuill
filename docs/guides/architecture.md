@@ -226,6 +226,8 @@ def main():
     # NOTE: llm_cfg is required (no default)
     llm_client = LLMClient(cfg.llm_config
     # NOTE: llm_cfg is required (no default)
+,
+    # NOTE: llm_cfg is required (no default)
 )
     
     # Determine narrative structure
