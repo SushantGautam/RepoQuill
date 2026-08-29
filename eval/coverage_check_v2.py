@@ -199,6 +199,31 @@ def get_workflows():
                'errors', 'line_buffering', 'write_through',
                'fileno', 'detach', 'isatty', 'truncate',
                'iter', 'next', 'iter', 'iter', 'iter',
+               # E22: generic English words that appear in docstrings but are
+               # not domain concepts (RETRO4 Goodhart fix)
+               'actually', 'across', 'around', 'backward', 'before',
+               'behaviour', 'built', 'cache', 'cached', 'calls', 'cannot',
+               'canonical', 'chart', 'compat', 'compare', 'comparison',
+               'contain', 'containing', 'content', 'conversation', 'access',
+               'attributes', 'block', 'blocks',
+               # E23: additional generic words caught by frequency filter
+               'configured', 'corrupt', 'critical', 'dicts', 'directory',
+               'either', 'empty', 'entries', 'entry', 'every', 'files',
+               'first', 'given', 'however', 'instead', 'itself', 'length',
+               'local', 'make', 'making', 'means', 'memory', 'message',
+               'messages', 'model', 'models', 'name', 'names', 'needed',
+               'number', 'object', 'objects', 'option', 'options',
+               'output', 'outputs', 'passed', 'perform', 'performing',
+               'present', 'provide', 'provides', 'providing', 'range',
+               'record', 'records', 'related', 'remove', 'removed',
+               'request', 'requests', 'result', 'results', 'return',
+               'returns', 'running', 'sample', 'samples', 'section',
+               'sections', 'single', 'source', 'sources', 'state',
+               'states', 'step', 'steps', 'string', 'strings', 'table',
+               'tables', 'target', 'targets', 'text', 'time', 'times',
+               'total', 'true', 'turn', 'using', 'used', 'user',
+               'users', 'value', 'values', 'variable', 'variables',
+               'version', 'versions', 'way', 'ways', 'word', 'words',
                }
     # keep terms that are domain-specific: contain underscores or are multi-word
     domain = {t for t in terms if '_' in t and t not in generic}
