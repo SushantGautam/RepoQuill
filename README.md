@@ -17,41 +17,30 @@ Generic two-layer developer-docs generator. Point it at any Python package and i
 - **Layer 2 — narrative guides (LLM).** LiteLLM writes conceptual guide pages (quickstart, concepts, workflows) grounded in your actual source. Incremental: only pages whose source changed are regenerated.
 - **MkDocs Material site.** A polished, searchable, themeable site with `llms.txt` / `llms-full.txt` for AI agents and a `SKILL.md` for coding agents.
 
-RepoQuill is a standalone pip package. Your repo keeps a single `repoquill.yml` config and a GitHub Actions workflow that calls RepoQuill's reusable workflow.
-
-## How it works
-
-```
-your Python package
-        │
-        ▼
-┌─────────────────────────────────────────────┐
-│  repoquill generate                          │
-│                                              │
-│  [1] Load source files                       │
-│  [2] Layer 1: Griffe → reference/*.md        │  (deterministic)
-│  [3] Layer 2: LLM → guides/*.md              │  (incremental, LiteLLM)
-│  [4] Cross-link guides                       │
-│  [5] Assemble: index.md, nav, mkdocs.yml,    │
-│      llms.txt, llms-full.txt, SKILL.md       │
-│  [6] mkdocs build → site/                    │
-└─────────────────────────────────────────────┘
-```
-
-## Install
-
-```bash
-pip install repoquill
-# optional: local RAG (offline embeddings, no API key)
-pip install "repoquill[rag]"
-```
+Your repo keeps one `repoquill.yml` and a GitHub Actions workflow that calls RepoQuill's reusable workflow.
 
 ## Quick start
 
-### 1. Scaffold your repo (one command)
+### 1. Install
+
+```bash
+uv tool install repoquill
+# optional: local RAG (offline embeddings, no API key)
+uv tool install "repoquill[rag]"
+```
+
+<details>
+<summary>Prefer pip?</summary>
 
 ```bash
 pip install repoquill
+pip install "repoquill[rag]"   # optional
+```
+</details>
+
+### 2. Scaffold your repo
+
+```bash
 cd your-repo
 repoquill init
 ```
@@ -63,7 +52,7 @@ repoquill init
 
 You can skip the prompts with flags: `repoquill init --provider anthropic --model claude-sonnet-4-5`.
 
-### 2. Add your LLM API key as a GitHub secret
+### 3. Add your LLM API key as a GitHub secret
 
 Settings → Secrets and variables → Actions → New repository secret:
 
@@ -73,7 +62,7 @@ Settings → Secrets and variables → Actions → New repository secret:
 
 > **No API key needed** for `github_copilot` (device-code login) or local providers (`ollama`, `lm_studio`, `vllm`).
 
-### 3. Push and go
+### 4. Push and go
 
 ```bash
 git add repoquill.yml .github/workflows/docs.yml
@@ -88,16 +77,27 @@ Docs build on every push to `main` and deploy to GitHub Pages (`https://<you>.gi
 ```bash
 export OPENAI_API_KEY=sk-...
 repoquill serve          # live-reload at http://localhost:8000
+repoquill build          # one-shot build
+repoquill build --no-llm # deterministic reference only (no API key)
 ```
 
-Or, for a one-shot build:
-```bash
-repoquill build
-```
+## How it works
 
-To generate only the deterministic reference (no LLM, no API key):
-```bash
-repoquill build --no-llm
+```
+your Python package
+        │
+        ▼
+┌─────────────────────────────────────────────┐
+│  repoquill generate                         │
+│                                             │
+│  [1] Load source files                      │
+│  [2] Layer 1: Griffe → reference/*.md       │  (deterministic)
+│  [3] Layer 2: LLM → guides/*.md             │  (incremental, LiteLLM)
+│  [4] Cross-link guides                      │
+│  [5] Assemble: index.md, nav, mkdocs.yml,   │
+│      llms.txt, llms-full.txt, SKILL.md      │
+│  [6] mkdocs build → site/                   │
+└─────────────────────────────────────────────┘
 ```
 
 ## CLI
@@ -144,59 +144,6 @@ model list) and when the GitHub Actions workflow should run:
 | `push_all` | `push` (all branches) + `pull_request` + `workflow_dispatch` |
 | `release` | `push` on `v*` tags + `workflow_dispatch` |
 
-You can build docs **locally** (`repoquill build` / `repoquill serve`) or via
-**GitHub Actions** (cloud runner). For the Actions path, set `LLM_API_KEY` as a
-repository secret so the runner can call the LLM.
-
-### Multiple configs
-
-Point `--config` at a directory to process all `*.yml`/`*.yaml` files inside:
-
-```bash
-# Process all configs in configs/
-repoquill build --config configs/
-
-# Or a specific list
-repoquill build --config "configs/api.yml,configs/guides.yml"
-```
-
-If no `--config` is given, RepoQuill looks for `./repoquill.yml` first, then `./configs/`.
-
-### Same-repo integration
-
-When your docs live in the **same repo** as your code, use `output_dir` to keep all generated artifacts in one folder:
-
-```yaml
-# repoquill.yml (at repo root, same repo as your package)
-project_name: MyProject
-package_dir: mypackage
-output_dir: docs          # everything goes into docs/
-```
-
-This puts the generated content (`index.md`, `guides/`, `reference/`), `mkdocs.yml`, and the built `site/` all inside `docs/`:
-
-```
-myrepo/
-├── mypackage/
-├── repoquill.yml
-└── docs/                 # ← all RepoQuill output lives here
-    ├── mkdocs.yml
-    ├── index.md
-    ├── guides/
-    ├── reference/
-    ├── llms.txt
-    ├── llms-full.txt
-    ├── SKILL.md
-    └── site/             # built site (gitignore this)
-```
-
-Add `docs/site/` to your `.gitignore`. Then:
-
-```bash
-repoquill serve --port 8000   # live preview
-repoquill build                # one-shot build
-```
-
 ## Config
 
 `repoquill.yml` drives everything. A minimal example:
@@ -204,7 +151,6 @@ repoquill build                # one-shot build
 ```yaml
 project_name: MyProject
 package_dir: mypackage          # the Python package to document
-output_dir: docs                # optional: keep all artifacts in one folder (same-repo)
 
 llm:
   provider: openai              # openai | anthropic | openrouter | groq | ollama | ...
@@ -253,14 +199,32 @@ RepoQuill uses [LiteLLM](https://github.com/BerriAI/litellm), so any provider wo
 | `groq` | `llama-3.3-70b-versatile` | `GROQ_API_KEY` |
 | `ollama` | `llama3.1` | _(none — local)_ |
 
-Auth is fully generic: **LiteLLM resolves each provider's key from its standard
-env var automatically** — just set the env var in the "key env var" column (or
-as a GitHub Actions secret) and you're done. You don't need to set
-`api_key_env` in `repoquill.yml` for standard providers. Any provider in
-LiteLLM's catalog works — no RepoQuill changes needed.
+Auth is fully generic: **LiteLLM resolves each provider's key from its standard env var automatically** — just set that env var (or a GitHub Actions secret) and you're done. You don't need `api_key_env` for standard providers. `api_key_env` is only consulted for a custom OpenAI-compatible endpoint (`base_url` set, `provider: openai`).
 
-`api_key_env` is only consulted for a custom OpenAI-compatible endpoint
-(`base_url` set, `provider: openai`).
+## Advanced
+
+### Same-repo integration
+
+When your docs live in the **same repo** as your code, set `output_dir` to keep all generated artifacts in one folder:
+
+```yaml
+project_name: MyProject
+package_dir: mypackage
+output_dir: docs          # everything goes into docs/
+```
+
+This puts the generated content (`index.md`, `guides/`, `reference/`), `mkdocs.yml`, and the built `site/` all inside `docs/`. Add `docs/site/` to your `.gitignore`, then `repoquill serve` / `repoquill build` as usual.
+
+### Multiple configs
+
+Point `--config` at a directory to process all `*.yml`/`*.yaml` files inside, or pass a comma-separated list:
+
+```bash
+repoquill build --config configs/
+repoquill build --config "configs/api.yml,configs/guides.yml"
+```
+
+If no `--config` is given, RepoQuill looks for `./repoquill.yml` first, then `./configs/`.
 
 ### Local RAG (optional)
 
@@ -268,7 +232,6 @@ Enable offline retrieval-augmented generation so the LLM grounds its guides in y
 
 ```yaml
 llm:
-  # ...
   rag:
     enabled: true
     model: all-MiniLM-L6-v2   # any sentence-transformers model
@@ -276,23 +239,11 @@ llm:
     chunk_size: 1500
 ```
 
-Requires `pip install "repoquill[rag]"`. Runs fully offline on the GitHub runner — no API key for the embeddings.
+Requires `uv tool install "repoquill[rag]"` (or `pip install "repoquill[rag]"`). Runs fully offline on the GitHub runner — no API key for the embeddings.
 
-## Use in your repo (GitHub Actions)
+### Hand-written GitHub Actions workflow
 
-RepoQuill ships a **reusable workflow**. The fastest path is `repoquill init` (see [Quick start](#quick-start)), which scaffolds both files for you. Here's what it generates, if you prefer to do it by hand:
-
-### 1. Add `repoquill.yml` to your repo
-
-(See [Config](#config) above.)
-
-### 2. Add the LLM API key as a secret
-
-In your repo's **Settings → Secrets and variables → Actions**, add a secret (e.g. `LLM_API_KEY`) with your provider's API key.
-
-### 3. Add a workflow that calls RepoQuill
-
-`.github/workflows/docs.yml`:
+`repoquill init` generates this for you. If you prefer to do it by hand, `.github/workflows/docs.yml`:
 
 ```yaml
 name: Docs
@@ -316,11 +267,9 @@ jobs:
 
 > **Note:** `secrets: inherit` only works for same-org/enterprise callers. For cross-org use (the common case), pass secrets explicitly as shown above. `repoquill init` generates this correctly.
 
-That's it. Pushing to `main` regenerates the docs and deploys the site to `gh-pages`.
-
 > **Tip:** Pin `@main` to a release tag (e.g. `@v0.1`) or commit SHA for reproducible builds. GitHub's security guidance recommends pinning third-party workflows to a SHA; use a tag for convenience, a SHA for maximum safety.
 
-### Reusable workflow inputs
+#### Reusable workflow inputs
 
 | Input | Default | Description |
 |-------|---------|-------------|
