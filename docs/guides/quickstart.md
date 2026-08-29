@@ -1,6 +1,12 @@
 ## Quickstart
 
-Welcome to **repoquill**. This guide provides a minimal, step-by-step example to help you get the library running in under five minutes. `repoquill` is designed to streamline the process of generating and managing technical documentation directly from your Python codebase. It parses source files, extracts docstrings and metadata, and formats them into clean, structured Markdown or HTML output.
+Welcome to **RepoQuill**. This guide provides a minimal, step-by-step example to help you get the library running in under five minutes. `repoquill` is a generic two-layer developer-docs generator. Point it at any Python package and it produces a complete, always-accurate documentation site.
+
+It operates in two layers:
+1.  **Layer 1 — API Reference (Deterministic):** Uses Griffe to parse your source code and renders classes, functions, signatures, and docstrings via mkdocstrings. This layer is fast, free, and never hallucinates.
+2.  **Layer 2 — Narrative Guides (LLM):** Uses LiteLLM to write conceptual guide pages (quickstart, concepts, workflows) grounded in your actual source code. It is incremental, regenerating only pages whose source has changed.
+
+The final output is a polished, searchable MkDocs Material site, including `llms.txt` / `llms-full.txt` for AI agents and a `SKILL.md` for coding agents.
 
 ### Prerequisites
 
@@ -18,195 +24,159 @@ You can install `repoquill` using `pip`. Open your terminal and run the followin
 pip install repoquill
 ```
 
-If you are working within a specific virtual environment, ensure it is activated before running the installation command.
+Alternatively, you can use `uv` to run RepoQuill in an isolated environment without a persistent installation:
+
+```bash
+uvx repoquill
+```
+
+If you prefer a persistent tool installation via `uv`:
+
+```bash
+uv tool install repoquill
+```
 
 ### Basic Usage
 
-The core functionality of `repoquill` revolves around the `QuillGenerator` class. This class handles the scanning of directories, parsing of Python modules, and the generation of documentation files.
+The core functionality of `repoquill` is driven by the command-line interface (CLI). The primary entry point is the `init` command, which scaffolds the necessary configuration and CI workflow files for your repository.
 
-Below is a minimal example demonstrating how to generate documentation for a single Python file.
+#### Step 1: Initialize Your Repository
 
-#### Step 1: Create a Sample Module
+Navigate to the root of your Python package and run the `init` command. This command auto-detects your package name, project name, and GitHub repository. It will prompt you to select an LLM provider (e.g., OpenAI, Anthropic, GitHub Copilot, OpenRouter, Groq, Ollama) and configure the corresponding model and authentication.
 
-First, create a simple Python file named `example_module.py` in your working directory. This file will serve as the source for our documentation.
-
-```python
-# example_module.py
-
-def calculate_area(radius: float) -> float:
-    """
-    Calculate the area of a circle.
-
-    Args:
-        radius (float): The radius of the circle. Must be a positive number.
-
-    Returns:
-        float: The calculated area of the circle.
-
-    Raises:
-        ValueError: If the radius is negative.
-    """
-    if radius < 0:
-        raise ValueError("Radius cannot be negative")
-    return 3.14159 * (radius ** 2)
-
-class DataProcessor:
-    """
-    A class to process data streams.
-
-    Attributes:
-        buffer (list): A list to hold processed data items.
-    """
-
-    def __init__(self):
-        self.buffer = []
-
-    def add_item(self, item: str):
-        """
-        Add a single item to the buffer.
-
-        Args:
-            item (str): The string item to add.
-        """
-        self.buffer.append(item)
-
-    def get_summary(self) -> str:
-        """
-        Return a summary of the buffered items.
-
-        Returns:
-            str: A comma-separated string of all items in the buffer.
-        """
-        return ", ".join(self.buffer)
+```bash
+cd your-repo
+repoquill init
 ```
 
-#### Step 2: Initialize the Generator
+If you prefer to skip the interactive prompts, you can specify the provider and model directly using flags:
 
-Import the `QuillGenerator` class and instantiate it. The constructor accepts a `target_path` parameter, which specifies the directory containing the source code, and an `output_dir` parameter, which specifies where the generated documentation should be saved.
+```bash
+repoquill init --provider anthropic --model claude-sonnet-4-5
+```
+
+Running `repoquill init` creates the following files in your repository:
+
+*   `repoquill.yml`: The configuration file containing provider, model, and authentication settings.
+*   `.github/workflows/docs.yml`: The CI workflow that calls RepoQuill's reusable workflow to generate documentation on push.
+
+#### Step 2: Configure LLM Authentication
+
+For most providers, you need to provide an API key. If you are using GitHub Actions, add your API key as a repository secret:
+
+1.  Go to your repository's **Settings** → **Secrets and variables** → **Actions**.
+2.  Click **New repository secret**.
+3.  Name: `LLM_API_KEY`
+4.  Value: Your provider's API key (e.g., `sk-...`).
+
+> **Note:** No API key is required for `github_copilot` (which uses device-code login) or local providers (such as `lm_studio`, `ollama`, `vllm`, or `local`).
+
+### Configuration
+
+The `repoquill.yml` file controls the behavior of the documentation generator. It is managed by the `RepoQuillConfig` class.
+
+Key configuration properties include:
+
+| Property | Description |
+| :--- | :--- |
+| `site_name` | The name of the documentation site. |
+| `site_url` | The URL where the documentation site will be hosted. |
+| `repo_url` | The URL of the source code repository. |
+| `repo_name` | The name of the repository. |
+
+You can load and inspect the configuration programmatically using the `load_config` function:
 
 ```python
-from repoquill import QuillGenerator
+from repoquill.config import load_config
 
-# Initialize the generator
-# 'target_path' is the directory containing your Python files
-# 'output_dir' is where the generated Markdown files will be saved
-generator = QuillGenerator(
-    target_path="./", 
-    output_dir="./docs"
+# Load the configuration from the default 'repoquill.yml'
+config = load_config("repoquill.yml")
+
+print(config.site_name)
+print(config.repo_url)
+```
+
+### Advanced Usage: Programmatic Generation
+
+While the CLI is the recommended way to manage documentation in a CI/CD pipeline, you can also interact with the underlying modules for custom workflows.
+
+#### LLM Client
+
+The `LLMClient` class handles communication with the LLM provider. It is initialized with an `LLMConfig` object.
+
+```python
+from repoquill.config import LLMConfig
+from repoquill.llm import LLMClient
+
+# Initialize LLM configuration (parameters depend on provider)
+llm_cfg = LLMConfig()
+
+# Initialize the client
+client = LLMClient(llm_cfg
+    # NOTE: llm_cfg is required (no default)
+)
+
+# Example: Chat with the LLM
+# Note: 'messages' format depends on the specific LLM provider
+response = client.chat(
+    messages=[{"role": "user", "content": "Hello"}],
+    max_tokens=100,
+    temperature=0.7,
+    retries=3
 )
 ```
 
-#### Step 3: Generate Documentation
+#### API Reference Generation
 
-Use the `generate` method to process the files. This method scans the target directory, identifies Python modules, and writes the corresponding documentation files to the output directory.
-
-```python
-# Generate documentation for all Python files in the target path
-generator.generate()
-```
-
-After running this code, you will find a new directory named `docs` in your current working directory. Inside, you will see a file named `example_module.md` containing the generated documentation.
-
-### Configuration Options
-
-The `QuillGenerator` class supports several configuration options to customize the output. These options can be passed during initialization or modified via properties.
-
-| Parameter | Type | Default | Description |
-| :--- | :--- | :--- | :--- |
-| `target_path` | `str` | `"."` | The root directory to scan for Python files. |
-| `output_dir` | `str` | `"./docs"` | The directory where generated documentation files are saved. |
-| `include_private` | `bool` | `False` | If `True`, includes private methods and classes (prefixed with `_`) in the documentation. |
-| `template` | `str` | `"default"` | The name of the template to use for formatting. Currently, only `"default"` is supported. |
-
-#### Example: Custom Configuration
-
-You can customize the generator to include private methods and specify a different output location:
+The `reference` module contains functions to extract and build the deterministic API reference (Layer 1).
 
 ```python
-from repoquill import QuillGenerator
+from repoquill.reference import build_api_reference, get_source_files
 
-generator = QuillGenerator(
-    target_path="./src",
-    output_dir="./generated_docs",
-    include_private=True
-)
+# Get source files from the package path
+source_files = get_source_files("./src/my_package")
 
-generator.generate()
+# Build the API reference content
+# 'cfg' is a RepoQuillConfig instance
+api_ref = build_api_reference(cfg)
 ```
 
-### Advanced Usage: Specific Files
+#### Site Building
 
-If you only want to document specific files rather than the entire directory, you can use the `generate_file` method. This method accepts a single file path as an argument.
+The `site` module handles the generation of the MkDocs site structure and auxiliary files.
 
 ```python
-from repoquill import QuillGenerator
+from repoquill.site import build_index_md, build_llms_txt
 
-generator = QuillGenerator(output_dir="./docs")
+# Build the main index.md file
+# 'pages' is a list of page definitions
+# 'reference_modules' is a list of module names
+index_content = build_index_md(cfg, pages, reference_modules)
 
-# Generate documentation for a specific file only
-generator.generate_file("example_module.py")
+# Build the llms.txt file for AI agents
+llms_txt_content = build_llms_txt(cfg, pages, reference_modules)
 ```
-
-This approach is useful when you are working on a large codebase and only need to update documentation for modules that have recently changed.
 
 ### Output Format
 
-The generated documentation follows a standard Markdown format. Each Python module generates a corresponding `.md` file. The structure typically includes:
+The generated documentation is a standard MkDocs Material site. The structure typically includes:
 
-1.  **Module Docstring:** If the module has a top-level docstring, it is placed at the beginning of the file.
-2.  **Classes:** Each public class is documented with its docstring, attributes, and methods.
-3.  **Functions:** Each public function is documented with its docstring, parameters, and return values.
-4.  **Code Examples:** If docstrings contain code blocks (using triple backticks), they are preserved in the output.
-
-Here is a snippet of what the generated `example_module.md` might look like:
-
-```markdown
-# example_module
-
-## calculate_area(radius: float) -> float
-
-Calculate the area of a circle.
-
-**Args:**
-*   `radius` (float): The radius of the circle. Must be a positive number.
-
-**Returns:**
-*   float: The calculated area of the circle.
-
-**Raises:**
-*   ValueError: If the radius is negative.
-
-## DataProcessor
-
-A class to process data streams.
-
-**Attributes:**
-*   `buffer` (list): A list to hold processed data items.
-
-### DataProcessor.add_item(item: str)
-
-Add a single item to the buffer.
-
-**Args:**
-*   `item` (str): The string item to add.
-
-### DataProcessor.get_summary() -> str
-
-Return a summary of the buffered items.
-
-**Returns:**
-*   str: A comma-separated string of all items in the buffer.
-```
+1.  **API Reference:** Automatically generated from source code using Griffe and mkdocstrings.
+2.  **Narrative Guides:** LLM-generated pages such as Quickstart, Concepts, and Workflows.
+3.  **AI Agent Files:**
+    *   `llms.txt`: A lightweight index for LLMs.
+    *   `llms-full.txt`: A full-text version for detailed context.
+    *   `SKILL.md`: A skill definition for coding agents.
 
 ### Troubleshooting
 
-*   **File Not Found:** Ensure that the `target_path` or file path provided to `generate_file` is correct and accessible.
-*   **Permission Errors:** Ensure that your user has write permissions to the `output_dir`.
-*   **Syntax Errors in Source:** `repoquill` relies on Python's AST (Abstract Syntax Tree) for parsing. If your source code contains syntax errors, the generator may fail to parse those files. Ensure your code is valid Python before running the generator.
+*   **Configuration Errors:** Ensure that `repoquill.yml` is valid YAML and that the `provider` and `model` fields match a supported provider.
+*   **Authentication Failures:** Verify that your `LLM_API_KEY` secret is correctly set in your CI environment or local environment variables.
+*   **Parsing Errors:** If the API reference layer fails, ensure your Python source code is syntactically correct. Griffe relies on valid AST parsing.
 
 ### Next Steps
 
-Now that you have successfully generated documentation for a simple module, you can explore the following topics:
+Now that you have successfully initialized `repoquill`, you can explore the following topics:
 
 *   [API Reference](./api-reference.md): Detailed documentation for all classes and methods.
 *   [Configuration Guide](./configuration.md): Advanced configuration options and templates.
@@ -217,6 +187,4 @@ By following this quickstart guide, you should now be able to integrate `repoqui
 ### See Also
 
 *   [Installation](installation.md)
-*   [CI/CD Integration](ci-cd.md)
-*   [CLI Commands](cli-commands.md)
-*   [Configuration Reference](configuration.md)
+*   [Key Ideas](key-ideas.md)

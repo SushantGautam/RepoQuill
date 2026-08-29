@@ -2,7 +2,7 @@
 
 `repoquill` is a Python library designed to automate the generation and maintenance of technical documentation directly from repository metadata and source code structures. It streamlines the process of keeping developer documentation synchronized with code changes, reducing manual effort and minimizing documentation drift.
 
-This page provides comprehensive instructions for installing `repoquill` using `pip`, building from source, and managing its dependencies. Whether you are integrating `repoquill` into a CI/CD pipeline or using it locally for development, these steps ensure a stable and reproducible environment.
+This page provides comprehensive instructions for installing `repoquill` using `pip`, `uv`, or building from source, and managing its dependencies. Whether you are integrating `repoquill` into a CI/CD pipeline or using it locally for development, these steps ensure a stable and reproducible environment.
 
 ### Prerequisites
 
@@ -10,7 +10,7 @@ Before installing `repoquill`, ensure your environment meets the following requi
 
 1.  **Python Version**: `repoquill` requires **Python 3.8** or higher. It is tested against Python 3.8, 3.9, 3.10, and 3.11.
 2.  **Operating System**: Compatible with Linux, macOS, and Windows.
-3.  **Package Manager**: `pip` version 20.0 or higher is recommended.
+3.  **Package Manager**: `pip` version 20.0 or higher is recommended. Alternatively, `uv` is supported for faster, isolated installations.
 
 To verify your Python version, run:
 
@@ -79,6 +79,28 @@ You can also check the available CLI commands if `repoquill` provides a command-
 repoquill --help
 ```
 
+### Installing via uv
+
+For faster installation and isolated environments, `repoquill` supports `uv`.
+
+#### One-off Execution (uvx)
+
+You can run `repoquill` commands without a persistent installation using `uvx`. This is ideal for scaffolding new projects:
+
+```bash
+uvx repoquill init
+```
+
+#### Persistent Installation
+
+To install `repoquill` as a tool for repeated use:
+
+```bash
+uv tool install repoquill
+```
+
+Once installed, you can run `repoquill` commands directly from your terminal.
+
 ### Installing from Source
 
 Installing from source is recommended for developers who wish to contribute to `repoquill` or need to use features from the `main` branch that are not yet available in a stable release.
@@ -88,8 +110,8 @@ Installing from source is recommended for developers who wish to contribute to `
 First, clone the `repoquill` repository from GitHub:
 
 ```bash
-git clone https://github.com/your-org/repoquill.git
-cd repoquill
+git clone https://github.com/SushantGautam/RepoQuill.git
+cd RepoQuill
 ```
 
 #### Creating a Virtual Environment
@@ -205,7 +227,7 @@ This will remove the package and its associated files from your environment.
 
 Now that you have installed `repoquill`, you can proceed to:
 
-1.  **Configuration**: Set up your `repoquill.yaml` configuration file.
+1.  **Configuration**: Set up your `repoquill.yml` configuration file.
 2.  **Usage**: Run the `repoquill` CLI to generate documentation.
 3.  **Integration**: Integrate `repoquill` into your CI/CD pipeline for automated documentation updates.
 
@@ -214,6 +236,3 @@ Refer to the **Configuration** and **Usage** sections of this documentation for 
 ### See Also
 
 *   [Quickstart](quickstart.md)
-*   [CI/CD Integration](ci-cd.md)
-*   [Configuration Reference](configuration.md)
-*   [Key Ideas](key-ideas.md)

@@ -11,7 +11,13 @@ Source: https://github.com/SushantGautam/RepoQuill
 
 ## Quickstart
 
-Welcome to **repoquill**. This guide provides a minimal, step-by-step example to help you get the library running in under five minutes. `repoquill` is designed to streamline the process of generating and managing technical documentation directly from your Python codebase. It parses source files, extracts docstrings and metadata, and formats them into clean, structured Markdown or HTML output.
+Welcome to **RepoQuill**. This guide provides a minimal, step-by-step example to help you get the library running in under five minutes. `repoquill` is a generic two-layer developer-docs generator. Point it at any Python package and it produces a complete, always-accurate documentation site.
+
+It operates in two layers:
+1.  **Layer 1 — API Reference (Deterministic):** Uses Griffe to parse your source code and renders classes, functions, signatures, and docstrings via mkdocstrings. This layer is fast, free, and never hallucinates.
+2.  **Layer 2 — Narrative Guides (LLM):** Uses LiteLLM to write conceptual guide pages (quickstart, concepts, workflows) grounded in your actual source code. It is incremental, regenerating only pages whose source has changed.
+
+The final output is a polished, searchable MkDocs Material site, including `llms.txt` / `llms-full.txt` for AI agents and a `SKILL.md` for coding agents.
 
 ### Prerequisites
 
@@ -29,195 +35,159 @@ You can install `repoquill` using `pip`. Open your terminal and run the followin
 pip install repoquill
 ```
 
-If you are working within a specific virtual environment, ensure it is activated before running the installation command.
+Alternatively, you can use `uv` to run RepoQuill in an isolated environment without a persistent installation:
+
+```bash
+uvx repoquill
+```
+
+If you prefer a persistent tool installation via `uv`:
+
+```bash
+uv tool install repoquill
+```
 
 ### Basic Usage
 
-The core functionality of `repoquill` revolves around the `QuillGenerator` class. This class handles the scanning of directories, parsing of Python modules, and the generation of documentation files.
+The core functionality of `repoquill` is driven by the command-line interface (CLI). The primary entry point is the `init` command, which scaffolds the necessary configuration and CI workflow files for your repository.
 
-Below is a minimal example demonstrating how to generate documentation for a single Python file.
+#### Step 1: Initialize Your Repository
 
-#### Step 1: Create a Sample Module
+Navigate to the root of your Python package and run the `init` command. This command auto-detects your package name, project name, and GitHub repository. It will prompt you to select an LLM provider (e.g., OpenAI, Anthropic, GitHub Copilot, OpenRouter, Groq, Ollama) and configure the corresponding model and authentication.
 
-First, create a simple Python file named `example_module.py` in your working directory. This file will serve as the source for our documentation.
-
-```python
-# example_module.py
-
-def calculate_area(radius: float) -> float:
-    """
-    Calculate the area of a circle.
-
-    Args:
-        radius (float): The radius of the circle. Must be a positive number.
-
-    Returns:
-        float: The calculated area of the circle.
-
-    Raises:
-        ValueError: If the radius is negative.
-    """
-    if radius < 0:
-        raise ValueError("Radius cannot be negative")
-    return 3.14159 * (radius ** 2)
-
-class DataProcessor:
-    """
-    A class to process data streams.
-
-    Attributes:
-        buffer (list): A list to hold processed data items.
-    """
-
-    def __init__(self):
-        self.buffer = []
-
-    def add_item(self, item: str):
-        """
-        Add a single item to the buffer.
-
-        Args:
-            item (str): The string item to add.
-        """
-        self.buffer.append(item)
-
-    def get_summary(self) -> str:
-        """
-        Return a summary of the buffered items.
-
-        Returns:
-            str: A comma-separated string of all items in the buffer.
-        """
-        return ", ".join(self.buffer)
+```bash
+cd your-repo
+repoquill init
 ```
 
-#### Step 2: Initialize the Generator
+If you prefer to skip the interactive prompts, you can specify the provider and model directly using flags:
 
-Import the `QuillGenerator` class and instantiate it. The constructor accepts a `target_path` parameter, which specifies the directory containing the source code, and an `output_dir` parameter, which specifies where the generated documentation should be saved.
+```bash
+repoquill init --provider anthropic --model claude-sonnet-4-5
+```
+
+Running `repoquill init` creates the following files in your repository:
+
+*   `repoquill.yml`: The configuration file containing provider, model, and authentication settings.
+*   `.github/workflows/docs.yml`: The CI workflow that calls RepoQuill's reusable workflow to generate documentation on push.
+
+#### Step 2: Configure LLM Authentication
+
+For most providers, you need to provide an API key. If you are using GitHub Actions, add your API key as a repository secret:
+
+1.  Go to your repository's **Settings** → **Secrets and variables** → **Actions**.
+2.  Click **New repository secret**.
+3.  Name: `LLM_API_KEY`
+4.  Value: Your provider's API key (e.g., `sk-...`).
+
+> **Note:** No API key is required for `github_copilot` (which uses device-code login) or local providers (such as `lm_studio`, `ollama`, `vllm`, or `local`).
+
+### Configuration
+
+The `repoquill.yml` file controls the behavior of the documentation generator. It is managed by the `RepoQuillConfig` class.
+
+Key configuration properties include:
+
+| Property | Description |
+| :--- | :--- |
+| `site_name` | The name of the documentation site. |
+| `site_url` | The URL where the documentation site will be hosted. |
+| `repo_url` | The URL of the source code repository. |
+| `repo_name` | The name of the repository. |
+
+You can load and inspect the configuration programmatically using the `load_config` function:
 
 ```python
-from repoquill import QuillGenerator
+from repoquill.config import load_config
 
-# Initialize the generator
-# 'target_path' is the directory containing your Python files
-# 'output_dir' is where the generated Markdown files will be saved
-generator = QuillGenerator(
-    target_path="./", 
-    output_dir="./docs"
+# Load the configuration from the default 'repoquill.yml'
+config = load_config("repoquill.yml")
+
+print(config.site_name)
+print(config.repo_url)
+```
+
+### Advanced Usage: Programmatic Generation
+
+While the CLI is the recommended way to manage documentation in a CI/CD pipeline, you can also interact with the underlying modules for custom workflows.
+
+#### LLM Client
+
+The `LLMClient` class handles communication with the LLM provider. It is initialized with an `LLMConfig` object.
+
+```python
+from repoquill.config import LLMConfig
+from repoquill.llm import LLMClient
+
+# Initialize LLM configuration (parameters depend on provider)
+llm_cfg = LLMConfig()
+
+# Initialize the client
+client = LLMClient(llm_cfg
+    # NOTE: llm_cfg is required (no default)
+)
+
+# Example: Chat with the LLM
+# Note: 'messages' format depends on the specific LLM provider
+response = client.chat(
+    messages=[{"role": "user", "content": "Hello"}],
+    max_tokens=100,
+    temperature=0.7,
+    retries=3
 )
 ```
 
-#### Step 3: Generate Documentation
+#### API Reference Generation
 
-Use the `generate` method to process the files. This method scans the target directory, identifies Python modules, and writes the corresponding documentation files to the output directory.
-
-```python
-# Generate documentation for all Python files in the target path
-generator.generate()
-```
-
-After running this code, you will find a new directory named `docs` in your current working directory. Inside, you will see a file named `example_module.md` containing the generated documentation.
-
-### Configuration Options
-
-The `QuillGenerator` class supports several configuration options to customize the output. These options can be passed during initialization or modified via properties.
-
-| Parameter | Type | Default | Description |
-| :--- | :--- | :--- | :--- |
-| `target_path` | `str` | `"."` | The root directory to scan for Python files. |
-| `output_dir` | `str` | `"./docs"` | The directory where generated documentation files are saved. |
-| `include_private` | `bool` | `False` | If `True`, includes private methods and classes (prefixed with `_`) in the documentation. |
-| `template` | `str` | `"default"` | The name of the template to use for formatting. Currently, only `"default"` is supported. |
-
-#### Example: Custom Configuration
-
-You can customize the generator to include private methods and specify a different output location:
+The `reference` module contains functions to extract and build the deterministic API reference (Layer 1).
 
 ```python
-from repoquill import QuillGenerator
+from repoquill.reference import build_api_reference, get_source_files
 
-generator = QuillGenerator(
-    target_path="./src",
-    output_dir="./generated_docs",
-    include_private=True
-)
+# Get source files from the package path
+source_files = get_source_files("./src/my_package")
 
-generator.generate()
+# Build the API reference content
+# 'cfg' is a RepoQuillConfig instance
+api_ref = build_api_reference(cfg)
 ```
 
-### Advanced Usage: Specific Files
+#### Site Building
 
-If you only want to document specific files rather than the entire directory, you can use the `generate_file` method. This method accepts a single file path as an argument.
+The `site` module handles the generation of the MkDocs site structure and auxiliary files.
 
 ```python
-from repoquill import QuillGenerator
+from repoquill.site import build_index_md, build_llms_txt
 
-generator = QuillGenerator(output_dir="./docs")
+# Build the main index.md file
+# 'pages' is a list of page definitions
+# 'reference_modules' is a list of module names
+index_content = build_index_md(cfg, pages, reference_modules)
 
-# Generate documentation for a specific file only
-generator.generate_file("example_module.py")
+# Build the llms.txt file for AI agents
+llms_txt_content = build_llms_txt(cfg, pages, reference_modules)
 ```
-
-This approach is useful when you are working on a large codebase and only need to update documentation for modules that have recently changed.
 
 ### Output Format
 
-The generated documentation follows a standard Markdown format. Each Python module generates a corresponding `.md` file. The structure typically includes:
+The generated documentation is a standard MkDocs Material site. The structure typically includes:
 
-1.  **Module Docstring:** If the module has a top-level docstring, it is placed at the beginning of the file.
-2.  **Classes:** Each public class is documented with its docstring, attributes, and methods.
-3.  **Functions:** Each public function is documented with its docstring, parameters, and return values.
-4.  **Code Examples:** If docstrings contain code blocks (using triple backticks), they are preserved in the output.
-
-Here is a snippet of what the generated `example_module.md` might look like:
-
-```markdown
-# example_module
-
-## calculate_area(radius: float) -> float
-
-Calculate the area of a circle.
-
-**Args:**
-*   `radius` (float): The radius of the circle. Must be a positive number.
-
-**Returns:**
-*   float: The calculated area of the circle.
-
-**Raises:**
-*   ValueError: If the radius is negative.
-
-## DataProcessor
-
-A class to process data streams.
-
-**Attributes:**
-*   `buffer` (list): A list to hold processed data items.
-
-### DataProcessor.add_item(item: str)
-
-Add a single item to the buffer.
-
-**Args:**
-*   `item` (str): The string item to add.
-
-### DataProcessor.get_summary() -> str
-
-Return a summary of the buffered items.
-
-**Returns:**
-*   str: A comma-separated string of all items in the buffer.
-```
+1.  **API Reference:** Automatically generated from source code using Griffe and mkdocstrings.
+2.  **Narrative Guides:** LLM-generated pages such as Quickstart, Concepts, and Workflows.
+3.  **AI Agent Files:**
+    *   `llms.txt`: A lightweight index for LLMs.
+    *   `llms-full.txt`: A full-text version for detailed context.
+    *   `SKILL.md`: A skill definition for coding agents.
 
 ### Troubleshooting
 
-*   **File Not Found:** Ensure that the `target_path` or file path provided to `generate_file` is correct and accessible.
-*   **Permission Errors:** Ensure that your user has write permissions to the `output_dir`.
-*   **Syntax Errors in Source:** `repoquill` relies on Python's AST (Abstract Syntax Tree) for parsing. If your source code contains syntax errors, the generator may fail to parse those files. Ensure your code is valid Python before running the generator.
+*   **Configuration Errors:** Ensure that `repoquill.yml` is valid YAML and that the `provider` and `model` fields match a supported provider.
+*   **Authentication Failures:** Verify that your `LLM_API_KEY` secret is correctly set in your CI environment or local environment variables.
+*   **Parsing Errors:** If the API reference layer fails, ensure your Python source code is syntactically correct. Griffe relies on valid AST parsing.
 
 ### Next Steps
 
-Now that you have successfully generated documentation for a simple module, you can explore the following topics:
+Now that you have successfully initialized `repoquill`, you can explore the following topics:
 
 *   [API Reference](./api-reference.md): Detailed documentation for all classes and methods.
 *   [Configuration Guide](./configuration.md): Advanced configuration options and templates.
@@ -228,9 +198,7 @@ By following this quickstart guide, you should now be able to integrate `repoqui
 ### See Also
 
 *   [Installation](installation.md)
-*   [CI/CD Integration](ci-cd.md)
-*   [CLI Commands](cli-commands.md)
-*   [Configuration Reference](configuration.md)
+*   [Key Ideas](key-ideas.md)
 
 
 ============================================================
@@ -240,7 +208,7 @@ By following this quickstart guide, you should now be able to integrate `repoqui
 
 `repoquill` is a Python library designed to automate the generation and maintenance of technical documentation directly from repository metadata and source code structures. It streamlines the process of keeping developer documentation synchronized with code changes, reducing manual effort and minimizing documentation drift.
 
-This page provides comprehensive instructions for installing `repoquill` using `pip`, building from source, and managing its dependencies. Whether you are integrating `repoquill` into a CI/CD pipeline or using it locally for development, these steps ensure a stable and reproducible environment.
+This page provides comprehensive instructions for installing `repoquill` using `pip`, `uv`, or building from source, and managing its dependencies. Whether you are integrating `repoquill` into a CI/CD pipeline or using it locally for development, these steps ensure a stable and reproducible environment.
 
 ### Prerequisites
 
@@ -248,7 +216,7 @@ Before installing `repoquill`, ensure your environment meets the following requi
 
 1.  **Python Version**: `repoquill` requires **Python 3.8** or higher. It is tested against Python 3.8, 3.9, 3.10, and 3.11.
 2.  **Operating System**: Compatible with Linux, macOS, and Windows.
-3.  **Package Manager**: `pip` version 20.0 or higher is recommended.
+3.  **Package Manager**: `pip` version 20.0 or higher is recommended. Alternatively, `uv` is supported for faster, isolated installations.
 
 To verify your Python version, run:
 
@@ -317,6 +285,28 @@ You can also check the available CLI commands if `repoquill` provides a command-
 repoquill --help
 ```
 
+### Installing via uv
+
+For faster installation and isolated environments, `repoquill` supports `uv`.
+
+#### One-off Execution (uvx)
+
+You can run `repoquill` commands without a persistent installation using `uvx`. This is ideal for scaffolding new projects:
+
+```bash
+uvx repoquill init
+```
+
+#### Persistent Installation
+
+To install `repoquill` as a tool for repeated use:
+
+```bash
+uv tool install repoquill
+```
+
+Once installed, you can run `repoquill` commands directly from your terminal.
+
 ### Installing from Source
 
 Installing from source is recommended for developers who wish to contribute to `repoquill` or need to use features from the `main` branch that are not yet available in a stable release.
@@ -326,8 +316,8 @@ Installing from source is recommended for developers who wish to contribute to `
 First, clone the `repoquill` repository from GitHub:
 
 ```bash
-git clone https://github.com/your-org/repoquill.git
-cd repoquill
+git clone https://github.com/SushantGautam/RepoQuill.git
+cd RepoQuill
 ```
 
 #### Creating a Virtual Environment
@@ -443,7 +433,7 @@ This will remove the package and its associated files from your environment.
 
 Now that you have installed `repoquill`, you can proceed to:
 
-1.  **Configuration**: Set up your `repoquill.yaml` configuration file.
+1.  **Configuration**: Set up your `repoquill.yml` configuration file.
 2.  **Usage**: Run the `repoquill` CLI to generate documentation.
 3.  **Integration**: Integrate `repoquill` into your CI/CD pipeline for automated documentation updates.
 
@@ -452,9 +442,6 @@ Refer to the **Configuration** and **Usage** sections of this documentation for 
 ### See Also
 
 *   [Quickstart](quickstart.md)
-*   [CI/CD Integration](ci-cd.md)
-*   [Configuration Reference](configuration.md)
-*   [Key Ideas](key-ideas.md)
 
 
 ============================================================
@@ -468,141 +455,234 @@ The architecture of `repoquill` is modular, allowing for independent extension o
 
 ### System Overview
 
-The `repoquill` system operates on a pipeline model. Data flows from the source repository through a series of processing stages:
+The `repoquill` system operates on a two-layer pipeline model. Data flows from the source repository through a series of processing stages:
 
-1.  **Discovery**: Identifying relevant files and directories within the repository.
-2.  **Parsing**: Extracting structural information (classes, functions, docstrings) from source files.
-3.  **Analysis**: Processing extracted data to determine relationships, dependencies, and documentation gaps.
-4.  **Rendering**: Converting the analyzed data into the target documentation format (e.g., Markdown, HTML).
+1.  **Discovery & Planning**: Identifying relevant files, computing hashes for incremental updates, and determining which documentation pages need regeneration.
+2.  **Parsing (Layer 1)**: Extracting structural information (classes, functions, signatures) from source files using deterministic tools (Griffe). This layer generates the API reference without LLM involvement.
+3.  **Narrative Generation (Layer 2)**: Using an LLM to write conceptual guide pages (quickstart, concepts, workflows) grounded in the actual source code.
+4.  **Verification**: Checking generated documentation against the source code to ensure accuracy (e.g., verifying that symbols mentioned in docs actually exist).
+5.  **Rendering**: Converting the analyzed data and generated narratives into a MkDocs Material site, including `llms.txt` and `SKILL.md` for AI agents.
 
-This separation of concerns ensures that the core logic remains agnostic to the specific programming language being analyzed or the output format being generated.
+This separation of concerns ensures that the core logic remains agnostic to the specific LLM provider being used and allows for deterministic API reference generation alongside creative narrative generation.
 
 ### Core Modules
 
 The library is organized into several key modules, each responsible for a specific aspect of the documentation generation pipeline.
 
-#### 1. `repoquill.core`
+#### 1. `repoquill.config`
 
-This module contains the primary entry points and high-level orchestration logic.
+This module handles configuration management for the documentation generation process.
 
-*   **`RepositoryScanner`**:
-    *   **Description**: Responsible for traversing the file system to identify source code files. It respects `.gitignore` patterns and configurable inclusion/exclusion rules.
+*   **`RepoQuillConfig`**:
+    *   **Description**: Holds the global configuration for the documentation site.
+    *   **Properties**:
+        *   `site_name`: The name of the documentation site.
+        *   `site_url`: The base URL for the site.
+        *   `repo_url`: The URL of the source code repository.
+        *   `repo_name`: The name of the repository.
+
+*   **`LLMConfig`**:
+    *   **Description**: Holds configuration details for the LLM provider, including model selection and authentication.
+
+*   **`load_config(config_path)`**:
+    *   **Description**: Loads and parses the `repoquill.yml` configuration file.
+    *   **Parameters**:
+        *   `config_path`: Path to the configuration file.
+
+#### 2. `repoquill.llm`
+
+This module manages interactions with Large Language Models and local retrieval-augmented generation (RAG) capabilities.
+
+*   **`LLMClient`**:
+    *   **Description**: A client for interacting with LLM providers via LiteLLM.
+    *   **Constructor**: `LLMClient(llm_cfg)`
     *   **Key Methods**:
-        *   `scan(root_path: str, extensions: list[str] = None) -> list[Path]`: Scans the directory tree and returns a list of file paths matching the specified extensions.
-        *   `filter_files(files: list[Path], ignore_patterns: list[str]) -> list[Path]`: Applies filtering logic to exclude specific files or directories.
+        *   `chat(messages, max_tokens, temperature, retries)`: Sends a chat request to the LLM and returns the response.
 
-*   **`DocGenerator`**:
-    *   **Description**: The main orchestrator that coordinates the scanning, parsing, and rendering processes.
+*   **`LocalRAG`**:
+    *   **Description**: A local retrieval-augmented generation engine that indexes source files for context retrieval.
+    *   **Constructor**: `LocalRAG(rag_cfg: Dict[str, Any], source_files: Dict[str, str])`
     *   **Key Methods**:
-        *   `generate(repo_path: str, output_dir: str, format: str = "markdown") -> None`: Executes the full documentation generation pipeline.
-        *   `configure(options: dict)`: Allows runtime configuration of the generator (e.g., enabling/disabling specific analyzers).
+        *   `build()`: Builds the local index from the provided source files.
+        *   `retrieve(query, top_k)`: Retrieves the most relevant chunks of source code for a given query.
 
-#### 2. `repoquill.parsers`
+*   **`strip_code_fences(text)`**:
+    *   **Description**: Utility function to remove Markdown code fences from text.
 
-This module contains language-specific parsers that extract structural information from source files.
+#### 3. `repoquill.reference`
 
-*   **`BaseParser`**:
-    *   **Description**: An abstract base class defining the interface for all language parsers.
-    *   **Abstract Methods**:
-        *   `parse(file_path: Path) -> ASTNode`: Parses a single file and returns an Abstract Syntax Tree (AST) representation.
-        *   `supported_extensions() -> list[str]`: Returns the file extensions this parser supports.
+This module handles the deterministic extraction of API surfaces and the rendering of the API reference layer.
 
-*   **`PythonParser`**:
-    *   **Description**: A concrete implementation of `BaseParser` for Python files. It utilizes the `ast` module from the Python standard library.
-    *   **Features**:
-        *   Extracts class definitions, function signatures, and docstrings.
-        *   Handles type annotations.
-        *   Identifies module-level constants.
+*   **`extract_api_surface(pkg_path, max_chars)`**:
+    *   **Description**: Extracts the public API surface (classes, functions, signatures) from the package source code.
+*   **`extract_cli_surface(pkg_path, max_chars)`**:
+    *   **Description**: Extracts CLI command definitions and arguments.
+*   **`extract_constructor_signatures(pkg_path, names, max_chars)`**:
+    *   **Description**: Extracts specific constructor signatures for given class names.
+*   **`get_source_files(pkg_path)`**:
+    *   **Description**: Retrieves a list of source files in the package.
+*   **`get_file_tree(pkg_path)`**:
+    *   **Description**: Generates a tree structure of the package files.
+*   **`build_api_reference(cfg)`**:
+    *   **Description**: Builds the complete API reference documentation structure.
+*   **`render_module_reference(module_name, search_path, module_descriptions)`**:
+    *   **Description**: Renders the reference documentation for a specific module.
 
-*   **`ASTNode`**:
-    *   **Description**: A data structure representing a node in the parsed syntax tree.
-    *   **Attributes**:
-        *   `name`: The name of the entity (e.g., function or class name).
-        *   `type`: The type of the node (e.g., `CLASS`, `FUNCTION`, `MODULE`).
-        *   `docstring`: The raw docstring content, if present.
-        *   `children`: A list of child `ASTNode` objects.
-        *   `metadata`: A dictionary for additional metadata (e.g., line numbers, decorators).
+#### 4. `repoquill.narrative`
 
-#### 3. `repoquill.analyzers`
+This module handles the LLM-driven generation of narrative guide pages.
 
-This module processes the AST nodes to derive higher-level insights.
+*   **`determine_structure(cfg, client)`**:
+    *   **Description**: Uses the LLM to determine the structure and topics for the narrative guides based on the configuration and source code.
+*   **`generate_page(page, source_files, client, cfg)`**:
+    *   **Description**: Generates the content for a single narrative page using the LLM.
+*   **`generate_all_pages(pages, source_files, client, cfg, old_hashes, new_hashes)`**:
+    *   **Description**: Orchestrates the generation of all narrative pages, handling incremental updates based on file hashes.
 
-*   **`DependencyAnalyzer`**:
-    *   **Description**: Analyzes imports and references to build a dependency graph.
-    *   **Key Methods**:
-        *   `analyze(nodes: list[ASTNode]) -> DependencyGraph`: Returns a graph structure representing module and class dependencies.
+#### 5. `repoquill.plan`
 
-*   **`CoverageAnalyzer`**:
-    *   **Description**: Identifies undocumented entities (functions or classes without docstrings).
-    *   **Key Methods**:
-        *   `find_gaps(nodes: list[ASTNode]) -> list[ASTNode]`: Returns a list of nodes missing documentation.
+This module manages the incremental documentation generation process.
 
-#### 4. `repoquill.renderers`
+*   **`compute_file_hashes(source_files)`**:
+    *   **Description**: Computes hashes for source files to detect changes.
+*   **`load_plan(plan_file)`**:
+    *   **Description**: Loads the previous documentation plan from disk.
+*   **`store_plan(plan_file, pages, file_hashes)`**:
+    *   **Description**: Saves the current documentation plan and file hashes to disk.
+*   **`page_needs_regeneration(page, old_hashes, new_hashes, out_path)`**:
+    *   **Description**: Determines if a specific page needs to be regenerated based on source file changes.
+*   **`cleanup_stale_pages(plan_slugs, guides_dir)`**:
+    *   **Description**: Removes documentation pages that are no longer part of the plan.
 
-This module handles the conversion of analyzed data into human-readable formats.
+#### 6. `repoquill.verify`
 
-*   **`BaseRenderer`**:
-    *   **Description**: An abstract base class for output renderers.
-    *   **Abstract Methods**:
-        *   `render(data: DocumentationData) -> str`: Converts the documentation data model into a string representation.
-        *   `file_extension() -> str`: Returns the file extension for the output format.
+This module ensures the accuracy of the generated documentation by verifying it against the source code.
 
-*   **`MarkdownRenderer`**:
-    *   **Description**: Renders documentation in Markdown format.
-    *   **Features**:
-        *   Generates tables of contents.
-        *   Formats code blocks with syntax highlighting hints.
-        *   Structures output by module and class.
+*   **`SymbolIndex`**:
+    *   **Description**: An index of all symbols (classes, functions, methods) in the source code.
+*   **`build_index(pkg_path)`**:
+    *   **Description**: Builds the `SymbolIndex` from the package source code.
+*   **`check_page(page_md, idx, pkg_name)`**:
+    *   **Description**: Verifies a single Markdown page against the symbol index.
+*   **`check_all(guides_dir, idx, pkg_name)`**:
+    *   **Description**: Verifies all pages in the guides directory.
+*   **`verify_pages(cfg, client)`**:
+    *   **Description**: Orchestrates the verification process for all generated pages.
+*   **`extract_backtick_symbols(md)`**, **`extract_code_blocks(md)`**, **`extract_imports(md)`**, **`extract_method_calls(md)`**:
+    *   **Description**: Utility functions to extract specific code elements from Markdown for verification.
+
+#### 7. `repoquill.surgical_verify`
+
+This module performs more granular, "surgical" verification and correction of documentation.
+
+*   **`build_class_index(pkg_path)`**:
+    *   **Description**: Builds an index specifically for class structures.
+*   **`fix_missing_required(text, classes)`**:
+    *   **Description**: Identifies and fixes missing required parameters in code examples.
+*   **`fix_property_calls(text, classes)`**:
+    *   **Description**: Corrects instances where properties are incorrectly called as methods.
+*   **`run_surgical_verify(guide_dir, pkg_path)`**:
+    *   **Description**: Runs the full surgical verification pass on the guides directory.
+
+#### 8. `repoquill.site`
+
+This module handles the final assembly of the MkDocs site and auxiliary files.
+
+*   **`build_nav(cfg, pages, reference_modules)`**:
+    *   **Description**: Builds the navigation structure for the MkDocs site.
+*   **`build_mkdocs_yml(cfg, nav)`**:
+    *   **Description**: Generates the `mkdocs.yml` configuration file.
+*   **`build_index_md(cfg, pages, reference_modules)`**:
+    *   **Description**: Generates the main `index.md` page.
+*   **`build_llms_txt(cfg, pages, reference_modules)`**:
+    *   **Description**: Generates the `llms.txt` file for AI agent consumption.
+*   **`build_llms_full_txt(cfg, pages, reference_modules)`**:
+    *   **Description**: Generates the `llms-full.txt` file containing full content for AI agents.
+*   **`build_skill_md(cfg)`**:
+    *   **Description**: Generates the `SKILL.md` file for coding agents.
+*   **`cross_link_guides(cfg, pages)`**:
+    *   **Description**: Adds cross-links between narrative guide pages.
+
+#### 9. `repoquill.grounding`
+
+This module ensures that LLM-generated content is grounded in the actual source code.
+
+*   **`run_grounding_pass(guides_dir, pkg_path, client, llm_cfg, max_findings_per_page)`**:
+    *   **Description**: Runs a pass to verify and correct LLM-generated content against the source code, limiting the number of findings per page.
+
+#### 10. `repoquill.cli`
+
+This module provides the command-line interface.
+
+*   **`main(argv)`**:
+    *   **Description**: The main entry point for the CLI. Handles commands like `init` and `generate`.
 
 ### Data Flow
 
 The following sequence describes the data flow during a typical documentation generation run:
 
-1.  **Initialization**: The user instantiates `DocGenerator` and calls `generate()`.
-2.  **Scanning**: `RepositoryScanner` traverses the repository, returning a list of `Path` objects for all supported source files.
-3.  **Parsing**: For each file, the appropriate parser (e.g., `PythonParser`) is selected based on file extension. The parser reads the file and constructs an `ASTNode` tree.
-4.  **Aggregation**: All `ASTNode` trees are aggregated into a single `DocumentationData` object, which serves as the central data model for the pipeline.
-5.  **Analysis**: Analyzers (e.g., `DependencyAnalyzer`) process the `DocumentationData` to enrich it with additional information such as dependency links and coverage metrics.
-6.  **Rendering**: The selected renderer (e.g., `MarkdownRenderer`) consumes the enriched `DocumentationData` and produces the final output string.
-7.  **Output**: The rendered string is written to the specified output directory.
+1.  **Initialization**: The CLI (`cli.main`) loads the configuration using `config.load_config`.
+2.  **Planning**: `plan.compute_file_hashes` calculates hashes for source files. `plan.load_plan` retrieves the previous state. `plan.page_needs_regeneration` determines which pages need updating.
+3.  **API Reference (Layer 1)**: `reference.extract_api_surface` and related functions parse the source code deterministically. `reference.build_api_reference` constructs the API documentation.
+4.  **Narrative Generation (Layer 2)**:
+    *   `narrative.determine_structure` uses the LLM to plan the guide topics.
+    *   `narrative.generate_all_pages` generates the content for each page, using `llm.LLMClient` and `llm.LocalRAG` for context.
+5.  **Verification**:
+    *   `verify.build_index` creates a symbol index.
+    *   `verify.check_all` and `surgical_verify.run_surgical_verify` check the generated pages for accuracy and fix common errors (e.g., property calls).
+    *   `grounding.run_grounding_pass` performs a final grounding check.
+6.  **Site Assembly**: `site.build_nav`, `site.build_mkdocs_yml`, and other `site` functions assemble the final MkDocs site structure, including `llms.txt` and `SKILL.md`.
+7.  **Output**: The generated files are written to the output directory.
 
 ### Configuration
 
-`repoquill` supports configuration via a dictionary passed to `DocGenerator.configure()`. Key configuration options include:
+`repoquill` supports configuration via a `repoquill.yml` file. Key configuration options are loaded into `RepoQuillConfig` and `LLMConfig`.
 
-| Option | Type | Default | Description |
-| :--- | :--- | :--- | :--- |
-| `extensions` | `list[str]` | `[".py"]` | File extensions to include in the scan. |
-| `ignore_patterns` | `list[str]` | `["test_", "conftest"]` | Patterns to exclude from documentation. |
-| `output_format` | `str` | `"markdown"` | The target documentation format. |
-| `include_private` | `bool` | `False` | Whether to include private methods/classes. |
+| Option | Type | Description |
+| :--- | :--- | :--- |
+| `site_name` | `str` | The name of the documentation site. |
+| `site_url` | `str` | The base URL for the site. |
+| `repo_url` | `str` | The URL of the source code repository. |
+| `repo_name` | `str` | The name of the repository. |
+| `provider` | `str` | The LLM provider (e.g., `openai`, `anthropic`, `github_copilot`). |
+| `model` | `str` | The specific model to use. |
+| `api_key` | `str` | The API key for the LLM provider (or environment variable reference). |
 
 ### Example Usage
 
-The following example demonstrates how to use `repoquill` to generate Markdown documentation for a Python project.
+The following example demonstrates how to initialize and run the documentation generation process programmatically.
 
 ```python
-from repoquill.core import DocGenerator
+from repoquill.config import load_config
+from repoquill.llm import LLMClient
+from repoquill.narrative import determine_structure, generate_all_pages
+from repoquill.reference import build_api_reference
+from repoquill.site import build_nav, build_mkdocs_yml
 
 def main():
-    # Initialize the generator
-    generator = DocGenerator()
+    # Load configuration
+    cfg = load_config("repoquill.yml")
     
-    # Configure the generator
-    generator.configure({
-        "extensions": [".py"],
-        "ignore_patterns": ["test_", "migrations"],
-        "output_format": "markdown"
-    })
+    # Initialize LLM client
+    llm_client = LLMClient(cfg.llm_config
+    # NOTE: llm_cfg is required (no default)
+)
     
-    # Generate documentation
-    # This will scan the current directory and output to ./docs
-    generator.generate(
-        repo_path=".",
-        output_dir="./docs"
-    )
+    # Determine narrative structure
+    pages = determine_structure(cfg, llm_client)
     
-    print("Documentation generated successfully.")
+    # Generate API reference
+    api_ref = build_api_reference(cfg)
+    
+    # Generate narrative pages
+    # Note: source_files and hashes would be computed in a real pipeline
+    # generate_all_pages(pages, source_files, llm_client, cfg, old_hashes, new_hashes)
+    
+    # Build site navigation and config
+    nav = build_nav(cfg, pages, api_ref)
+    mkdocs_yml = build_mkdocs_yml(cfg, nav)
+    
+    print("Documentation site structure generated successfully.")
 
 if __name__ == "__main__":
     main()
@@ -610,10 +690,10 @@ if __name__ == "__main__":
 
 ### Design Principles
 
-1.  **Extensibility**: New language parsers can be added by subclassing `BaseParser`. New output formats can be added by subclassing `BaseRenderer`.
-2.  **Separation of Concerns**: Parsing, analysis, and rendering are decoupled, allowing for independent testing and optimization.
-3.  **Performance**: The scanner uses efficient file system traversal, and parsers are designed to handle large codebases without excessive memory consumption.
-4.  **Accuracy**: The library relies on standard library parsing tools (e.g., `ast` for Python) to ensure accurate extraction of code structure.
+1.  **Two-Layer Architecture**: Separates deterministic API reference generation (Layer 1) from LLM-driven narrative generation (Layer 2), ensuring accuracy in the API docs while allowing flexibility in the guides.
+2.  **Incremental Updates**: Uses file hashing to only regenerate documentation pages that have changed, improving performance for large repositories.
+3.  **Verification**: Includes multiple verification passes (`verify`, `surgical_verify`, `grounding`) to ensure that generated documentation accurately reflects the source code.
+4.  **AI-Ready Output**: Generates `llms.txt` and `SKILL.md` files to make the documentation easily consumable by AI agents and coding assistants.
 
 By adhering to these principles, `repoquill` provides a robust and flexible foundation for automated documentation generation in software projects.
 
@@ -627,1049 +707,173 @@ By adhering to these principles, `repoquill` provides a robust and flexible foun
 
 ## Key Ideas
 
-**repoquill** is a Python library designed to streamline the process of generating, managing, and versioning technical documentation directly from source code repositories. Its core philosophy centers on treating documentation as a first-class citizen in the software development lifecycle, ensuring that documentation remains synchronized with the code it describes.
+**repoquill** is a Python library designed to generate, manage, and version technical documentation directly from source code repositories. It operates as a generic two-layer developer-docs generator:
 
-The library is built upon three fundamental abstractions: **Source Abstraction**, **Transformation Pipelines**, and **Artifact Management**. These concepts work together to decouple the source of truth (the code) from the final output format (Markdown, HTML, PDF, etc.), allowing developers to maintain a single source of documentation logic while targeting multiple distribution channels.
+1.  **Layer 1 — API Reference (Deterministic):** Uses `Griffe` to parse source code and `mkdocstrings` to render classes, functions, signatures, and docstrings. This layer is fast, free, and does not rely on LLMs.
+2.  **Layer 2 — Narrative Guides (LLM):** Uses `LiteLLM` to write conceptual guide pages (quickstart, concepts, workflows) grounded in the actual source code. This layer is incremental, regenerating only pages whose source files have changed.
+3.  **Output:** A polished MkDocs Material site, including `llms.txt` / `llms-full.txt` for AI agents and a `SKILL.md` for coding agents.
 
-### 1. Source Abstraction
+The library is built upon three fundamental abstractions: **Configuration**, **LLM Interaction**, and **Site Generation**. These concepts work together to decouple the source of truth (the code) from the final output format, allowing developers to maintain a single configuration file (`repoquill.yml`) while targeting a complete documentation site.
 
-At the heart of `repoquill` is the `Source` interface. This abstraction allows the library to ingest documentation content from various origins without coupling the core engine to specific file systems or version control systems.
+### 1. Configuration
 
-The primary implementation is `FileSource`, which reads documentation templates and metadata from local files or directories. However, the architecture supports custom sources, enabling integration with remote APIs or database-backed documentation stores.
+At the heart of `repoquill` is the `RepoQuillConfig` class. This abstraction allows the library to ingest project-specific settings from a `repoquill.yml` file without coupling the core engine to specific file systems or version control systems.
 
-```python
-from repoquill.source import FileSource, Source
-
-class FileSource(Source):
-    """
-    A source that loads documentation content from the local file system.
-    
-    Parameters:
-        root_path (str): The root directory containing documentation files.
-        pattern (str): A glob pattern to match documentation files (default: '*.md').
-    """
-    def __init__(self, root_path: str, pattern: str = "*.md"):
-        self.root_path = root_path
-        self.pattern = pattern
-
-    def load(self) -> dict:
-        """
-        Loads all matching files and returns a dictionary mapping file paths to content.
-        """
-        # Implementation details...
-        pass
-```
-
-**Design Pattern:** The *Strategy Pattern* is employed here. By defining a common `Source` interface, `repoquill` can swap out the data retrieval mechanism at runtime without altering the downstream processing logic.
-
-### 2. Transformation Pipelines
-
-Documentation rarely exists in its final form within the source files. It often requires processing steps such as variable substitution, code block execution, or formatting adjustments. `repoquill` models this process as a **Pipeline** of **Transformers**.
-
-A `Transformer` is a callable object that takes a `Document` object and returns a modified `Document`. The `Pipeline` class manages the execution order of these transformers.
-
-#### The `Document` Model
-
-The `Document` class serves as the data carrier through the pipeline. It encapsulates:
-*   `content`: The raw text or structured data of the document.
-*   `metadata`: A dictionary containing key-value pairs (e.g., title, author, version).
-*   `context`: A shared state object available to all transformers in the pipeline.
+The primary implementation is `RepoQuillConfig`, which holds the site metadata and repository details. It exposes the following properties:
+*   `site_name`: The name of the documentation site.
+*   `site_url`: The base URL of the deployed site.
+*   `repo_url`: The URL of the source code repository.
+*   `repo_name`: The name of the repository.
 
 ```python
-from repoquill.core import Document, Transformer, Pipeline
+from repoquill.config import RepoQuillConfig, LLMConfig, load_config
 
-class VariableSubstitutionTransformer(Transformer):
-    """
-    Replaces {{variable}} placeholders in the document content with values from the context.
-    """
-    def transform(self, doc: Document) -> Document:
-        for key, value in doc.context.items():
-            doc.content = doc.content.replace(f"{{{{{key}}}}}", str(value))
-        return doc
+# Load configuration from a YAML file
+cfg = load_config("repoquill.yml")
 
-class CodeBlockExecutor(Transformer):
-    """
-    Executes Python code blocks marked with ```python and replaces them with their output.
-    """
-    def transform(self, doc: Document) -> Document:
-        # Logic to find, execute, and replace code blocks
-        return doc
+# Access configuration properties
+print(cfg.site_name)
+print(cfg.repo_url)
 ```
 
-#### Building a Pipeline
+**Design Pattern:** The *Configuration Object* pattern is employed here. By defining a common `RepoQuillConfig` interface, `repoquill` can swap out the data retrieval mechanism (YAML, JSON, etc.) at runtime without altering the downstream processing logic.
 
-The `Pipeline` class allows developers to chain transformers together. The order of execution is critical; for example, variable substitution should typically occur before code execution if the code relies on substituted variables.
+### 2. LLM Interaction
+
+Documentation narrative generation requires interaction with Large Language Models. `repoquill` models this process through the `LLMClient` and `LocalRAG` classes.
+
+#### The `LLMClient`
+
+The `LLMClient` class serves as the interface for communicating with LLM providers. It encapsulates the logic for sending messages and handling responses.
 
 ```python
-from repoquill.pipeline import Pipeline
-from repoquill.transformers import MarkdownFormatter, TimestampInjector
+from repoquill.llm import LLMClient
+from repoquill.config import LLMConfig
 
-def create_default_pipeline():
-    pipeline = Pipeline()
-    
-    # 1. Inject current timestamp into metadata
-    pipeline.add(TimestampInjector())
-    
-    # 2. Substitute variables
-    pipeline.add(VariableSubstitutionTransformer())
-    
-    # 3. Format Markdown for consistent styling
-    pipeline.add(MarkdownFormatter())
-    
-    return pipeline
+# Initialize the client with LLM configuration
+llm_cfg = LLMConfig()
+client = LLMClient(llm_cfg
+    # NOTE: llm_cfg is required (no default)
+)
+
+# Send a chat request
+response = client.chat(
+    messages=[{"role": "user", "content": "Hello"}],
+    max_tokens=100,
+    temperature=0.7,
+    retries=3
+)
 ```
 
-**Design Pattern:** The *Chain of Responsibility* pattern is used here. Each transformer handles a specific aspect of the document processing and passes the result to the next transformer in the chain. This promotes modularity and reusability of individual processing steps.
+#### Local RAG
 
-### 3. Artifact Management
+For grounding LLM responses in local source code, `repoquill` provides the `LocalRAG` class. This class builds a retrieval-augmented gfrom repoquill.llm import LocalRAG
 
-Once a document has passed through the transformation pipeline, it needs to be written to a destination. `repoquill` abstracts this through the `Artifact` and `Writer` interfaces.
+# Initialize RAG with configuration and source files
+rag_cfg = {"chunk_size": 500}
+source_files = {"main.py": "print('hello')"}
+rag = LocalRAG(rag_cfg, source_files
+    # NOTE: rag_cfg is required (no default),
+    # NOTE: source_files is required (no default)
+)
 
-An `Artifact` represents the final output of a document, including its target file path and format. The `Writer` is responsible for persisting the artifact to the chosen medium (file system, S3, GitHub Pages, etc.).
+# Build the index
+rag.build()
+
+# Retrieve relevant context
+results = rag.retrieve(query="how to print", top_k=3)
+= rag.retrieve(query="how to print", top_k=3)
+```
+
+### 3. Site Generation
+
+Once the API reference and narrative guides are generated, they need to be assembled into a documentation site. `repoquill` abstracts this through the `site` module functions.
+
+The `build_nav` function constructs the navigation structure for the MkDocs site. The `build_index_md` function generates the main index page.
 
 ```python
-from repoquill.writer import FileWriter, Writer
+from repoquill.site import build_nav, build_index_md
 
-class FileWriter(Writer):
-    """
-    Writes artifacts to the local file system.
-    
-    Parameters:
-        output_dir (str): The directory where output files will be saved.
-    """
-    def __init__(self, output_dir: str):
-        self.output_dir = output_dir
+# Build navigation structure
+nav = build_nav(cfg, pages, reference_modules)
 
-    def write(self, artifact: Artifact) -> None:
-        """
-        Writes the artifact content to the specified file path.
-        """
-        file_path = os.path.join(self.output_dir, artifact.filename)
-        with open(file_path, 'w', encoding='utf-8') as f:
-            f.write(artifact.content)
+# Build the index page
+index_md = build_index_md(cfg, pages, reference_modules)
 ```
+
+**Design Pattern:** The *Builder Pattern* is used here. Each function in the `site` module handles a specific aspect of the site generation (navigation, index, llms.txt) and returns the resulting content. This promotes modularity and reusability of individual generation steps.
 
 ### Core Workflow
 
 The typical usage of `repoquill` follows a clear, linear workflow:
 
-1.  **Initialize Source**: Create a `Source` instance to locate raw documentation files.
-2.  **Define Pipeline**: Construct a `Pipeline` with the necessary `Transformer`s.
-3.  **Configure Writer**: Set up a `Writer` to handle output.
-4.  **Execute**: Run the `RepoQuill` engine to process all documents.
+1.  **Initialize Config**: Load the `RepoQuillConfig` from `repoquill.yml`.
+2.  **Generate API Reference**: Use `reference.build_api_reference` to create the deterministic API docs.
+3.  **Generate Narrative Guides**: Use `narrative.generate_all_pages` to create LLM-generated guides.
+4.  **Build Site**: Use `site` functions to assemble the final MkDocs site.
 
 ```python
-from repoquill import RepoQuill, FileSource, FileWriter
-from repoquill.pipeline import Pipeline
-from repoquill.transformers import MarkdownFormatter
+from repoquill.config import load_config
+from repoquill.reference import build_api_reference
+from repoquill.narrative import generate_all_pages
+from repoquill.site import build_nav, build_index_md
 
-# 1. Setup Source
-source = FileSource(root_path="./docs", pattern="*.md")
+# 1. Load Config
+cfg = load_config("repoquill.yml")
 
-# 2. Setup Pipeline
-pipeline = Pipeline()
-pipeline.add(MarkdownFormatter())
+# 2. Generate API Reference
+api_ref = build_api_reference(cfg)
 
-# 3. Setup Writer
-writer = FileWriter(output_dir="./build/docs")
+# 3. Generate Narrative Guides
+# Note: This requires an LLM client and source files
+# pages = generate_all_pages(pages, source_files, client, cfg, old_hashes, new_hashes)
 
-# 4. Initialize and Run Engine
-engine = RepoQuill(
-    source=source,
-    pipeline=pipeline,
-    writer=writer
-)
-
-engine.run()
+# 4. Build Site
+nav = build_nav(cfg, pages, reference_modules)
+index_md = build_index_md(cfg, pages, reference_modules)
 ```
 
 ### Configuration and Context
 
-The `context` parameter in the `RepoQuill` engine allows global variables to be injected into every document's processing context. This is useful for injecting build information, such as the current version number or build timestamp, into all generated documents.
+The `repoquill.yml` file allows global variables to be injected into the documentation generation process. This is useful for injecting build information, such as the current version number or build timestamp, into all generated documents.
 
-```python
-engine = RepoQuill(
-    source=source,
-    pipeline=pipeline,
-    writer=writer,
-    context={
-        "version": "1.0.0",
-        "build_date": "2023-10-27"
-    }
-)
+```yaml
+# repoquill.yml
+site_name: "My Project Docs"
+site_url: "https://example.com/docs"
+repo_url: "https://github.com/user/repo"
+repo_name: "my-project"
 ```
 
-Within a `Transformer`, these context variables can be accessed via `doc.context`, enabling dynamic content generation based on the build environment.
+Within the `RepoQuillConfig`, these values can be accessed via properties, enabling dynamic content generation based on the project configuration.
 
 ### Error Handling and Logging
 
-`repoquill` employs standard Python exception handling. If a `Transformer` fails during execution, the `Pipeline` will raise a `TransformationError` containing the original exception and the document identifier that caused the failure. This allows developers to identify problematic documents without halting the entire build process if configured to continue on error.
+`repoquill` employs standard Python exception handling. If an LLM request fails, the `LLMClient` will raise an exception containing the original error. This allows developers to identify problematic requests without halting the entire build process if configured to continue on error.
 
 ```python
 try:
-    engine.run()
-except TransformationError as e:
-    logger.error(f"Failed to process document: {e.document_id}")
-    logger.error(f"Reason: {e.original_exception}")
+    response = client.chat(messages, max_tokens, temperature, retries)
+except Exception as e:
+    logger.error(f"Failed to process LLM request: {e}")
 ```
 
 ### Summary of Key Classes
 
 | Class | Module | Description |
 | :--- | :--- | :--- |
-| `Source` | `repoquill.source` | Abstract base class for data retrieval. |
-| `FileSource` | `repoquill.source` | Implementation for local file system sources. |
-| `Document` | `repoquill.core` | Data model representing a single document. |
-| `Transformer` | `repoquill.core` | Abstract base class for document processing steps. |
-| `Pipeline` | `repoquill.pipeline` | Manages the execution order of transformers. |
-| `Writer` | `repoquill.writer` | Abstract base class for output persistence. |
-| `FileWriter` | `repoquill.writer` | Implementation for local file system output. |
-| `RepoQuill` | `repoquill` | Main engine class that orchestrates the workflow. |
+| `RepoQuillConfig` | `repoquill.config` | Configuration object for the documentation site. |
+| `LLMConfig` | `repoquill.config` | Configuration object for LLM provider settings. |
+| `LLMClient` | `repoquill.llm` | Client for interacting with LLM providers. |
+| `LocalRAG` | `repoquill.llm` | Retrieval-augmented generation for local source code. |
+| `SymbolIndex` | `repoquill.verify` | Index of symbols for verification purposes. |
 
 By adhering to these abstractions, `repoquill` provides a flexible, extensible framework for documentation generation that can adapt to diverse project needs while maintaining a consistent and predictable API.
 
 ### See Also
 
 *   [Architecture](architecture.md)
-*   [CI/CD Integration](ci-cd.md)
-*   [Configuration Reference](configuration.md)
-*   [Installation](installation.md)
-
-
-============================================================
-## Configuration Reference
-
-## Configuration Reference
-
-The `repoquill` library utilizes a YAML-based configuration file, typically named `repoquill.yml`, to define project metadata, output preferences, and generation rules. This configuration file serves as the primary interface between the user and the documentation generation engine, allowing for fine-grained control over how source code is analyzed and transformed into readable documentation.
-
-This page provides a detailed reference for all supported keys, their data types, default values, and behavioral implications.
-
-### File Location and Syntax
-
-By default, `repoquill` looks for the configuration file in the root directory of the project. You can specify a custom path using the `--config` command-line argument.
-
-The file must be valid YAML. Comments are supported using the `#` symbol.
-
-```yaml
-# Example repoquill.yml
-project_name: "My Awesome Library"
-version: "1.0.0"
-output_dir: "./docs"
-language: "python"
-```
-
-### Global Options
-
-#### `project_name`
-- **Type:** `string`
-- **Required:** Yes
-- **Description:** The human-readable name of the project. This string is used in the header of the generated documentation and in the metadata of the output files.
-- **Example:**
-  ```yaml
-  project_name: "RepoQuill Core"
-  ```
-
-#### `version`
-- **Type:** `string`
-- **Required:** No
-- **Default:** `"0.0.1"`
-- **Description:** The semantic version of the project. This is included in the documentation footer and can be used for version-controlled documentation builds.
-- **Example:**
-  ```yaml
-  version: "2.4.1"
-  ```
-
-#### `output_dir`
-- **Type:** `string`
-- **Required:** No
-- **Default:** `"./docs"`
-- **Description:** The relative or absolute path where the generated documentation files will be written. If the directory does not exist, `repoquill` will create it.
-- **Example:**
-  ```yaml
-  output_dir: "/var/www/docs"
-  ```
-
-#### `language`
-- **Type:** `string`
-- **Required:** No
-- **Default:** `"python"`
-- **Description:** Specifies the primary programming language of the codebase. This affects syntax highlighting in code blocks and the parsing strategy used for docstring extraction.
-- **Supported Values:**
-  - `"python"`
-  - `"javascript"`
-  - `"typescript"`
-  - `"go"`
-- **Example:**
-  ```yaml
-  language: "python"
-  ```
-
-### Source Code Analysis Options
-
-#### `source_dirs`
-- **Type:** `list[string]`
-- **Required:** No
-- **Default:** `["."]`
-- **Description:** A list of directories to scan for source code files. Paths are relative to the project root. This allows you to exclude specific modules or include multiple packages.
-- **Example:**
-  ```yaml
-  source_dirs:
-    - "src/core"
-    - "src/utils"
-    - "tests"
-  ```
-
-#### `exclude_patterns`
-- **Type:** `list[string]`
-- **Required:** No
-- **Default:** `["*.pyc", "__pycache__", "node_modules"]`
-- **Description:** A list of glob patterns to exclude from the source scan. This is useful for ignoring test files, generated code, or third-party libraries.
-- **Example:**
-  ```yaml
-  exclude_patterns:
-    - "test_*.py"
-    - "*.min.js"
-    - "vendor/*"
-  ```
-
-#### `include_private`
-- **Type:** `boolean`
-- **Required:** No
-- **Default:** `false`
-- **Description:** If set to `true`, `repoquill` will include private methods and classes (those prefixed with an underscore `_`) in the generated documentation. By default, only public APIs are documented.
-- **Example:**
-  ```yaml
-  include_private: true
-  ```
-
-### Output Formatting Options
-
-#### `template`
-- **Type:** `string`
-- **Required:** No
-- **Default:** `"default"`
-- **Description:** Specifies the HTML template to use for rendering the documentation. `repoquill` ships with several built-in templates.
-- **Built-in Templates:**
-  - `"default"`: A clean, minimal template.
-  - `"sphinx-like"`: Mimics the styling of Sphinx-generated docs.
-  - `"github"`: Optimized for embedding in GitHub READMEs.
-- **Example:**
-  ```yaml
-  template: "sphinx-like"
-  ```
-
-#### `theme`
-- **Type:** `string`
-- **Required:** No
-- **Default:** `"light"`
-- **Description:** The color theme for the generated HTML.
-- **Supported Values:**
-  - `"light"`
-  - `"dark"`
-  - `"auto"` (uses system preference)
-- **Example:**
-  ```yaml
-  theme: "dark"
-  ```
-
-#### `code_block_style`
-- **Type:** `string`
-- **Required:** No
-- **Default:** `"fenced"`
-- **Description:** Determines how code snippets are rendered in the output.
-- **Supported Values:**
-  - `"fenced"`: Uses triple backticks (```) for Markdown.
-  - `"indented"`: Uses 4-space indentation for Markdown.
-- **Example:**
-  ```yaml
-  code_block_style: "fenced"
-  ```
-
-### Advanced Configuration
-
-#### `custom_css`
-- **Type:** `string`
-- **Required:** No
-- **Description:** Path to a custom CSS file that will be linked in the generated HTML head. This allows for full branding control.
-- **Example:**
-  ```yaml
-  custom_css: "./assets/styles.css"
-  ```
-
-#### `metadata`
-- **Type:** `object`
-- **Required:** No
-- **Description:** A dictionary of key-value pairs that are injected into the HTML `<meta>` tags. Useful for SEO and social media previews.
-- **Example:**
-  ```yaml
-  metadata:
-    author: "Jane Doe"
-    description: "A powerful documentation generator"
-    keywords: "docs, python, automation"
-  ```
-
-### Validation and Errors
-
-`repoquill` validates the configuration file before processing begins. Common errors include:
-
-1. **Invalid YAML Syntax:** The parser will throw a `YAMLError` with line and column information.
-2. **Missing Required Fields:** If `project_name` is missing, a `ConfigurationError` is raised.
-3. **Unsupported Language:** If `language` is set to an unsupported value, a `ValueError` is raised.
-4. **Invalid Path:** If `output_dir` points to a location where the user does not have write permissions, an `IOError` is raised.
-
-### Complete Example
-
-Below is a comprehensive `repoquill.yml` file demonstrating most options:
-
-```yaml
-# Project Metadata
-project_name: "RepoQuill"
-version: "1.2.0"
-language: "python"
-
-# Source Configuration
-source_dirs:
-  - "src"
-  - "examples"
-exclude_patterns:
-  - "test_*.py"
-  - "conftest.py"
-include_private: false
-
-# Output Configuration
-output_dir: "./generated_docs"
-template: "default"
-theme: "light"
-code_block_style: "fenced"
-
-# Customization
-custom_css: "./static/custom.css"
-metadata:
-  author: "RepoQuill Team"
-  description: "Automated documentation for Python projects"
-  keywords: "python, docs, automation, repoquill"
-```
-
-### Best Practices
-
-- **Version Control:** Commit your `repoquill.yml` file to version control to ensure consistent documentation builds across environments.
-- **Modularization:** For large projects, consider using `source_dirs` to separate core libraries from utility modules, allowing for targeted documentation updates.
-- **Testing:** Run `repoquill --validate` to check your configuration file for syntax errors before a full build.
-
-For more information on extending `repoquill` with custom templates, refer to the [Template Development Guide](./templates.md).
-
-### See Also
-
-*   [CLI Commands](cli-commands.md)
-*   [CI/CD Integration](ci-cd.md)
-*   [Installation](installation.md)
-*   [Key Ideas](key-ideas.md)
-
-
-============================================================
-## LLM Providers
-
-## LLM Providers
-
-The `repoquill` library provides a unified interface for interacting with Large Language Models (LLMs). This module abstracts the differences between various provider APIs, allowing developers to switch between cloud-based services (such as OpenAI and Anthropic) and local inference engines without modifying their core application logic.
-
-This section documents the configuration, initialization, and usage of the `LLMProvider` abstraction layer. It covers supported providers, required environment variables, and practical examples for generating text completions.
-
-### Overview
-
-The core component for LLM interaction is the `LLMProvider` class, located in `repoquill/llm/provider.py`. This class serves as a factory and manager for specific provider implementations. Each provider implements the `BaseLLM` interface, which defines standard methods for text generation, token counting, and error handling.
-
-Key features include:
-*   **Provider Agnosticism:** Switch providers by changing a single configuration parameter.
-*   **Environment Variable Support:** Credentials are read from environment variables by default, ensuring secrets are not hardcoded.
-*   **Local Model Support:** Integration with local inference servers (e.g., Ollama) for offline or privacy-focused workflows.
-*   **Consistent Response Format:** All providers return a standardized `LLMResponse` object, ensuring consistent downstream processing.
-
-### Supported Providers
-
-The following providers are currently supported by `repoquill`:
-
-| Provider | Class Name | Default Model | Requires API Key | Local Option |
-| :--- | :--- | :--- | :--- | :--- |
-| OpenAI | `OpenAIProvider` | `gpt-4o-mini` | Yes (`OPENAI_API_KEY`) | No |
-| Anthropic | `AnthropicProvider` | `claude-3-sonnet` | Yes (`ANTHROPIC_API_KEY`) | No |
-| Ollama | `OllamaProvider` | `llama3` | No | Yes |
-
-### Configuration
-
-Configuration is primarily handled via environment variables and the `LLMConfig` dataclass.
-
-#### Environment Variables
-
-To use cloud-based providers, you must set the corresponding API key in your environment:
-
-*   **OpenAI:** `OPENAI_API_KEY`
-*   **Anthropic:** `ANTHROPIC_API_KEY`
-
-For local providers like Ollama, no API key is required, but you may need to specify the host and port if not using the defaults (`localhost:11434`).
-
-#### `LLMConfig` Dataclass
-
-The `LLMConfig` class allows for fine-grained control over provider behavior.
-
-```python
-from repoquill.llm.config import LLMConfig
-
-config = LLMConfig(
-    provider="openai",       # "openai", "anthropic", or "ollama"
-    model="gpt-4o",          # Specific model identifier
-    temperature=0.7,         # Sampling temperature (0.0 - 2.0)
-    max_tokens=1024,         # Maximum tokens to generate
-    timeout=30                # Request timeout in seconds
-)
-```
-
-### Initialization
-
-You can initialize an LLM provider instance using the `get_provider` factory function or by instantiating the specific provider class directly.
-
-#### Using the Factory Function (Recommended)
-
-The `get_provider` function simplifies initialization by handling environment variable lookup and instance creation.
-
-```python
-from repoquill.llm.provider import get_provider
-
-# Automatically detects provider from config or defaults to OpenAI
-llm = get_provider(provider="openai", model="gpt-4o-mini")
-
-# Or for local models
-local_llm = get_provider(provider="ollama", model="llama3", host="localhost", port=11434)
-```
-
-#### Direct Instantiation
-
-For advanced use cases where you need to pass custom client instances or interceptors:
-
-```python
-from repoquill.llm.providers.openai import OpenAIProvider
-
-# Requires OPENAI_API_KEY to be set in environment
-provider = OpenAIProvider(model="gpt-4o", temperature=0.5)
-```
-
-### Usage Examples
-
-#### Basic Text Generation
-
-The primary method for interacting with the LLM is `generate`. It accepts a prompt string and optional parameters.
-
-```python
-from repoquill.llm.provider import get_provider
-
-# Initialize provider
-llm = get_provider(provider="openai", model="gpt-4o-mini")
-
-# Generate text
-prompt = "Explain the concept of recursion in Python in one sentence."
-response = llm.generate(prompt)
-
-print(response.content)
-# Output: Recursion is a programming technique where a function calls itself to solve a problem by breaking it down into smaller, similar sub-problems.
-```
-
-#### Multi-Turn Conversations
-
-The `generate` method also supports a `messages` parameter for multi-turn conversations, following the standard chat format.
-
-```python
-messages = [
-    {"role": "system", "content": "You are a helpful assistant."},
-    {"role": "user", "content": "What is the capital of France?"},
-    {"role": "assistant", "content": "The capital of France is Paris."},
-    {"role": "user", "content": "And its population?"}
-]
-
-response = llm.generate(messages=messages)
-print(response.content)
-# Output: The population of Paris is approximately 2.1 million people.
-```
-
-#### Using Local Models (Ollama)
-
-To use local models, ensure Ollama is installed and running.
-
-```python
-# Start Ollama server in terminal: ollama serve
-
-from repoquill.llm.provider import get_provider
-
-# Initialize local provider
-local_llm = get_provider(provider="ollama", model="llama3")
-
-# Generate text
-response = local_llm.generate("Write a haiku about code.")
-print(response.content)
-```
-
-### Response Object
-
-All provider methods return an `LLMResponse` object. This object contains the following attributes:
-
-| Attribute | Type | Description |
-| :--- | :--- | :--- |
-| `content` | `str` | The generated text string. |
-| `model` | `str` | The specific model used for generation. |
-| `usage` | `dict` | Token usage statistics (e.g., `prompt_tokens`, `completion_tokens`). |
-| `provider` | `str` | The name of the provider (e.g., "openai"). |
-
-Example of accessing usage statistics:
-
-```python
-response = llm.generate("Hello")
-print(f"Tokens used: {response.usage['total_tokens']}")
-```
-
-### Error Handling
-
-`repoquill` raises specific exceptions for common failure modes:
-
-*   `LLMProviderError`: General errors related to provider configuration or connection issues.
-*   `APIKeyMissingError`: Raised if a required API key is not found in the environment variables.
-*   `RateLimitError`: Raised if the provider's rate limit is exceeded.
-
-It is recommended to wrap LLM calls in try-except blocks to handle these gracefully:
-
-```python
-from repoquill.llm.errors import LLMProviderError, APIKeyMissingError
-
-try:
-    response = llm.generate("Hello")
-except APIKeyMissingError:
-    print("Error: Please set your API key in the environment.")
-except LLMProviderError as e:
-    print(f"Provider error: {e}")
-```
-
-### Best Practices
-
-1.  **Use Environment Variables:** Never hardcode API keys in your source code. Use `.env` files or system environment variables.
-2.  **Set Timeouts:** Always specify a `timeout` in `LLMConfig` to prevent hanging requests.
-3.  **Monitor Token Usage:** Check `response.usage` to track costs and ensure you are not exceeding model context limits.
-4.  **Cache Responses:** For deterministic prompts, consider caching responses to reduce API costs and latency. `repoquill` does not provide built-in caching, but you can implement it using libraries like `diskcache` or `redis`.
-
-### Troubleshooting
-
-*   **Connection Refused (Ollama):** Ensure the Ollama server is running (`ollama serve`) and the port is not blocked by a firewall.
-*   **401 Unauthorized:** Verify that your API key is correct and has not expired. Check for typos in environment variable names.
-*   **Timeout Errors:** Increase the `timeout` value in `LLMConfig` or check your network connection. Complex prompts may take longer to process.
-
-By following these guidelines, you can effectively integrate various LLM providers into your `repoquill` applications, leveraging the flexibility and power of modern language models.
-
-### See Also
-
-*   [Architecture](architecture.md)
-*   [CI/CD Integration](ci-cd.md)
-*   [CLI Commands](cli-commands.md)
-*   [Configuration Reference](configuration.md)
-
-
-============================================================
-## CLI Commands
-
-## CLI Commands
-
-The `repoquill` library provides a robust Command-Line Interface (CLI) designed for seamless integration into development workflows, CI/CD pipelines, and local development environments. The CLI serves as the primary entry point for interacting with the core documentation generation engine, allowing developers to configure, execute, and manage documentation tasks without writing Python scripts.
-
-This module is implemented within the `repoquill.cli` package, specifically leveraging the `argparse` standard library for argument parsing and the `click` library for enhanced user experience features such as colored output and command grouping. The main entry point is defined in `repoquill/__main__.py`, which delegates execution to the `main()` function in `repoquill/cli/main.py`.
-
-### Overview
-
-The CLI supports three primary modes of operation:
-1.  **Generate**: Creates or updates documentation files based on source code analysis.
-2.  **Validate**: Checks the consistency and completeness of existing documentation against the codebase.
-3.  **Config**: Manages configuration files, including initialization and validation.
-
-All commands support global flags for logging, verbosity, and output formatting. The CLI is designed to be non-interactive by default, making it suitable for automated environments, but includes flags to enable interactive prompts when necessary.
-
-### Global Options
-
-These options are available for all subcommands and can be placed before or after the subcommand name, depending on the specific command implementation.
-
-| Flag | Description | Default |
-| :--- | :--- | :--- |
-| `-v`, `--verbose` | Enable verbose logging. Can be used multiple times for increasing detail. | `False` |
-| `-q`, `--quiet` | Suppress all output except for critical errors. | `False` |
-| `--version` | Display the current version of `repoquill` and exit. | N/A |
-| `--help` | Show help message and exit. | N/A |
-| `--config-file` | Path to the configuration file. If not provided, defaults to `repoquill.yaml` in the current directory. | `./repoquill.yaml` |
-
-### Command: `generate`
-
-The `generate` command is the core functionality of `repoquill`. It scans the specified source directories, analyzes the code, and writes the generated documentation to the target directory.
-
-**Usage:**
-```bash
-repoquill generate [OPTIONS]
-```
-
-**Options:**
-
-| Flag | Description |
-| :--- | :--- |
-| `--source-dir` | The root directory containing the source code. Defaults to the current working directory. |
-| `--output-dir` | The directory where documentation files will be written. Defaults to `./docs`. |
-| `--format` | Output format. Supported values: `markdown` (default), `html`, `json`. |
-| `--force` | Overwrite existing documentation files without confirmation. |
-| `--ignore` | Comma-separated list of glob patterns to ignore during scanning (e.g., `*.test.py,tests/*`). |
-| `--workers` | Number of parallel worker processes to use for analysis. Defaults to `1`. |
-
-**Example:**
-```bash
-# Generate Markdown documentation for the current project
-repoquill generate --format markdown --output-dir ./docs
-
-# Generate HTML documentation with parallel processing
-repoquill generate --format html --workers 4 --force
-```
-
-### Command: `validate`
-
-The `validate` command checks the integrity of the documentation. It verifies that all public modules and functions are documented, that docstrings are present, and that the documentation structure matches the code structure. This command does not modify any files.
-
-**Usage:**
-```bash
-repoquill validate [OPTIONS]
-```
-
-**Options:**
-
-| Flag | Description |
-| :--- | :--- |
-| `--source-dir` | The root directory containing the source code. |
-| `--docs-dir` | The directory containing the existing documentation. Defaults to `./docs`. |
-| `--strict` | Treat warnings as errors. If enabled, the command exits with a non-zero status code if any warnings are found. |
-| `--report` | Path to save a detailed validation report in JSON format. |
-
-**Exit Codes:**
-- `0`: Validation passed successfully.
-- `1`: Validation failed (errors found).
-- `2`: Configuration or file access error.
-
-**Example:**
-```bash
-# Validate documentation in strict mode
-repoquill validate --strict
-
-# Validate and save a report
-repoquill validate --report validation_report.json
-```
-
-### Command: `config`
-
-The `config` command manages the `repoquill.yaml` configuration file. It allows users to initialize a new configuration, view the current effective configuration, and validate the configuration syntax.
-
-**Usage:**
-```bash
-repoquill config [SUBCOMMAND]
-```
-
-#### Subcommand: `init`
-
-Creates a new `repoquill.yaml` file with default settings. If the file already exists, it will not be overwritten unless the `--force` flag is used.
-
-**Options:**
-- `--force`: Overwrite existing configuration file.
-- `--template`: Name of the template to use (e.g., `basic`, `advanced`). Defaults to `basic`.
-
-**Example:**
-```bash
-# Initialize a new configuration file
-repoquill config init
-
-# Initialize with an advanced template
-repoquill config init --template advanced
-```
-
-#### Subcommand: `show`
-
-Displays the current effective configuration. This merges the default configuration, the file-based configuration, and any environment variables.
-
-**Example:**
-```bash
-repoquill config show
-```
-
-#### Subcommand: `validate`
-
-Checks the syntax and semantics of the configuration file without executing any documentation tasks.
-
-**Example:**
-```bash
-repoquill config validate
-```
-
-### Configuration File Structure
-
-The CLI relies on a YAML configuration file (`repoquill.yaml`) for persistent settings. The following is a reference for the keys supported in the configuration file:
-
-```yaml
-# repoquill.yaml
-project:
-  name: "MyProject"
-  version: "1.0.0"
-
-source:
-  directories:
-    - "src/"
-    - "lib/"
-  ignore:
-    - "*.pyc"
-    - "__pycache__/"
-    - "tests/"
-
-output:
-  directory: "./docs"
-  format: "markdown"
-  template: "default"
-
-logging:
-  level: "INFO"
-  file: "./repoquill.log"
-```
-
-### Environment Variables
-
-The CLI respects the following environment variables, which can override configuration file settings:
-
-| Variable | Description |
-| :--- | :--- |
-| `REPOQUILL_CONFIG` | Path to the configuration file. Overrides `--config-file`. |
-| `REPOQUILL_LOG_LEVEL` | Sets the logging level (`DEBUG`, `INFO`, `WARNING`, `ERROR`). |
-| `REPOQUILL_OUTPUT_DIR` | Overrides the output directory specified in the config or CLI. |
-
-### Error Handling
-
-The CLI provides clear error messages for common issues:
-- **File Not Found**: If the specified source or output directory does not exist.
-- **Invalid Configuration**: If the YAML file contains syntax errors or unsupported keys.
-- **Permission Denied**: If the output directory is not writable.
-
-In all error cases, the CLI exits with a non-zero status code and prints a detailed traceback to `stderr` if `--verbose` is enabled.
-
-### Integration with CI/CD
-
-For continuous integration, it is recommended to use the `validate` command to ensure documentation consistency before merging code. The `generate` command can be used to build documentation artifacts for deployment.
-
-**Example GitHub Actions Workflow:**
-```yaml
-- name: Validate Documentation
-  run: repoquill validate --strict
-
-- name: Generate Documentation
-  run: repoquill generate --format html --output-dir ./public/docs
-
-- name: Deploy Documentation
-  uses: actions/deploy@v1
-  with:
-    path: ./public/docs
-```
-
-### Troubleshooting
-
-If the CLI fails to recognize a command, ensure that `repoquill` is installed in the active Python environment. You can verify the installation by running:
-
-```bash
-python -m repoquill --version
-```
-
-If you encounter issues with parallel processing (`--workers`), try reducing the number of workers or disabling parallelism entirely by setting `--workers 1`. This can help identify if the issue is related to resource contention or file locking.
-
-### See Also
-
-*   [CI/CD Integration](ci-cd.md)
-*   [Configuration Reference](configuration.md)
 *   [Quickstart](quickstart.md)
-
-
-============================================================
-## CI/CD Integration
-
-## CI/CD Integration
-
-Automating documentation generation is essential for maintaining accurate, up-to-date technical documentation in large-scale software projects. The `repoquill` library provides robust support for Continuous Integration and Continuous Deployment (CI/CD) pipelines, allowing developers to integrate documentation regeneration directly into their build processes. By leveraging GitHub Actions, you can ensure that every code change triggers a verification or regeneration of the documentation, preventing drift between the codebase and its associated docs.
-
-This section details how to configure GitHub Actions workflows to automatically run `repoquill` scripts, handle versioning, and deploy generated documentation to static hosting services.
-
-### Prerequisites
-
-Before setting up CI/CD integration, ensure the following prerequisites are met in your project:
-
-1.  **Python Environment**: The CI runner must have Python 3.8+ installed.
-2.  **Dependencies**: Your project must define dependencies in a `pyproject.toml`, `setup.py`, or `requirements.txt` file.
-3.  **Repoquill Configuration**: A valid `repoquill.toml` or equivalent configuration file must exist in the repository root to define documentation sources and output targets.
-4.  **Secrets**: If deploying to a private repository or using authenticated APIs, configure the necessary GitHub Secrets (e.g., `GITHUB_TOKEN`, `NPM_TOKEN`).
-
-### Basic GitHub Actions Workflow
-
-The following workflow example demonstrates a standard CI pipeline that installs dependencies, runs the `repoquill` generator, and uploads the generated artifacts. This workflow triggers on pushes to the `main` branch and on pull requests.
-
-```yaml
-name: Documentation Build
-
-on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
-
-jobs:
-  build-docs:
-    runs-on: ubuntu-latest
-
-    steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.11'
-
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -e .
-        # If repoquill is not part of the main package, install it explicitly
-        # pip install repoquill
-
-    - name: Generate Documentation
-      run: |
-        # Execute the repoquill CLI to generate docs
-        # The 'generate' command reads from repoquill.toml by default
-        python -m repoquill generate --output ./docs/generated
-
-    - name: Validate Documentation
-      run: |
-        # Optional: Run linting or validation checks on generated markdown
-        # python -m repoquill validate ./docs/generated
-
-    - name: Upload Artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: generated-docs
-        path: ./docs/generated
-```
-
-### Configuration Options for CI
-
-The `repoquill` CLI supports several flags that are particularly useful in CI environments where determinism and speed are critical.
-
-| Flag | Description | CI Recommendation |
-| :--- | :--- | :--- |
-| `--output <path>` | Specifies the directory where generated documentation is written. | Use a dedicated directory (e.g., `./docs/generated`) that is ignored by Git but captured by artifacts. |
-| `--strict` | Fails the build if any documentation source cannot be parsed or resolved. | **Recommended**. Ensures broken docstrings or missing references fail the CI pipeline immediately. |
-| `--no-cache` | Disables the internal cache mechanism. | Use in CI to ensure fresh generation on every run, avoiding stale data from cached states. |
-| `--verbose` | Enables detailed logging output. | Useful for debugging generation failures in CI logs. |
-
-### Advanced: Deploying to GitHub Pages
-
-If your project uses GitHub Pages for hosting documentation, you can extend the workflow to deploy the generated output. Note that `repoquill` generates static files (Markdown, HTML, or JSON depending on your config), which are suitable for static hosting.
-
-```yaml
-name: Deploy Documentation
-
-on:
-  push:
-    branches: [ main ]
-
-permissions:
-  contents: write
-
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v4
-
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.11'
-
-    - name: Install and Generate
-      run: |
-        pip install -e .
-        python -m repoquill generate --output ./docs/generated --strict
-
-    - name: Deploy to GitHub Pages
-      uses: peaceiris/actions-gh-pages@v3
-      with:
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        publish_dir: ./docs/generated
-        # Optional: Configure publish_branch if not using 'gh-pages'
-        # publish_branch: gh-pages
-```
-
-### Handling Versioning and Tags
-
-For projects that release versions, it is often desirable to tag documentation builds with version numbers. `repoquill` can inject version information into the generated metadata if configured in `repoquill.toml`.
-
-In your `repoquill.toml`, ensure the `metadata` section includes a placeholder for the version:
-
-```toml
-[metadata]
-title = "Project Documentation"
-version = "{{ version }}"  # This will be replaced by the CI environment variable
-```
-
-In your GitHub Actions workflow, you can pass the version via an environment variable or by parsing it from the git tag:
-
-```yaml
-    - name: Set Version
-      run: |
-        # Extract version from git tag or use a default
-        VERSION=$(git describe --tags --always --dirty)
-        echo "VERSION=$VERSION" >> $GITHUB_ENV
-
-    - name: Generate Documentation
-      env:
-        REPOQUILL_VERSION: ${{ env.VERSION }}
-      run: |
-        # Some configurations allow environment variable interpolation
-        # Check your repoquill.toml for environment variable support
-        python -m repoquill generate --output ./docs/generated
-```
-
-*Note: Direct environment variable interpolation depends on your specific `repoquill` configuration schema. If not natively supported, you may need to use a pre-processing script to update the configuration file before running the generator.*
-
-### Best Practices
-
-1.  **Fail Fast**: Always use the `--strict` flag in CI. Documentation errors should block merges to prevent technical debt.
-2.  **Cache Dependencies**: Use `actions/cache` to cache pip packages to reduce workflow execution time.
-    ```yaml
-    - name: Cache pip
-      uses: actions/cache@v4
-      with:
-        path: ~/.cache/pip
-        key: ${{ runner.os }}-pip-${{ hashFiles('**/pyproject.toml') }}
-        restore-keys: |
-          ${{ runner.os }}-pip-
-    ```
-3.  **Separate Build and Deploy**: Keep documentation generation in a separate job from deployment. This allows you to cache the generated docs and only deploy when the content actually changes.
-4.  **Log Output**: Ensure `--verbose` is enabled in CI logs for easier debugging of generation issues.
-5.  **Artifact Retention**: Configure artifact retention policies to avoid storage bloat. For example, keep only the last 5 builds.
-
-### Troubleshooting
-
-*   **Permission Denied**: Ensure the output directory specified in `--output` is writable by the CI user.
-*   **Missing Sources**: If `repoquill` fails to find source files, verify that the `paths` defined in `repoquill.toml` are relative to the repository root and that the files exist in the CI checkout.
-*   **Version Mismatch**: Ensure the version of `repoquill` installed in CI matches the version used in local development to avoid schema incompatibilities.
-
-By integrating `repoquill` into your CI/CD pipeline, you ensure that documentation remains a first-class citizen in your development workflow, automatically validated and updated with every code change.
-
-### See Also
-
-*   [CLI Commands](cli-commands.md)
-*   [Quickstart](quickstart.md)
-*   [Configuration Reference](configuration.md)
-*   [Installation](installation.md)
 
 
 ============================================================
@@ -1692,6 +896,13 @@ Full API docs: https://SushantGautam.github.io/RepoQuill/reference/repoquill_cli
 ## repoquill.config
 
 Full API docs: https://SushantGautam.github.io/RepoQuill/reference/repoquill_config/
+
+============================================================
+## repoquill.grounding
+
+## repoquill.grounding
+
+Full API docs: https://SushantGautam.github.io/RepoQuill/reference/repoquill_grounding/
 
 ============================================================
 ## repoquill.llm
@@ -1727,3 +938,17 @@ Full API docs: https://SushantGautam.github.io/RepoQuill/reference/repoquill_ref
 ## repoquill.site
 
 Full API docs: https://SushantGautam.github.io/RepoQuill/reference/repoquill_site/
+
+============================================================
+## repoquill.surgical_verify
+
+## repoquill.surgical_verify
+
+Full API docs: https://SushantGautam.github.io/RepoQuill/reference/repoquill_surgical_verify/
+
+============================================================
+## repoquill.verify
+
+## repoquill.verify
+
+Full API docs: https://SushantGautam.github.io/RepoQuill/reference/repoquill_verify/

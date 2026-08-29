@@ -1,209 +1,169 @@
 ## Key Ideas
 
-**repoquill** is a Python library designed to streamline the process of generating, managing, and versioning technical documentation directly from source code repositories. Its core philosophy centers on treating documentation as a first-class citizen in the software development lifecycle, ensuring that documentation remains synchronized with the code it describes.
+**repoquill** is a Python library designed to generate, manage, and version technical documentation directly from source code repositories. It operates as a generic two-layer developer-docs generator:
 
-The library is built upon three fundamental abstractions: **Source Abstraction**, **Transformation Pipelines**, and **Artifact Management**. These concepts work together to decouple the source of truth (the code) from the final output format (Markdown, HTML, PDF, etc.), allowing developers to maintain a single source of documentation logic while targeting multiple distribution channels.
+1.  **Layer 1 — API Reference (Deterministic):** Uses `Griffe` to parse source code and `mkdocstrings` to render classes, functions, signatures, and docstrings. This layer is fast, free, and does not rely on LLMs.
+2.  **Layer 2 — Narrative Guides (LLM):** Uses `LiteLLM` to write conceptual guide pages (quickstart, concepts, workflows) grounded in the actual source code. This layer is incremental, regenerating only pages whose source files have changed.
+3.  **Output:** A polished MkDocs Material site, including `llms.txt` / `llms-full.txt` for AI agents and a `SKILL.md` for coding agents.
 
-### 1. Source Abstraction
+The library is built upon three fundamental abstractions: **Configuration**, **LLM Interaction**, and **Site Generation**. These concepts work together to decouple the source of truth (the code) from the final output format, allowing developers to maintain a single configuration file (`repoquill.yml`) while targeting a complete documentation site.
 
-At the heart of `repoquill` is the `Source` interface. This abstraction allows the library to ingest documentation content from various origins without coupling the core engine to specific file systems or version control systems.
+### 1. Configuration
 
-The primary implementation is `FileSource`, which reads documentation templates and metadata from local files or directories. However, the architecture supports custom sources, enabling integration with remote APIs or database-backed documentation stores.
+At the heart of `repoquill` is the `RepoQuillConfig` class. This abstraction allows the library to ingest project-specific settings from a `repoquill.yml` file without coupling the core engine to specific file systems or version control systems.
 
-```python
-from repoquill.source import FileSource, Source
-
-class FileSource(Source):
-    """
-    A source that loads documentation content from the local file system.
-    
-    Parameters:
-        root_path (str): The root directory containing documentation files.
-        pattern (str): A glob pattern to match documentation files (default: '*.md').
-    """
-    def __init__(self, root_path: str, pattern: str = "*.md"):
-        self.root_path = root_path
-        self.pattern = pattern
-
-    def load(self) -> dict:
-        """
-        Loads all matching files and returns a dictionary mapping file paths to content.
-        """
-        # Implementation details...
-        pass
-```
-
-**Design Pattern:** The *Strategy Pattern* is employed here. By defining a common `Source` interface, `repoquill` can swap out the data retrieval mechanism at runtime without altering the downstream processing logic.
-
-### 2. Transformation Pipelines
-
-Documentation rarely exists in its final form within the source files. It often requires processing steps such as variable substitution, code block execution, or formatting adjustments. `repoquill` models this process as a **Pipeline** of **Transformers**.
-
-A `Transformer` is a callable object that takes a `Document` object and returns a modified `Document`. The `Pipeline` class manages the execution order of these transformers.
-
-#### The `Document` Model
-
-The `Document` class serves as the data carrier through the pipeline. It encapsulates:
-*   `content`: The raw text or structured data of the document.
-*   `metadata`: A dictionary containing key-value pairs (e.g., title, author, version).
-*   `context`: A shared state object available to all transformers in the pipeline.
+The primary implementation is `RepoQuillConfig`, which holds the site metadata and repository details. It exposes the following properties:
+*   `site_name`: The name of the documentation site.
+*   `site_url`: The base URL of the deployed site.
+*   `repo_url`: The URL of the source code repository.
+*   `repo_name`: The name of the repository.
 
 ```python
-from repoquill.core import Document, Transformer, Pipeline
+from repoquill.config import RepoQuillConfig, LLMConfig, load_config
 
-class VariableSubstitutionTransformer(Transformer):
-    """
-    Replaces {{variable}} placeholders in the document content with values from the context.
-    """
-    def transform(self, doc: Document) -> Document:
-        for key, value in doc.context.items():
-            doc.content = doc.content.replace(f"{{{{{key}}}}}", str(value))
-        return doc
+# Load configuration from a YAML file
+cfg = load_config("repoquill.yml")
 
-class CodeBlockExecutor(Transformer):
-    """
-    Executes Python code blocks marked with ```python and replaces them with their output.
-    """
-    def transform(self, doc: Document) -> Document:
-        # Logic to find, execute, and replace code blocks
-        return doc
+# Access configuration properties
+print(cfg.site_name)
+print(cfg.repo_url)
 ```
 
-#### Building a Pipeline
+**Design Pattern:** The *Configuration Object* pattern is employed here. By defining a common `RepoQuillConfig` interface, `repoquill` can swap out the data retrieval mechanism (YAML, JSON, etc.) at runtime without altering the downstream processing logic.
 
-The `Pipeline` class allows developers to chain transformers together. The order of execution is critical; for example, variable substitution should typically occur before code execution if the code relies on substituted variables.
+### 2. LLM Interaction
+
+Documentation narrative generation requires interaction with Large Language Models. `repoquill` models this process through the `LLMClient` and `LocalRAG` classes.
+
+#### The `LLMClient`
+
+The `LLMClient` class serves as the interface for communicating with LLM providers. It encapsulates the logic for sending messages and handling responses.
 
 ```python
-from repoquill.pipeline import Pipeline
-from repoquill.transformers import MarkdownFormatter, TimestampInjector
+from repoquill.llm import LLMClient
+from repoquill.config import LLMConfig
 
-def create_default_pipeline():
-    pipeline = Pipeline()
-    
-    # 1. Inject current timestamp into metadata
-    pipeline.add(TimestampInjector())
-    
-    # 2. Substitute variables
-    pipeline.add(VariableSubstitutionTransformer())
-    
-    # 3. Format Markdown for consistent styling
-    pipeline.add(MarkdownFormatter())
-    
-    return pipeline
+# Initialize the client with LLM configuration
+llm_cfg = LLMConfig()
+client = LLMClient(llm_cfg
+    # NOTE: llm_cfg is required (no default)
+)
+
+# Send a chat request
+response = client.chat(
+    messages=[{"role": "user", "content": "Hello"}],
+    max_tokens=100,
+    temperature=0.7,
+    retries=3
+)
 ```
 
-**Design Pattern:** The *Chain of Responsibility* pattern is used here. Each transformer handles a specific aspect of the document processing and passes the result to the next transformer in the chain. This promotes modularity and reusability of individual processing steps.
+#### Local RAG
 
-### 3. Artifact Management
+For grounding LLM responses in local source code, `repoquill` provides the `LocalRAG` class. This class builds a retrieval-augmented gfrom repoquill.llm import LocalRAG
 
-Once a document has passed through the transformation pipeline, it needs to be written to a destination. `repoquill` abstracts this through the `Artifact` and `Writer` interfaces.
+# Initialize RAG with configuration and source files
+rag_cfg = {"chunk_size": 500}
+source_files = {"main.py": "print('hello')"}
+rag = LocalRAG(rag_cfg, source_files
+    # NOTE: rag_cfg is required (no default),
+    # NOTE: source_files is required (no default)
+)
 
-An `Artifact` represents the final output of a document, including its target file path and format. The `Writer` is responsible for persisting the artifact to the chosen medium (file system, S3, GitHub Pages, etc.).
+# Build the index
+rag.build()
+
+# Retrieve relevant context
+results = rag.retrieve(query="how to print", top_k=3)
+= rag.retrieve(query="how to print", top_k=3)
+```
+
+### 3. Site Generation
+
+Once the API reference and narrative guides are generated, they need to be assembled into a documentation site. `repoquill` abstracts this through the `site` module functions.
+
+The `build_nav` function constructs the navigation structure for the MkDocs site. The `build_index_md` function generates the main index page.
 
 ```python
-from repoquill.writer import FileWriter, Writer
+from repoquill.site import build_nav, build_index_md
 
-class FileWriter(Writer):
-    """
-    Writes artifacts to the local file system.
-    
-    Parameters:
-        output_dir (str): The directory where output files will be saved.
-    """
-    def __init__(self, output_dir: str):
-        self.output_dir = output_dir
+# Build navigation structure
+nav = build_nav(cfg, pages, reference_modules)
 
-    def write(self, artifact: Artifact) -> None:
-        """
-        Writes the artifact content to the specified file path.
-        """
-        file_path = os.path.join(self.output_dir, artifact.filename)
-        with open(file_path, 'w', encoding='utf-8') as f:
-            f.write(artifact.content)
+# Build the index page
+index_md = build_index_md(cfg, pages, reference_modules)
 ```
+
+**Design Pattern:** The *Builder Pattern* is used here. Each function in the `site` module handles a specific aspect of the site generation (navigation, index, llms.txt) and returns the resulting content. This promotes modularity and reusability of individual generation steps.
 
 ### Core Workflow
 
 The typical usage of `repoquill` follows a clear, linear workflow:
 
-1.  **Initialize Source**: Create a `Source` instance to locate raw documentation files.
-2.  **Define Pipeline**: Construct a `Pipeline` with the necessary `Transformer`s.
-3.  **Configure Writer**: Set up a `Writer` to handle output.
-4.  **Execute**: Run the `RepoQuill` engine to process all documents.
+1.  **Initialize Config**: Load the `RepoQuillConfig` from `repoquill.yml`.
+2.  **Generate API Reference**: Use `reference.build_api_reference` to create the deterministic API docs.
+3.  **Generate Narrative Guides**: Use `narrative.generate_all_pages` to create LLM-generated guides.
+4.  **Build Site**: Use `site` functions to assemble the final MkDocs site.
 
 ```python
-from repoquill import RepoQuill, FileSource, FileWriter
-from repoquill.pipeline import Pipeline
-from repoquill.transformers import MarkdownFormatter
+from repoquill.config import load_config
+from repoquill.reference import build_api_reference
+from repoquill.narrative import generate_all_pages
+from repoquill.site import build_nav, build_index_md
 
-# 1. Setup Source
-source = FileSource(root_path="./docs", pattern="*.md")
+# 1. Load Config
+cfg = load_config("repoquill.yml")
 
-# 2. Setup Pipeline
-pipeline = Pipeline()
-pipeline.add(MarkdownFormatter())
+# 2. Generate API Reference
+api_ref = build_api_reference(cfg)
 
-# 3. Setup Writer
-writer = FileWriter(output_dir="./build/docs")
+# 3. Generate Narrative Guides
+# Note: This requires an LLM client and source files
+# pages = generate_all_pages(pages, source_files, client, cfg, old_hashes, new_hashes)
 
-# 4. Initialize and Run Engine
-engine = RepoQuill(
-    source=source,
-    pipeline=pipeline,
-    writer=writer
-)
-
-engine.run()
+# 4. Build Site
+nav = build_nav(cfg, pages, reference_modules)
+index_md = build_index_md(cfg, pages, reference_modules)
 ```
 
 ### Configuration and Context
 
-The `context` parameter in the `RepoQuill` engine allows global variables to be injected into every document's processing context. This is useful for injecting build information, such as the current version number or build timestamp, into all generated documents.
+The `repoquill.yml` file allows global variables to be injected into the documentation generation process. This is useful for injecting build information, such as the current version number or build timestamp, into all generated documents.
 
-```python
-engine = RepoQuill(
-    source=source,
-    pipeline=pipeline,
-    writer=writer,
-    context={
-        "version": "1.0.0",
-        "build_date": "2023-10-27"
-    }
-)
+```yaml
+# repoquill.yml
+site_name: "My Project Docs"
+site_url: "https://example.com/docs"
+repo_url: "https://github.com/user/repo"
+repo_name: "my-project"
 ```
 
-Within a `Transformer`, these context variables can be accessed via `doc.context`, enabling dynamic content generation based on the build environment.
+Within the `RepoQuillConfig`, these values can be accessed via properties, enabling dynamic content generation based on the project configuration.
 
 ### Error Handling and Logging
 
-`repoquill` employs standard Python exception handling. If a `Transformer` fails during execution, the `Pipeline` will raise a `TransformationError` containing the original exception and the document identifier that caused the failure. This allows developers to identify problematic documents without halting the entire build process if configured to continue on error.
+`repoquill` employs standard Python exception handling. If an LLM request fails, the `LLMClient` will raise an exception containing the original error. This allows developers to identify problematic requests without halting the entire build process if configured to continue on error.
 
 ```python
 try:
-    engine.run()
-except TransformationError as e:
-    logger.error(f"Failed to process document: {e.document_id}")
-    logger.error(f"Reason: {e.original_exception}")
+    response = client.chat(messages, max_tokens, temperature, retries)
+except Exception as e:
+    logger.error(f"Failed to process LLM request: {e}")
 ```
 
 ### Summary of Key Classes
 
 | Class | Module | Description |
 | :--- | :--- | :--- |
-| `Source` | `repoquill.source` | Abstract base class for data retrieval. |
-| `FileSource` | `repoquill.source` | Implementation for local file system sources. |
-| `Document` | `repoquill.core` | Data model representing a single document. |
-| `Transformer` | `repoquill.core` | Abstract base class for document processing steps. |
-| `Pipeline` | `repoquill.pipeline` | Manages the execution order of transformers. |
-| `Writer` | `repoquill.writer` | Abstract base class for output persistence. |
-| `FileWriter` | `repoquill.writer` | Implementation for local file system output. |
-| `RepoQuill` | `repoquill` | Main engine class that orchestrates the workflow. |
+| `RepoQuillConfig` | `repoquill.config` | Configuration object for the documentation site. |
+| `LLMConfig` | `repoquill.config` | Configuration object for LLM provider settings. |
+| `LLMClient` | `repoquill.llm` | Client for interacting with LLM providers. |
+| `LocalRAG` | `repoquill.llm` | Retrieval-augmented generation for local source code. |
+| `SymbolIndex` | `repoquill.verify` | Index of symbols for verification purposes. |
 
 By adhering to these abstractions, `repoquill` provides a flexible, extensible framework for documentation generation that can adapt to diverse project needs while maintaining a consistent and predictable API.
 
 ### See Also
 
 *   [Architecture](architecture.md)
-*   [CI/CD Integration](ci-cd.md)
-*   [Configuration Reference](configuration.md)
-*   [Installation](installation.md)
+*   [Quickstart](quickstart.md)
