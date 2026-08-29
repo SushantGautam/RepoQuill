@@ -31,6 +31,23 @@ class LLMConfig:
     rag: Dict[str, Any] = field(default_factory=dict)
     max_concurrent: int = 1  # Max parallel LLM calls (1 = sequential)
 
+    # --- Narrative generation knobs (Layer 2) ---
+    # Sampling
+    temperature: float = 0.7          # new pages
+    update_temperature: float = 0.3   # updating existing pages
+    plan_temperature: float = 0.1     # structure planning
+    max_tokens: int = 8192            # per page generation
+    # Context budgets (chars)
+    context_budget: int = 60000       # total source context per page
+    per_file_budget: int = 12000      # per source file
+    # Prompt enrichment (all generic — derived from the source tree)
+    include_api_surface: bool = True  # inject AST-extracted API surface
+    include_readme: bool = True       # inject README excerpt
+    include_examples: bool = True     # inject examples/ listing + key files
+    strict_prompt: bool = True        # anti-hallucination prompt variant
+    # Post-generation verification (hallucination check + fix passes)
+    verify_passes: int = 0            # 0 = off; 1-2 recommended
+
 
 @dataclass
 class RepoQuillConfig:
@@ -129,6 +146,17 @@ def load_config(config_path: Optional[str] = None) -> RepoQuillConfig:
         base_url=llm_raw.get("base_url"),
         rag=llm_raw.get("rag", {}) or {},
         max_concurrent=int(llm_raw.get("max_concurrent", 1)),
+        temperature=float(llm_raw.get("temperature", 0.7)),
+        update_temperature=float(llm_raw.get("update_temperature", 0.3)),
+        plan_temperature=float(llm_raw.get("plan_temperature", 0.1)),
+        max_tokens=int(llm_raw.get("max_tokens", 8192)),
+        context_budget=int(llm_raw.get("context_budget", 60000)),
+        per_file_budget=int(llm_raw.get("per_file_budget", 12000)),
+        include_api_surface=bool(llm_raw.get("include_api_surface", True)),
+        include_readme=bool(llm_raw.get("include_readme", True)),
+        include_examples=bool(llm_raw.get("include_examples", True)),
+        strict_prompt=bool(llm_raw.get("strict_prompt", True)),
+        verify_passes=int(llm_raw.get("verify_passes", 0)),
     )
 
     # --- Build block ---

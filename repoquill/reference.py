@@ -14,6 +14,7 @@ are not importable as part of the package).
 
 from __future__ import annotations
 
+import ast
 import os
 import re
 from typing import List, Optional
@@ -700,6 +701,291 @@ def render_module_reference(module_name: str, search_path: str,
             lines += _render_member_md(n, o, depth=4, module_members=all_members)
 
     return "\n".join(lines) + "\n"
+
+
+def extract_api_surface(pkg_path: str, max_chars: int = 12000) -> str:
+    """Extract a compact, ground-truth API surface from the package source.
+
+    Uses pure AST parsing (no LLM, no imports) to list every public
+    class, function, method, and constant with its signature. This is
+    injected into narrative-generation prompts so the LLM can only use
+    symbols that actually exist.
+
+    Args:
+        pkg_path: Absolute path to the package directory.
+        max_chars: Truncate the result to this many characters.
+
+    Returns:
+        Multi-line string describing the real API surface.
+    """
+    pkg_name = os.path.basename(os.path.normpath(pkg_path))
+    classes: dict = {}   # "Mod.Class" -> ["method(self, x, y)", ...]
+    functions: dict = {} # "mod.func" -> "(a, b, c)"
+    constants: dict = {} # "mod.CONST" -> value (short)
+
+    for dirpath, _, filenames in os.walk(pkg_path):
+        for f in sorted(filenames):
+            if not f.endswith(".py"):
+                continue
+            full = os.path.join(dirpath, f)
+            rel = os.path.relpath(full, pkg_path)
+            mod = rel[:-3].replace(os.sep, ".")
+            if mod.endswith(".__init__"):
+                mod = mod[:-9]
+            try:
+                with open(full, "r", encoding="utf-8", errors="replace") as fh:
+                    tree = ast.parse(fh.read())
+            except SyntaxError:
+                continue
+
+            for node in tree.body:
+                if isinstance(node, ast.ClassDef):
+                    methods = []
+                    for item in node.body:
+                        if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                            if not item.name.startswith("_"):
+                                args = [a.arg for a in item.args.args]
+                                if args and args[0] in ("self", "cls"):
+                                    args = args[1:]
+                                methods.append(f"{item.name}({', '.join(args)})")
+                    classes[f"{mod}.{node.name}"] = methods
+                elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    if not node.name.startswith("_"):
+                        args = [a.arg for a in node.args.args]
+                        functions[f"{mod}.{node.name}"] = f"({', '.join(args)})"
+                elif isinstance(node, ast.Assign):
+                    for tgt in node.targets:
+                        if isinstance(tgt, ast.Name) and tgt.id.isupper():
+                            try:
+                                val = ast.literal_eval(node.value)
+                                sval = repr(val)
+                                if len(sval) > 60:
+                                    sval = sval[:57] + "..."
+                            except Exception:  # noqa: BLE001
+                                sval = "..."
+                            constants[f"{mod}.{tgt.id}"] = sval
+
+    lines = []
+    if classes:
+        lines.append("CLASSES (name -> public methods):")
+        for cname, methods in sorted(classes.items()):
+            m = ", ".join(methods) if methods else "(no public methods)"
+            lines.append(f"  {cname}: {m}")
+    if functions:
+        lines.append("FUNCTIONS:")
+        for fname, sig in sorted(functions.items()):
+            lines.append(f"  {fname}{sig}")
+    if constants:
+        lines.append("CONSTANTS:")
+        for cname, val in sorted(constants.items()):
+            lines.append(f"  {cname} = {val}")
+
+    text = "\n".join(lines)
+    if len(text) > max_chars:
+        text = text[:max_chars] + "\n... (truncated)"
+    return text
+
+
+def get_examples_context(root: str, max_chars: int = 4000) -> str:
+    """Build a context block from the repo's examples/ directory.
+
+    Lists example files and includes the first ~1500 chars of the most
+    instructive ones (quickstart-style scripts). Generic: works for any
+    repo that has an examples/ or examples dir at the root.
+
+    Args:
+        root: Absolute path to the repo root.
+        max_chars: Truncate the result to this many characters.
+
+    Returns:
+        Multi-line string, or empty string if no examples found.
+    """
+    for cand in ("examples", "example", "examples/", "scripts"):
+        ex_dir = os.path.join(root, cand.rstrip("/"))
+        if os.path.isdir(ex_dir):
+            break
+    else:
+        return ""
+
+    files = []
+    for f in sorted(os.listdir(ex_dir)):
+        if f.endswith((".py", ".ipynb", ".sh")):
+            files.append(f)
+    if not files:
+        return ""
+
+    lines = [f"Files in {os.path.basename(ex_dir)}/: {', '.join(files)}"]
+    # Include the first few .py examples (most likely to be quickstarts)
+    included = 0
+    for f in files:
+        if not f.endswith(".py") or included >= 3:
+            continue
+        full = os.path.join(ex_dir, f)
+        try:
+            with open(full, "r", encoding="utf-8", errors="replace") as fh:
+                content = fh.read(1500)
+        except OSError:
+            continue
+        lines.append(f"\n### {f} (excerpt)\n```python\n{content}\n```")
+        included += 1
+
+    text = "\n".join(lines)
+    if len(text) > max_chars:
+        text = text[:max_chars] + "\n... (truncated)"
+    return text
+
+
+def extract_cli_surface(pkg_path: str, max_chars: int = 8000) -> str:
+    """Extract the argparse CLI surface from the package source.
+
+    Walks all .py files, finds ``argparse.ArgumentParser`` +
+    ``add_subparsers`` + ``add_parser`` + ``add_argument`` calls, and
+    returns a structured list of (prog, subcommand, flags, defaults, help).
+
+    This is injected into narrative-generation prompts for CLI-related
+    pages so the LLM can only document commands and flags that actually
+    exist. Generic: works for any repo with an argparse-based CLI.
+
+    Args:
+        pkg_path: Absolute path to the package directory.
+        max_chars: Truncate the result to this many characters.
+
+    Returns:
+        Multi-line string describing the real CLI surface, or empty
+        string if no argparse usage found.
+    """
+    cli_files = []  # list of (prog, subcommands)
+    # subcommands: dict of subcommand_name -> list of (flag, type, default, help)
+
+    for dirpath, _, filenames in os.walk(pkg_path):
+        for f in sorted(filenames):
+            if not f.endswith(".py"):
+                continue
+            full = os.path.join(dirpath, f)
+            try:
+                with open(full, "r", encoding="utf-8", errors="replace") as fh:
+                    tree = ast.parse(fh.read())
+            except SyntaxError:
+                continue
+
+            # Check if this file uses argparse
+            uses_argparse = False
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Import):
+                    for alias in node.names:
+                        if alias.name == "argparse":
+                            uses_argparse = True
+                elif isinstance(node, ast.ImportFrom):
+                    if node.module and "argparse" in node.module:
+                        uses_argparse = True
+            if not uses_argparse:
+                continue
+
+            # Extract prog name from ArgumentParser(...) call
+            prog = None
+            subparsers_var = None  # variable name holding the subparsers
+            subcommands = {}  # subcommand_name -> {"help": str, "args": [...]}
+
+            for node in ast.walk(tree):
+                if not isinstance(node, ast.Call):
+                    continue
+                func = node.func
+
+                # ArgumentParser(...)
+                if isinstance(func, ast.Attribute) and func.attr == "ArgumentParser":
+                    for kw in node.keywords:
+                        if kw.arg == "prog" and isinstance(kw.value, ast.Constant):
+                            prog = kw.value.value
+
+                # add_subparsers(...)
+                elif isinstance(func, ast.Attribute) and func.attr == "add_subparsers":
+                    # Capture the variable this is assigned to
+                    pass
+
+                # add_parser("name", help="...")
+                elif isinstance(func, ast.Attribute) and func.attr == "add_parser":
+                    sub_name = None
+                    sub_help = ""
+                    if node.args and isinstance(node.args[0], ast.Constant):
+                        sub_name = node.args[0].value
+                    for kw in node.keywords:
+                        if kw.arg == "help" and isinstance(kw.value, ast.Constant):
+                            sub_help = kw.value.value
+                    if sub_name:
+                        subcommands[sub_name] = {"help": sub_help, "args": []}
+
+                # add_argument(...)
+                elif isinstance(func, ast.Attribute) and func.attr == "add_argument":
+                    # Determine which subparser this belongs to
+                    # (we can't easily track the receiver, so we attach
+                    #  to the most recently seen subcommand, or to root)
+                    flags = []
+                    arg_type = None
+                    default = None
+                    help_text = ""
+                    for arg in node.args:
+                        if isinstance(arg, ast.Constant):
+                            flags.append(arg.value)
+                    for kw in node.keywords:
+                        if kw.arg == "type" and isinstance(kw.value, ast.Name):
+                            arg_type = kw.value.id
+                        elif kw.arg == "default":
+                            if isinstance(kw.value, ast.Constant):
+                                default = repr(kw.value.value)
+                            elif isinstance(kw.value, ast.NameConstant):
+                                default = repr(kw.value.value)
+                        elif kw.arg == "help" and isinstance(kw.value, ast.Constant):
+                            help_text = kw.value.value
+
+                    # Attach to the last subcommand seen, or to root
+                    # (simplification: attach to all subcommands if any,
+                    #  else to root — good enough for prompt context)
+                    if subcommands:
+                        # Attach to the last subcommand
+                        last_sub = list(subcommands.keys())[-1]
+                        subcommands[last_sub]["args"].append(
+                            (flags, arg_type, default, help_text)
+                        )
+                    else:
+                        if "root" not in subcommands:
+                            subcommands["root"] = {"help": "", "args": []}
+                        subcommands["root"]["args"].append(
+                            (flags, arg_type, default, help_text)
+                        )
+
+            if prog or subcommands:
+                cli_files.append((prog or "unknown", subcommands))
+
+    if not cli_files:
+        return ""
+
+    lines = []
+    for prog, subcommands in cli_files:
+        lines.append(f"Program: {prog}")
+        if "root" in subcommands and subcommands["root"]["args"]:
+            lines.append("  Root-level arguments:")
+            for flags, arg_type, default, help_text in subcommands["root"]["args"]:
+                flag_str = " ".join(flags)
+                type_str = f" (type: {arg_type})" if arg_type else ""
+                default_str = f" (default: {default})" if default else ""
+                help_str = f" — {help_text}" if help_text else ""
+                lines.append(f"    {flag_str}{type_str}{default_str}{help_str}")
+        for sub_name, sub_info in subcommands.items():
+            if sub_name == "root":
+                continue
+            help_str = f" — {sub_info['help']}" if sub_info["help"] else ""
+            lines.append(f"  Command: {sub_name}{help_str}")
+            for flags, arg_type, default, help_text in sub_info["args"]:
+                flag_str = " ".join(flags)
+                type_str = f" (type: {arg_type})" if arg_type else ""
+                default_str = f" (default: {default})" if default else ""
+                h_str = f" — {help_text}" if help_text else ""
+                lines.append(f"    {flag_str}{type_str}{default_str}{h_str}")
+
+    text = "\n".join(lines)
+    if len(text) > max_chars:
+        text = text[:max_chars] + "\n... (truncated)"
+    return text
 
 
 def build_api_reference(cfg) -> List[str]:

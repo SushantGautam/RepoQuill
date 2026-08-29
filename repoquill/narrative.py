@@ -22,7 +22,13 @@ from typing import Dict, List
 
 from repoquill.llm import strip_code_fences
 from repoquill.plan import page_needs_regeneration
-from repoquill.reference import get_file_tree, get_source_files
+from repoquill.reference import (
+    extract_api_surface,
+    extract_cli_surface,
+    get_examples_context,
+    get_file_tree,
+    get_source_files,
+)
 
 
 def determine_structure(cfg, client) -> List[dict]:
@@ -82,7 +88,8 @@ Rules:
 - Return ONLY the JSON array, no markdown fences"""
 
     result = client.chat([{"role": "user", "content": prompt}],
-                         max_tokens=2048, temperature=0.1)
+                         max_tokens=2048,
+                         temperature=getattr(cfg.llm, "plan_temperature", 0.1))
     pages = json.loads(strip_code_fences(result))
     return pages
 
@@ -110,17 +117,55 @@ def generate_page(
     title = page["title"]
     desc = page.get("description", "")
     files = page.get("source_files", [])
+    llm = cfg.llm
+
+    per_file = getattr(llm, "per_file_budget", 12000)
+    total_budget = getattr(llm, "context_budget", 60000)
 
     code_context = ""
     for f in files:
         if f in source_files:
             content = source_files[f]
-            if len(content) > 12000:
-                content = content[:12000] + "\n# ... (truncated)"
+            if len(content) > per_file:
+                content = content[:per_file] + "\n# ... (truncated)"
             code_context += f"\n### {f}\n```\n{content}\n```\n"
 
-    if len(code_context) > 60000:
-        code_context = code_context[:60000] + "\n# ... (context truncated)"
+    if len(code_context) > total_budget:
+        code_context = code_context[:total_budget] + "\n# ... (context truncated)"
+
+    # --- Ground-truth enrichment blocks (all generic, AST/FS-derived) ---
+    api_surface = ""
+    if getattr(llm, "include_api_surface", True):
+        try:
+            api_surface = extract_api_surface(cfg.pkg_path)
+        except Exception:  # noqa: BLE001
+            api_surface = ""
+
+    readme = ""
+    if getattr(llm, "include_readme", True):
+        readme_path = os.path.join(cfg.root, "README.md")
+        if os.path.exists(readme_path):
+            with open(readme_path, "r", encoding="utf-8", errors="replace") as f:
+                readme = f.read()[:3000]
+
+    examples = ""
+    if getattr(llm, "include_examples", True):
+        try:
+            examples = get_examples_context(cfg.root)
+        except Exception:  # noqa: BLE001
+            examples = ""
+
+    # --- CLI surface (E2): inject for CLI-related pages only ---
+    cli_surface = ""
+    if getattr(llm, "include_api_surface", True):
+        slug_lower = page["slug"].lower()
+        title_lower = title.lower()
+        if any(kw in slug_lower or kw in title_lower
+               for kw in ("cli", "command", "terminal", "shell", "command-line")):
+            try:
+                cli_surface = extract_cli_surface(cfg.pkg_path)
+            except Exception:  # noqa: BLE001
+                cli_surface = ""
 
     existing_path = os.path.join(cfg.out_guides, f"{page['slug']}.md")
     old_content = ""
@@ -132,17 +177,47 @@ def generate_page(
     tagline = cfg.index.get("tagline", "").strip()
     tagline_block = f"\nPROJECT CONTEXT: {cfg.project_name} is: {tagline}\n" if tagline else ""
 
+    strict = getattr(llm, "strict_prompt", True)
+
+    if strict:
+        rules_block = """ABSOLUTE RULES (violating any of them makes the document useless):
+1. NEVER invent a class, function, method, parameter, CLI flag, environment variable, or configuration option that is not present in the source code or API surface you were given.
+2. Every code example MUST use only symbols (classes, functions, parameters) that appear verbatim in the REAL API SURFACE list or the source code.
+3. If you are not sure whether something exists in the source, DO NOT write it. Omit it instead.
+4. Do not describe behavior you cannot see in the source. No speculation about internals.
+5. If the source does not contain the entry point you need for an example, say so explicitly instead of inventing one.
+6. Prefer fewer, verified claims over more, plausible-sounding ones.
+"""
+    else:
+        rules_block = ""
+
+    enrichment = ""
+    if cli_surface:
+        enrichment += (
+            f"\nREAL CLI SURFACE (extracted from argparse — the ONLY commands and flags that exist):\n"
+            f"{cli_surface}\n"
+            f"CRITICAL: The CLI has EXACTLY the commands and flags listed above. "
+            f"Do NOT invent additional commands, subcommands, or flags. "
+            f"Do NOT describe the CLI as doing anything it does not do.\n"
+        )
+    if api_surface:
+        enrichment += f"\nREAL API SURFACE (extracted from source — the only symbols that exist):\n{api_surface}\n"
+    if readme:
+        enrichment += f"\nREADME (excerpt):\n{readme}\n"
+    if examples:
+        enrichment += f"\nEXAMPLES FROM THE REPO (real example files — prefer their patterns):\n{examples}\n"
+
     if old_content:
         prompt = f"""You are a senior technical writer maintaining developer documentation for the {cfg.project_name} Python library.
 {tagline_block}
 A documentation page already exists. The source code it documents has changed.
 Your job is to UPDATE the existing page to reflect the current source code.
-
+{rules_block}
 EXISTING PAGE (keep as much of this as still accurate):
 <existing_page>
 {old_content}
 </existing_page>
-
+{enrichment}
 CURRENT SOURCE CODE:
 {code_context}
 
@@ -163,7 +238,8 @@ Return ONLY the complete updated markdown page, no preamble."""
 {tagline_block}
 Write a complete documentation page titled "{title}".
 Description: {desc}
-
+{rules_block}
+{enrichment}
 SOURCE CODE CONTEXT:
 {code_context}
 
@@ -171,11 +247,11 @@ REQUIREMENTS:
 - Write in clear, professional technical English
 - The documentation MUST accurately reflect what the source code actually does. Do NOT invent functionality that is not present in the code.
 - Include a brief overview of what this module/subsystem does
-- Document all public classes, functions, and their parameters
-- Include code examples showing how to use the API
+- Document all public classes, functions, and their parameters that appear in the source above
+- Include code examples showing how to use the API — ONLY using symbols from the REAL API SURFACE list. If an example needs a symbol not in the list, do not write that example.
 - Use proper Markdown with headers (##, ###), code blocks, and tables where appropriate
 - Reference specific class names, function names, and file paths
-- If the source shows configuration options, document them
+- If the source shows configuration options or environment variables, document them exactly as they appear
 - Keep it practical: a developer should be able to use the library after reading this page
 - Start with a ## {title} header
 - Do NOT include a title (# header) - just start with ##
@@ -184,11 +260,12 @@ REQUIREMENTS:
 Return ONLY the markdown content, no preamble."""
 
     # Temperature: conservative for updates (preserve existing content),
-    # more creative for new pages. max_tokens: enough for a full doc page.
-    temp = 0.3 if old_content else 0.7
+    # configurable for new pages. max_tokens: enough for a full doc page.
+    temp = getattr(llm, "update_temperature", 0.3) if old_content \
+        else getattr(llm, "temperature", 0.7)
     content = client.chat(
         [{"role": "user", "content": prompt}],
-        max_tokens=8192,
+        max_tokens=getattr(llm, "max_tokens", 8192),
         temperature=temp,
     )
     return content
