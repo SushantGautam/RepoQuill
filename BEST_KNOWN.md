@@ -1,10 +1,10 @@
 # BEST_KNOWN
 
-**Last updated:** 2026-08-29 (after E20)
+**Last updated:** 2026-08-29 (after E21)
 
 ## Best-Known State
 
-**E8+E9+E10+E13+E13b+E14+E19 (grounding pass)** — 54.6% coverage v2 (mean of 3 runs), 0.0% invented-symbol rate, 5.2% broken examples, 11.3 prose findings mean
+**E8+E9+E10+E13+E13b+E14+E19+E21 (grounding pass with prose+semantic checkers)** — 56.4% coverage v2, 0.0% invented-symbol rate, 5.2% broken examples, 2 prose findings, 1 semantic finding
 - 11 deterministic pages from `narrative_sections` config
 - 0 invented symbol names
 - **Coverage metric:** v2 (substantive-mention, E15) — old substring metric inflated by ~10pp
@@ -13,6 +13,10 @@
   injected into prompt via AST walk.
 - **E19:** grounding pass — prose findings 44.3→11.3 (74.5% reduction), zero coverage loss.
   Config flag `grounding_pass: true` (default false).
+- **E21:** grounding pass now consumes BOTH prose AND semantic checker findings.
+  Semantic findings 12→1 (91.7% reduction): all 3 `language="en"` → `"English"` fixed,
+  8/9 event-loop caveats added. Coverage 54.6→56.4% (+1.8pp, no regression).
+  Hallucination 0.0%. Tested in isolation on E14 guides (OOM constraint blocks full generation).
 
 **E13 (surgical verify pass):** deterministic post-generation edit step. Property-call fix
 is genuine. Committed as `18f365d`.
@@ -226,15 +230,33 @@ only flags string values that are strict prefixes of the source default. Evaluat
 infrastructure only; no RepoQuill code change. Confirms E19 grounding pass cannot fix
 these (same findings on E19 docs) — they are outside the prose checker's finding types.
 
-## E21 — Wire Semantic Checker into Grounding Pass
+## E21 — Wire Semantic Checker into Grounding Pass + Test
 
-`grounding.py` already consumes `semantic_value_check` findings alongside prose findings
-(wired in by RETRO3 subagents). The `_fix_page_grounding` prompt includes specific
-instructions for STRING_VALUE_MISMATCH and MISSING_CAVEAT. **Status: COMPLETE.**
+`grounding.py` extended to run BOTH the prose checker and the semantic value checker,
+merge findings, and send the combined list to the LLM for correction. The
+`_fix_page_grounding` prompt includes type-specific instructions for
+STRING_VALUE_MISMATCH (change value to match source default) and MISSING_CAVEAT (add
+brief caveat note).
+
+**Test results (isolated, on E14 guides):**
+
+| Metric | E14 (pre) | E19 (prose-only) | E21 (prose+semantic) |
+|--------|-----------|-----------------|---------------------|
+| Semantic findings | 12 | 12 | **1** (91.7% reduction) |
+| Prose findings | 44.3 | 11.3 | **2** |
+| Coverage (v2) | 54.6% | 54.6% | **56.4%** |
+| Hallucination rate | 0.0% | 0.3% | **0.0%** |
+| Pages fixed | — | — | 10 |
+| Total findings (before→after) | — | — | 60→3 |
+
+All 3 `language="en"` → `"English"` fixed. 8/9 event-loop caveats added (1 remaining is
+a false negative: `exp.run()` is `AuditExperiment.run()`, not `ModelAuditor.run()`).
+
+**Decision: KEEP.** Closes the E20 loop: checker detects → grounding pass fixes →
+re-checker verifies. 91.7% semantic finding reduction with zero coverage regression
+(+1.8pp) and zero hallucination regression (0.0%).
 
 ## Next Experiment
 
-**E22 — Re-run grounding with semantic checker.** 3 runs of E14 baseline + grounding pass
-(prose + semantic checkers). Tests whether the grounding pass fixes the known RETRO3
-errors (language="en", missing event-loop caveat) with no coverage loss. IN PROGRESS.
-See NEXT_EXPERIMENT.md.
+**RETRO4** — 5th experiment since RETRO3 (E17, RETRO3, E19, E20, E21). Run
+research retrospective with independent subagents. See NEXT_EXPERIMENT.md.

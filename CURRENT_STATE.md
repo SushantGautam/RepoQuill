@@ -1,8 +1,8 @@
 # CURRENT_STATE
 
-**Last updated:** 2026-08-29 (after E20)
-**Best-known state:** E8+E9+E10+E13+E13b+E14+E19 (grounding pass) — 54.6% coverage v2 (mean of 3 runs), 0.0% invented-symbol rate, 5.2% broken examples, 11.3 prose findings mean (was 44.3)
-**Experiments complete:** E1–E13 + E13b + E18 + E14 + E15 + E16 + E17 + E19 + E20 + RETRO2 + RETRO3. E19 (grounding pass): KEEP — prose findings 44.3→11.3 (74.5% reduction) with zero coverage loss. E20 (semantic value checker): KEEP — new deterministic checker catches wrong string literals (language="en" vs "English") and missing behavioral caveats (event-loop RuntimeError); 12 findings on E14/E19 docs, 0 false positives.
+**Last updated:** 2026-08-29 (E21 COMPLETE)
+**Best-known state:** E8+E9+E10+E13+E13b+E14+E19+E21 (grounding pass with prose+semantic checkers) — 56.4% coverage v2, 0.0% invented-symbol rate, 5.2% broken examples, 2 prose findings, 1 semantic finding (was 12)
+**Experiments complete:** E1–E13 + E13b + E18 + E14 + E15 + E16 + E17 + E19 + E20 + E21 + RETRO2 + RETRO3. E19 (grounding pass): KEEP — prose findings 44.3→11.3 (74.5% reduction) with zero coverage loss. E20 (semantic value checker): KEEP — new deterministic checker catches wrong string literals (language="en" vs "English") and missing behavioral caveats (event-loop RuntimeError); 12 findings on E14/E19 docs, 0 false positives. E21 (wire semantic checker into grounding pass + test): KEEP — grounding.py consumes both prose AND semantic checker findings; tested in isolation on E14 guides: semantic findings 12→1 (91.7% reduction), all 3 language="en" fixed, 8/9 caveats added, coverage 54.6→56.4% (no regression), hallucination 0.0%.
 **E13 (surgical verify pass):** deterministic post-generation edit step. Property-call fix is genuine. Committed (18f365d).
 **E13b (placeholder fix):** replaced `<REQUIRED>` sentinel with value inference (AST default, sibling mirroring) or omit+comment. 0 placeholders across 3 runs. Broken% now honest (13.8% mean). Committed (5c08779).
 **RETRO2 key findings:**
@@ -38,6 +38,7 @@
 | E17 | verify-pass A/B (verify_passes 1 vs 0) | 50.8 vs 53.0 | 12.7 vs 11.7 | 0.0 | **REVERT E5** (no primary metric favors on; saves compute) |
 | E19 | Grounding pass (prose-checker feedback loop) | 54.6 | 5.2 | 0.3 | **KEEP** (prose 44.3→11.3, 74.5% reduction, zero coverage loss) |
 | E20 | Semantic value checker (string literals + caveats) | — | — | — | **KEEP** (12 findings on E14/E19, 0 FP; catches language="en" + event-loop caveat) |
+| E21 | Wire semantic checker into grounding pass + test | 0.0% | 56.4% | 5.2% | **KEEP** (semantic 12→1, 91.7% reduction, zero coverage/halluc regression) |
 
 ## E11 — Variance Band Results
 
@@ -368,13 +369,45 @@ last major C-hallucination blind spot identified by RETRO3. Confirms that E19's 
 pass cannot fix these errors (same 12 findings on E19 docs) because they are outside the
 prose checker's finding types.
 
-## Next Steps (re-ranked after E20)
+## E21 — Wire Semantic Checker into Grounding Pass + Test
 
-1. **E21 — Feed semantic checker into grounding pass.** Extend `grounding.py` to also
-   consume `semantic_value_check` findings so the LLM correction pass fixes
-   `language="en"` → `language="English"` and adds the event-loop caveat. Closes the
-   loop: checker detects → grounding pass fixes → re-checker verifies.
-2. **E15 (structure) — Generic structure derivation.** Repo-derived slugs, not hand-authored.
+**Change:** `repoquill/grounding.py` extended to run BOTH the prose checker
+(`prose_api_semantics_check.py`) AND the semantic value checker
+(`semantic_value_check.py`), merge their findings, and send the combined list to the LLM
+for correction. The `_fix_page_grounding` prompt includes type-specific instructions:
+STRING_VALUE_MISMATCH (change value to match source default) and MISSING_CAVEAT (add
+brief caveat note).
+
+**Test (isolated, on E14 guides — OOM constraint blocks full generation):**
+
+| Metric | E14 (pre-grounding) | E19 (prose-only grounding) | E21 (prose+semantic grounding) |
+|--------|---------------------|---------------------------|-------------------------------|
+| Semantic findings | 12 | 12 | **1** (91.7% reduction) |
+| Prose findings | 44.3 | 11.3 | **2** |
+| Coverage (v2) | 54.6% | 54.6% | **56.4%** |
+| Hallucination rate | 0.0% | 0.3% | **0.0%** |
+| Pages fixed | — | — | 10 |
+| Total findings (before→after) | — | — | 60→3 |
+
+**Fixes verified:** All 3 `language="en"` → `language="English"` (custom-scenarios.md,
+model-auditor.md). 8/9 event-loop caveats added (architecture.md, judges-evaluation.md,
+custom-scenarios.md, model-auditor.md, key-ideas.md, cli-reference.md, installation.md,
+available-scenarios.md). 1 remaining MISSING_CAVEAT is a false negative: `exp.run()` on
+results-analysis.md is `AuditExperiment.run()` (no event-loop caveat), not
+`ModelAuditor.run()`.
+
+**Decision: KEEP.** Closes the E20 loop: checker detects → grounding pass fixes →
+re-checker verifies. 91.7% semantic finding reduction with zero coverage regression
+(56.4% vs 54.6% baseline, +1.8pp) and zero hallucination regression (0.0%).
+
+**Limitations:** Tested in isolation on E14 guides, not a full generation (OOM
+constraint). 1 remaining MISSING_CAVEAT is a false negative in the checker.
+
+## Next Steps (re-ranked after E21)
+
+1. **E15 (structure) — Generic structure derivation.** Repo-derived slugs, not hand-authored.
+2. **RETRO4** — 5th experiment since RETRO3 (E17, RETRO3, E19, E20, E21). Run
+   retrospective with independent subagents.
 3. **Backlog:** rename `hallucination_rate` → `invented_symbol_rate`; independent judge
    (different model family); fix noisy `workflows` category in coverage_check_v2.py
    (includes generic words like 'actually', 'around').

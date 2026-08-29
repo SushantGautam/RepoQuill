@@ -59,11 +59,32 @@ def run_grounding_pass(
         check_data = json.load(f)
 
     findings = check_data.get("findings", [])
+
+    # Also run the semantic value checker (E20) and merge its findings
+    sem_checker = os.path.join(os.path.dirname(__file__), "..", "eval", "semantic_value_check.py")
+    sem_checker = os.path.normpath(sem_checker)
+    if not os.path.exists(sem_checker):
+        sem_checker = os.path.join(os.getcwd(), "eval", "semantic_value_check.py")
+    sem_out_json = os.path.join(guides_dir, ".semantic_check_grounding.json")
+    try:
+        result = subprocess.run(
+            [sys.executable, sem_checker, pkg_path, guides_dir, sem_out_json],
+            capture_output=True, text=True, timeout=120,
+        )
+        if result.returncode == 0:
+            with open(sem_out_json, "r", encoding="utf-8") as f:
+                sem_data = json.load(f)
+            sem_findings = sem_data.get("findings", [])
+            findings.extend(sem_findings)
+    except Exception as e:  # noqa: BLE001
+        print(f"    grounding: semantic checker error: {e}")
+
     findings_before = len(findings)
     if not findings:
-        # Clean up temp file
-        if os.path.exists(out_json):
-            os.remove(out_json)
+        # Clean up temp files
+        for tmp in (out_json, sem_out_json):
+            if os.path.exists(tmp):
+                os.remove(tmp)
         return {"findings_before": 0, "findings_after": 0, "pages_fixed": 0}
 
     # Group findings by page
@@ -98,7 +119,7 @@ def run_grounding_pass(
         if fixed:
             pages_fixed += 1
 
-    # Re-run prose checker to get findings_after
+    # Re-run both checkers to get findings_after
     findings_after = 0
     try:
         result = subprocess.run(
@@ -108,13 +129,25 @@ def run_grounding_pass(
         if result.returncode == 0:
             with open(out_json, "r", encoding="utf-8") as f:
                 after_data = json.load(f)
-            findings_after = len(after_data.get("findings", []))
+            findings_after += len(after_data.get("findings", []))
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        result = subprocess.run(
+            [sys.executable, sem_checker, pkg_path, guides_dir, sem_out_json],
+            capture_output=True, text=True, timeout=120,
+        )
+        if result.returncode == 0:
+            with open(sem_out_json, "r", encoding="utf-8") as f:
+                sem_after = json.load(f)
+            findings_after += len(sem_after.get("findings", []))
     except Exception:  # noqa: BLE001
         pass
 
-    # Clean up temp file
-    if os.path.exists(out_json):
-        os.remove(out_json)
+    # Clean up temp files
+    for tmp in (out_json, sem_out_json):
+        if os.path.exists(tmp):
+            os.remove(tmp)
 
     return {
         "findings_before": findings_before,
@@ -134,12 +167,30 @@ def _fix_page_grounding(
     with open(page_path, "r", encoding="utf-8") as f:
         content = f.read()
 
-    findings_text = "\n".join(
-        f"- [{f['type']}] {f.get('name', 'N/A')} ({f.get('class', 'N/A')}): {f['detail']}\n"
-        f"  Source truth: {f.get('source_truth', 'N/A')}\n"
-        f"  Context: {f.get('context', 'N/A')}"
-        for f in findings
-    )
+    findings_lines = []
+    for f in findings:
+        ftype = f.get("type", "UNKNOWN")
+        if ftype == "STRING_VALUE_MISMATCH":
+            findings_lines.append(
+                f"- [STRING_VALUE_MISMATCH] {f.get('call', 'N/A')}({f.get('param', 'N/A')}={f.get('doc_value', 'N/A')!r}) "
+                f"but source default is {f.get('source_default', 'N/A')!r}. "
+                f"Fix: change the value to match the source default."
+            )
+        elif ftype == "MISSING_CAVEAT":
+            findings_lines.append(
+                f"- [MISSING_CAVEAT] {f.get('method', 'N/A')}() raises an exception under "
+                f"specific runtime conditions but the page doesn't mention it. "
+                f"Caveat: {f.get('caveat', 'N/A')}. "
+                f"Fix: add a brief note about this caveat near where the method is used."
+            )
+        else:
+            # Prose checker finding types
+            findings_lines.append(
+                f"- [{ftype}] {f.get('name', 'N/A')} ({f.get('class', 'N/A')}): {f.get('detail', 'N/A')}\n"
+                f"  Source truth: {f.get('source_truth', 'N/A')}\n"
+                f"  Context: {f.get('context', 'N/A')}"
+            )
+    findings_text = "\n".join(findings_lines)
 
     prompt = f"""You are a documentation editor. The following page contains factual
 errors about the API. Fix ONLY the specific errors listed below. Do not change
@@ -158,12 +209,16 @@ any other content, formatting, or structure.
 
 INSTRUCTIONS:
 - Fix ONLY the flagged claims. For each finding, correct the specific error
-  described in the "Source truth" field.
+  described.
 - If a finding is about a method being called as a property (or vice versa),
   change the syntax to match the source.
 - If a finding is about a return type or argument type, correct the description
   to match the source signature.
-- Do NOT add new content, examples, or sections.
+- If a finding is STRING_VALUE_MISMATCH, change the string literal value in the
+  code block to match the source default exactly.
+- If a finding is MISSING_CAVEAT, add a brief one-line note (as a comment in the
+  code block or a sentence in the prose) mentioning the caveat. Keep it concise.
+- Do NOT add new sections or examples.
 - Do NOT remove accurate content.
 - Preserve all formatting, headings, and structure.
 - Return ONLY the complete fixed markdown page, no preamble or explanation."""

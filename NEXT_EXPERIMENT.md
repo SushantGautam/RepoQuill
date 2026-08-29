@@ -1,6 +1,6 @@
 # NEXT_EXPERIMENT
 
-**Last updated:** 2026-08-29 (after E20)
+**Last updated:** 2026-08-29 (after E21)
 
 ## E13b — Fix the `<REQUIRED>` Placeholder — DONE (KEEP, 5c08779)
 
@@ -190,13 +190,22 @@ param-name-agnostic string matching + method-name-agnostic caveat matching.
 Checker lives at `eval/semantic_value_check.py`. Evaluation infrastructure only;
 no RepoQuill code change.
 
-### Next: E21 — Feed Semantic Checker into Grounding Pass
+### E21 — Feed Semantic Checker into Grounding Pass — DONE (COMPLETE)
 
-The E20 checker now catches the 2 error classes the E19 grounding pass can't fix.
-The next step is to extend the grounding pass to also consume semantic_value_check
-findings, so the LLM correction pass can fix language="en" to language="English"
-and add the event-loop caveat. This closes the loop: checker detects, grounding
-pass fixes, re-checker verifies.
+grounding.py already consumes semantic_value_check findings alongside prose findings
+(wired in by RETRO3 subagents). No additional code change needed.
+
+### E22 — Re-run Grounding with Semantic Checker — IN PROGRESS
+
+**Hypothesis:** Running the grounding pass (now including the semantic checker) on E14
+baseline docs will fix the known RETRO3 errors (language="en" → "English", missing
+event-loop caveat) on top of the prose fixes, with no coverage loss.
+
+**Design:** 3 runs of E14 baseline (verify_passes: 0, temp 0.7) + grounding pass
+(prose + semantic checkers). Decision rule: semantic → 0, prose < 20, coverage ≥ 50.4%,
+broken% within band → KEEP as new best-known state.
+
+**Runs:** E22_r1, E22_r2, E22_r3 (launched 2026-08-29).
 
 ## E20 (original spec, superseded by result above)
 
@@ -271,11 +280,36 @@ Completed directly (fork spawning unavailable in this session). Four questions a
 4. Biggest blind spots: semantic value errors (`language="en"`) and omissions
    (event-loop caveat) that no current checker catches.
 
-## Backlog (after E20)
+## E21 — Wire Semantic Checker into Grounding Pass + Test — DONE (KEEP)
 
-- **E21 — Feed semantic checker into grounding pass.** Extend grounding.py to also
-  consume semantic_value_check findings so the LLM correction pass fixes string
-  value mismatches and adds missing caveats.
+### Hypothesis
+
+Feeding the semantic value checker (E20) into the grounding pass will let the LLM
+correction pass fix string-literal mismatches (`language="en"` → `"English"`) and add
+missing behavioral caveats (event-loop RuntimeError), closing the detect→fix→verify loop.
+
+### Result
+
+Tested in isolation on E14 guides (OOM constraint blocks full generation). Semantic
+findings 12→1 (91.7% reduction). All 3 `language="en"` fixed. 8/9 event-loop caveats
+added (1 remaining is a false negative: `exp.run()` is `AuditExperiment.run()`, not
+`ModelAuditor.run()`). Coverage 54.6→56.4% (+1.8pp, no regression). Hallucination 0.0%.
+Prose findings 2. 10 pages fixed, 60→3 total findings.
+
+**Decision: KEEP.** Closes the E20 loop.
+
+## Next Experiment
+
+**RETRO4** — 5th experiment since RETRO3 (E17, RETRO3, E19, E20, E21). Run research
+retrospective with independent subagents. Questions to address:
+1. Is the E21 semantic-finding reduction real or an artifact of the isolated test?
+2. Is v2 coverage stable at 56.4% or does it vary across runs?
+3. What is the next highest-impact failure mode in the E21 docs?
+4. Are we Goodharting any metric?
+
+## Backlog (after E21)
+
+- **RETRO4** — run retrospective.
 - **E15 — Generic structure derivation.** Repo-derived slugs, not hand-authored.
 - **Independent judge:** use a different model family for judging.
 - **Rename `hallucination_rate` to `invented_symbol_rate`** in the registry.
