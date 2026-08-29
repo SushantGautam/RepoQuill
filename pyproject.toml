@@ -24,6 +24,7 @@ classifiers = [
 dependencies = [
     "griffe>=0.36",
     "litellm>=1.40",
+    "openai>=1.0",
     "requests>=2.28",
     "PyYAML>=6.0",
     "mkdocs>=1.5",
