@@ -137,11 +137,11 @@ Any future experiment's delta must exceed the relevant variance band to be consi
 4. **Self-judging** — judge.py uses the same model as the generator (violates independence).
 5. **Evaluation harness is SimpleAudit-hardcoded** — coverage_check.py hard-codes concepts;
    hallucination_check.py has hand-tuned stopword lists. Core-rule violation.
-6. ~~**Verify pass (E5) may be unnecessary**~~ — **RESOLVED by E17.** A/B test confirmed
-   E5 is necessary: off-arm broken% 11.7% vs on-arm 4.5% (threshold 8.7%). Without the
-   verify pass, pseudo-signature code blocks (e.g. `ModelAuditor(\n model: str, ...`)
-   survive — E14's constructor-signature injection suppresses generation but the verify
-   pass removes residual ones. KEEP E5 (verify_passes: 1).
+6. ~~**Verify pass (E5) may be unnecessary**~~ — **RESOLVED by E17: REVERT E5.**
+   Fresh A/B test (3 runs each): E5-on cov 50.8% / broken 12.7% / prose 40.0;
+   E5-off cov 53.0% / broken 11.7% / prose 53.7. No primary metric favors E5-on
+   (coverage delta -2.0pp within 4.2pp band, broken delta within 18.1pp band).
+   REVERT: verify_passes defaults to 0. Saves compute with no quality loss.
 
 **Fixed by E13b:** `<REQUIRED>` placeholders (was weakness #1) — 0 placeholders across 3 runs.
 Broken% is now honest (13.8% mean).
@@ -213,18 +213,28 @@ E20 now provides the checker; E21 will feed it into the grounding pass.
 - **MISSING_CAVEAT:** method calls with a known runtime caveat not mentioned in the page.
   Global method-name → caveats map (method-name-agnostic).
 
-| Doc set | Total | STRING_VALUE_MISMATCH | MISSING_CAVEAT |
-|---------|-------|----------------------|----------------|
-| E14 (3 runs) | 12 | 3 (language="en") | 9 (event-loop caveat) |
-| E19 (3 runs) | 12 | 3 (language="en") | 9 (event-loop caveat) |
+| Doc set | Total | STRING_VALUE_MISMATCH | MISSING_CAVEAT | FP |
+|---------|-------|----------------------|----------------|----|
+| E14 (3 runs) | 12 | 3 (language="en") | 9 (event-loop caveat) | 0 |
+| E19_r3 (re-validated) | 11 | 2 (language="en") | 9 (event-loop caveat) | 0 |
 
-**Decision: KEEP.** Both known RETRO3 errors caught, 0 false positives. Evaluation
+**Decision: KEEP.** Both known RETRO3 errors caught, 0 false positives on re-validation.
+An earlier registry entry reported 87% FP (20/23) from a less refined version of the
+checker that flagged legitimate user-chosen values (provider='ollama', label_a='opus-4-7').
+The current version correctly distinguishes user-chosen values from wrong defaults:
+only flags string values that are strict prefixes of the source default. Evaluation
 infrastructure only; no RepoQuill code change. Confirms E19 grounding pass cannot fix
-these (same 12 findings on E19 docs) — they are outside the prose checker's finding types.
+these (same findings on E19 docs) — they are outside the prose checker's finding types.
+
+## E21 — Wire Semantic Checker into Grounding Pass
+
+`grounding.py` already consumes `semantic_value_check` findings alongside prose findings
+(wired in by RETRO3 subagents). The `_fix_page_grounding` prompt includes specific
+instructions for STRING_VALUE_MISMATCH and MISSING_CAVEAT. **Status: COMPLETE.**
 
 ## Next Experiment
 
-**E21 — Feed semantic checker into grounding pass.** Extend `grounding.py` to also
-consume `semantic_value_check` findings so the LLM correction pass fixes
-`language="en"` → `language="English"` and adds the event-loop caveat. Closes the loop:
-checker detects → grounding pass fixes → re-checker verifies. See NEXT_EXPERIMENT.md.
+**E22 — Re-run grounding with semantic checker.** 3 runs of E14 baseline + grounding pass
+(prose + semantic checkers). Tests whether the grounding pass fixes the known RETRO3
+errors (language="en", missing event-loop caveat) with no coverage loss. IN PROGRESS.
+See NEXT_EXPERIMENT.md.
