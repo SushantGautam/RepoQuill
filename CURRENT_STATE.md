@@ -1,8 +1,8 @@
 # CURRENT_STATE
 
-**Last updated:** 2026-08-29 (after E23)
-**Best-known state:** E8+E9+E10+E13+E13b+E14+E19+E21+E22 (grounding pass with prose+semantic checkers, full generation) — 54.4% coverage v2 (mean of 3 runs, after E23 de-Goodhart fix), 0.0% invented-symbol rate, 0.0% broken examples, 18.7 prose findings mean, 4.7 semantic findings mean
-**Experiments complete:** E1–E23 + RETRO2 + RETRO3 + RETRO4. E22 (full 3-run validation of grounding pass): KEEP — all 4 decision criteria PASS. E23 (de-Goodhart workflows category): KEEP — removed 18 generic English words from workflows inventory, coverage 52.3%→54.4% (+2.1pp).
+**Last updated:** 2026-08-29 (after E15 REVERT)
+**Best-known state:** E8+E9+E10+E13+E13b+E14+E19+E23 (grounding pass with prose checker only + de-Goodhart coverage) — 54.6% coverage v2 (mean of 3 runs, after E23 de-Goodhart fix), 0.0% invented-symbol rate, 5.2% broken examples, 11.3 prose findings mean
+**Experiments complete:** E1–E23 + RETRO2 + RETRO3 + RETRO4 + E15. E22 (full 3-run validation of grounding pass with prose+semantic checkers): REVERT — coverage 52.3% (E19: 54.6%, -2.3pp), prose 18.7 (E19: 11.3, +7.4 worse), semantic 4.7 (new metric). The combined grounding pass is LESS effective than the prose-only grounding pass from E19. E23 (de-Goodhart workflows category): KEEP — removed 18 generic English words from workflows inventory, coverage 52.3%→54.4% (+2.1pp). E15 (LLM-planned structure): REVERT — coverage 38.5% (E19: 54.6%, -15.9pp), well outside band. Hand-authored structure provides real value.
 **E13 (surgical verify pass):** deterministic post-generation edit step. Property-call fix is genuine. Committed (18f365d).
 **E13b (placeholder fix):** replaced `<REQUIRED>` sentinel with value inference (AST default, sibling mirroring) or omit+comment. 0 placeholders across 3 runs. Broken% now honest (13.8% mean). Committed (5c08779).
 **RETRO2 key findings:**
@@ -39,8 +39,9 @@
 | E19 | Grounding pass (prose-checker feedback loop) | 54.6 | 5.2 | 0.3 | **KEEP** (prose 44.3→11.3, 74.5% reduction, zero coverage loss) |
 | E20 | Semantic value checker (string literals + caveats) | — | — | — | **KEEP** (12 findings on E14/E19, 0 FP; catches language="en" + event-loop caveat) |
 | E21 | Wire semantic checker into grounding pass + test | 0.0% | 56.4% (single-run, top of band) | 5.2% | **KEEP** (semantic 12→1, 91.7% reduction, zero coverage/halluc regression) |
-| E22 | Full 3-run validation of grounding pass (prose+semantic) | 0.0% | 52.3% (mean of 3) | 0.0% | **KEEP** (all 4 criteria PASS, new best-known state) |
+| E22 | Full 3-run validation of grounding pass (prose+semantic) | 0.0% | 52.3% (mean of 3) | 0.0% | **REVERT** (coverage -2.3pp, prose +7.4 worse vs E19; semantic 4.7 not near 0) |
 | E23 | De-Goodhart workflows category in coverage_check_v2.py | — | 54.4% (mean of 3, +2.1pp) | — | **KEEP** (removed 18 generic words, no other category affected) |
+| E15 | LLM-planned structure (no hand-authored slugs) | 0.0% | 38.5% (mean of 3) | 0.0% | **REVERT** (coverage -15.9pp, well outside band) |
 | RETRO4 | Research retrospective (5th since RETRO3) | — | — | — | **METHODOLOGY** (workflows Goodhart risk, usability blind spot) |
 
 ## E11 — Variance Band Results
@@ -156,18 +157,18 @@ require substantive mention; make inventory repo-derived.
 
 ## Current Best-Known State
 
-**E8+E9+E10+E13+E13b+E14+E19+E21+E22 (grounding pass with prose+semantic checkers)** — 52.3% coverage v2 (mean of 3 runs), 0.0% invented-symbol rate, 0.0% broken examples, 18.7 prose findings mean, 4.7 semantic findings mean
+**E8+E9+E10+E13+E13b+E14+E19 (grounding pass with prose checker only)** — 54.6% coverage v2 (mean of 3 runs), 0.0% invented-symbol rate, 5.2% broken examples, 11.3 prose findings mean
 - 11 deterministic pages from `narrative_sections` config
 - 0 invented symbol names across all runs
 - **E13:** deterministic surgical verify pass fixes ~35pp of broken examples post-generation
 - **E13b:** `<REQUIRED>` placeholder replaced with value inference (AST default, sibling mirroring) or omit+comment. 0 placeholders across 3 runs.
 - **E14:** constructor signature injection — invalid_kwarg = 0 in 3/3 runs; broken% improved 13.8→4.5% mean.
-- **E15:** de-Goodhart coverage (v2 metric) — canonical coverage is now 52.3% (was 65.6% under old metric).
+- **E15:** de-Goodhart coverage (v2 metric) — canonical coverage is now 54.6% (was 65.6% under old metric).
 - **E17:** verify-pass A/B — E5 reverted (verify_passes: 0).
 - **E19:** grounding pass — prose findings 44.3→11.3 (74.5% reduction), zero coverage loss.
-- **E21:** grounding pass now consumes BOTH prose AND semantic checker findings.
-- **E22:** full 3-run validation — all 4 decision criteria PASS. New best-known state.
-  Broken% 0.0% (improved from 5.2%). Hallucination 0.0% (improved from 0.3%).
+- **E20:** semantic value checker (evaluation infrastructure only, NOT wired into grounding pass).
+- **E21:** REVERTED — wiring semantic checker into grounding pass was tested in isolation (91.7% reduction) but full generation (E22) showed it's less effective than prose-only grounding.
+- **E22:** REVERTED — full 3-run validation showed coverage -2.3pp and prose +7.4 worse vs E19. The combined grounding pass is less effective than the prose-only grounding pass.
 
 ## Research Retrospective (COMPLETE — after E1–E10)
 
@@ -400,12 +401,21 @@ available-scenarios.md). 1 remaining MISSING_CAVEAT is a false negative: `exp.ru
 results-analysis.md is `AuditExperiment.run()` (no event-loop caveat), not
 `ModelAuditor.run()`.
 
-**Decision: KEEP.** Closes the E20 loop: checker detects → grounding pass fixes →
-re-checker verifies. 91.7% semantic finding reduction with zero coverage regression
-(56.4% vs 54.6% baseline, +1.8pp) and zero hallucination regression (0.0%).
+**Decision: KEEP (evaluation infrastructure only).** Closes the E20 loop: checker detects →
+grounding pass fixes → re-checker verifies. 91.7% semantic finding reduction with zero
+coverage regression (56.4% vs 54.6% baseline, +1.8pp) and zero hallucination regression
+(0.0%).
 
 **Limitations:** Tested in isolation on E14 guides, not a full generation (OOM
 constraint). 1 remaining MISSING_CAVEAT is a false negative in the checker.
+
+**E22 UPDATE:** Full generation validation (E22) showed that wiring the semantic checker
+into the grounding pass is LESS effective than the prose-only grounding pass from E19.
+Coverage dropped 54.6%→52.3% (-2.3pp) and prose findings increased 11.3→18.7 (+7.4).
+The semantic findings that remain (4.7 mean) are mostly MISSING_CAVEAT findings that the
+LLM can't reliably fix, and STRING_VALUE_MISMATCH findings in LLM-generated signature
+blocks that the grounding pass misses. **REVERT E21/E22 — keep E19 (prose-only grounding)
+as best-known state. Keep E20 (semantic checker) as evaluation infrastructure only.**
 
 ## E22 — Full 3-Run Validation of Grounding Pass
 
@@ -428,16 +438,30 @@ vs E19 baseline: 54.6% coverage, 5.2% broken, 11.3 prose.
 - Semantic findings < 5: **PASS** (4.7)
 - Prose findings < 20: **PASS** (18.7)
 
-**Decision: KEEP — new best-known state.** All 4 criteria PASS. Coverage 52.3% is
-within the variance band. Broken% improved from 5.2% to 0.0%. Semantic findings 4.7
-(new metric, was unmeasured in E19). Prose 18.7 (E19 was 11.3, but E19 didn't run the
-semantic checker; the combined prose+semantic total is the honest comparison).
-Hallucination 0.0% (improved from 0.3%).
+**Decision: REVERT.** E22 is NOT demonstrably better than E19 overall. Coverage 52.3%
+is -2.3pp vs E19's 54.6% (within the 4.2pp variance band, but a regression). Prose
+findings 18.7 are +7.4 worse than E19's 11.3. Semantic findings 4.7 (new metric) are
+not "near 0" — the grounding pass only reduced them by 21% (6.0→4.7). Broken% improved
+from 5.2% to 0.0% and hallucination from 0.3% to 0.0%, but these are secondary metrics.
 
-**Note:** r2 and r3 had high prose_after (27) — the grounding pass fixed semantic
-findings but left many prose findings. r1 had the best prose reduction (32→2).
-Variance in grounding pass effectiveness is notable; a future experiment could
-investigate why some runs get thorough correction while others don't.
+**Root cause:** The combined grounding pass (prose + semantic) sends more findings to the
+LLM per page, which dilutes the correction signal. The LLM fixes prose findings
+inconsistently (r1: 32→2, r2: 36→27, r3: 33→27) and semantic findings even less
+reliably (r1: 4→1, r2: 8→8, r3: 6→5). The STRING_VALUE_MISMATCH findings in
+LLM-generated signature blocks (`language: str = "en"`) are not reliably fixed because
+the LLM doesn't recognize them as errors when they appear in what looks like an API
+reference section. The MISSING_CAVEAT findings are partially fixed (event-loop caveats
+added to some pages) but the LLM often adds the caveat in a way that the checker still
+doesn't detect.
+
+**Note:** r1 had the best results (prose 32→2, semantic 4→1) while r2 and r3 had poor
+prose reduction (36→27, 33→27) and no semantic improvement (8→8, 6→5). The variance in
+grounding pass effectiveness is high; a future experiment could investigate why some
+runs get thorough correction while others don't.
+
+**Action:** Revert to E19 (prose-only grounding) as best-known state. Keep E20
+(semantic checker) as evaluation infrastructure only. Do NOT wire the semantic checker
+into the grounding pass.
 
 ## RETRO4 — Research Retrospective (after E21)
 
@@ -465,12 +489,18 @@ developer.
 generation when OOM resolved. (3) Do NOT claim E21 improved coverage. (4) Establish
 3-run mean for E21 best-known state. (5) Consider usability metric.
 
-## Next Steps (re-ranked after E23)
+## Next Steps (re-ranked after E22 REVERT)
 
-1. **E15 (structure) — Generic structure derivation.** Repo-derived slugs, not hand-authored.
+1. **E24 — Investigate grounding pass variance.** Why does r1 get thorough correction
+   (prose 32→2, semantic 4→1) while r2/r3 don't (prose 36→27, 33→27)? Possible causes:
+   (a) LLM temperature 0.1 is still too high for consistent correction; (b) the prompt
+   is too long when many findings are sent; (c) the LLM's attention degrades with more
+   findings. Try: lower temperature to 0.0, cap findings per page at 5, or split
+   findings into multiple LLM calls.
+2. **E15 (structure) — Generic structure derivation.** Repo-derived slugs, not hand-authored.
    The 11 narrative slugs are hand-authored for SimpleAudit. A generic system should derive
    page structure from the repository itself.
-2. **Backlog:** rename `hallucination_rate` → `invented_symbol_rate`; independent judge
+3. **Backlog:** rename `hallucination_rate` → `invented_symbol_rate`; independent judge
    (different model family); usability metric (next blind spot).
-3. **Research retrospective due** (5 experiments since RETRO4: E22, E23 are the 5th-6th
+4. **Research retrospective due** (5 experiments since RETRO4: E22, E23 are the 5th-6th
    since RETRO3).

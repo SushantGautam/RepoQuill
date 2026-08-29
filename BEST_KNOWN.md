@@ -1,10 +1,10 @@
 # BEST_KNOWN
 
-**Last updated:** 2026-08-29 (after RETRO4)
+**Last updated:** 2026-08-29 (after E22 REVERT)
 
 ## Best-Known State
 
-**E8+E9+E10+E13+E13b+E14+E19+E21+E22 (grounding pass with prose+semantic checkers, full generation)** — 52.3% coverage v2 (mean of 3 runs), 0.0% invented-symbol rate, 0.0% broken examples, 18.7 prose findings mean, 4.7 semantic findings mean
+**E8+E9+E10+E13+E13b+E14+E19 (grounding pass with prose checker only)** — 54.6% coverage v2 (mean of 3 runs), 0.0% invented-symbol rate, 5.2% broken examples, 11.3 prose findings mean
 - 11 deterministic pages from `narrative_sections` config
 - 0 invented symbol names
 - **Coverage metric:** v2 (substantive-mention, E15) — old substring metric inflated by ~10pp
@@ -13,13 +13,12 @@
   injected into prompt via AST walk.
 - **E19:** grounding pass — prose findings 44.3→11.3 (74.5% reduction), zero coverage loss.
   Config flag `grounding_pass: true` (default false).
-- **E21:** grounding pass now consumes BOTH prose AND semantic checker findings.
-  Tested in isolation on E14 guides: semantic findings 12→1 (91.7% reduction).
-- **E22:** full 3-run validation of grounding pass with prose+semantic checkers.
-  Per-run: r1 cov=52.0%/prose=32→2/sem=4→1, r2 cov=59.2%/prose=36→27/sem=8→8,
-  r3 cov=45.8%/prose=33→27/sem=6→5. Mean: cov=52.3%, broken=0.0%, prose=18.7, sem=4.7.
-  All 4 decision criteria PASS (cov within 4.2pp band, broken within 18.1pp band,
-  sem<5, prose<20). New best-known state.
+- **E20:** semantic value checker (evaluation infrastructure only, NOT wired into grounding pass).
+- **E21/E22:** REVERTED — wiring the semantic checker into the grounding pass was tested
+  in isolation (E21: 91.7% reduction) but full generation (E22) showed it's less effective
+  than prose-only grounding. Coverage 52.3% (E19: 54.6%, -2.3pp), prose 18.7 (E19: 11.3,
+  +7.4 worse), semantic 4.7 (new metric, not near 0). The combined grounding pass dilutes
+  the correction signal.
 
 **E13 (surgical verify pass):** deterministic post-generation edit step. Property-call fix
 is genuine. Committed as `18f365d`.

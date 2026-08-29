@@ -262,12 +262,32 @@ Build `semantic_value_check.py` that flags at minimum:
 - Only change: new checker added to the evaluation suite.
 - 3 runs to measure variance.
 
-## E15 (structure) — Generic Structure Derivation
+## E15 (structure) — Generic Structure Derivation — DONE (REVERT)
 
 ### Hypothesis
 
 The 11 narrative slugs are hand-authored for SimpleAudit. A generic system should derive
 page structure from the repository itself.
+
+### Design
+
+- **Control**: E22 best-known state (hand-authored 11 slugs, 54.4% coverage mean)
+- **Candidate**: Remove `narrative_sections` from config → LLM plans structure
+- **Runs**: 3 generations (E15_r1, E15_r2, E15_r3)
+- **Checkers**: coverage, example, hallucination, prose, semantic (same as E22)
+- **Decision criteria**: coverage within 4.2pp band, broken% within 18.1pp band,
+  no hallucination regression, prose/semantic within tolerance
+
+### Result
+
+LLM-planned structure produces 6 generic pages (installation, methodology, quick-start,
+safety-scoring, validation, custom-packs) vs. 11 specific hand-authored pages. Coverage
+38.5% mean (34.6-44.7%) vs. E22 baseline 54.4% — 15.9pp drop, well outside 4.2pp band.
+Broken% 0.0%, hallucination 0.0%, prose 6.0 (vs. 18.7), semantic 3.3 (vs. 4.7) — all
+improved. **Decision: REVERT** — coverage regression dominates. Hand-authored structure
+provides real value by ensuring coverage of specific concepts the LLM's generic planning
+misses (model-auditor, available-scenarios, results-analysis, judges-evaluation,
+cli-reference, visualization-server).
 
 ## RETRO3 — Research Retrospective — DONE (2026-08-29)
 
