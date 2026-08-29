@@ -9,6 +9,7 @@
   <a href="https://pypi.org/project/repoquill/"><img src="https://img.shields.io/pypi/dm/repoquill?logo=pypi&logoColor=white" alt="PyPI downloads"></a>
   <a href="https://pypi.org/project/repoquill/"><img src="https://img.shields.io/pypi/pyversions/repoquill" alt="Python versions"></a>
   <a href="https://pypi.org/project/repoquill/"><img src="https://img.shields.io/pypi/license/repoquill" alt="License"></a>
+  <a href="https://sushantgautam.github.io/RepoQuill/"><img src="https://img.shields.io/badge/docs-available-blue?logo=github&logoColor=white" alt="Docs"></a>
 </p>
 
 Generic two-layer developer-docs generator. Point it at any Python package and it produces a complete, always-accurate documentation site:
