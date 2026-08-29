@@ -1569,6 +1569,49 @@ def _cmd_generate(args) -> int:
     print("[5/6] Cross-linking guide pages...")
     cross_link_guides(cfg, pages)
 
+    # Deterministic container-protocol enrichment (E43).
+    # Applied AFTER cross-linking so the "See Also" section rewrite
+    # does not strip the enrichment note.
+    # The LLM frequently omits iteration/indexing/length behavior for
+    # classes that define __iter__, __getitem__, __len__, etc.
+    # This pass scans each guide for classes with container protocols
+    # and appends a deterministic note if the behavior is not already
+    # documented. Generic: any Python package with collection types.
+    from repoquill.narrative import _enrich_container_protocols
+    n_enriched = 0
+    for page in pages:
+        guide_path = os.path.join(cfg.out_guides, f"{page['slug']}.md")
+        if not os.path.exists(guide_path):
+            continue
+        with open(guide_path) as f:
+            content = f.read()
+        enriched = _enrich_container_protocols(content, cfg.pkg_path)
+        if enriched != content:
+            with open(guide_path, "w") as f:
+                f.write(enriched)
+            n_enriched += 1
+    if n_enriched:
+        print(f"  container-protocol enrichment: {n_enriched} pages updated")
+
+    # Deterministic type-claim verification (E47).
+    # Replaces incorrect type claims in prose with the actual AST type.
+    # No LLM involved — pure AST lookup.  Generic: any Python package.
+    from repoquill.verify import fix_type_claims
+    n_type_fixed = 0
+    for page in pages:
+        guide_path = os.path.join(cfg.out_guides, f"{page['slug']}.md")
+        if not os.path.exists(guide_path):
+            continue
+        with open(guide_path) as f:
+            content = f.read()
+        fixed = fix_type_claims(content, cfg.pkg_path)
+        if fixed != content:
+            with open(guide_path, "w") as f:
+                f.write(fixed)
+            n_type_fixed += 1
+    if n_type_fixed:
+        print(f"  type-claim verification: {n_type_fixed} pages corrected")
+
     print()
     print("[6/6] Assembling MkDocs site...")
     _copy_theme_assets(cfg)

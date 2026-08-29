@@ -1,12 +1,12 @@
 # BEST_KNOWN
 
-**Last updated:** 2026-08-29 (after E28 KEEP)
+**Last updated:** 2026-08-29 (after E47 deterministic type-annotation verification: C-hallucination eliminated)
 
 ## Best-Known State
 
-**E8+E9+E10+E13+E13b+E14+E19+E23+E27+E28 (grounding pass + de-Goodhart coverage + @property detection + dedent fix)** — 55.1% coverage v2 (mean of 3 runs), 0.0% invented-symbol rate, 0.7% broken examples, 13.3 prose findings mean
+**E8+E9+E10+E13+E13b+E14+E19+E23+E27+E28+E30+E31+E32+E36+E41+E43+E44+E47 (grounding pass + de-Goodhart coverage + @property detection + dedent fix + prose FP fix + import blind spot fix + C-hallucination metric + source-body injection + page-conditional injection + container dunder docs + config key disambiguation + table-row coverage fix + deterministic type-claim verification)** — 70.9% coverage v2 (median of E47 r1/r2: 63.1%/78.8%; +2.7pp vs E41's 68.2%), 0% C-hallucination (BOTH runs — passed/failed bool-vs-int error eliminated by E47's deterministic type-claim fix), 0.5% invented-symbol rate (median; r1: 1 real — `from simpleaudit.visualization import server`, no __init__.py in visualization/; r2: 0), 2.4% broken examples (median), 2 prose findings (median, improved from E41's 7), E40v2 usability 58.3% (7/12 correct + 5 partial, vs README 75%)
 - 11 deterministic pages from `narrative_sections` config
-- 0 invented symbol names
+- 0.7% invented symbol names (3 TPs revealed by E31 import blind spot fix)
 - **Coverage metric:** v2 (substantive-mention, E15) — old substring metric inflated by ~10pp
 - **E14 metric:** 5.2% of code examples are non-runnable (mean of 3 E19 runs: 4.0/5.7/5.9)
 - **E14:** 0 `invalid_kwarg` findings across all 3 runs (baseline had 2). Constructor signatures
@@ -42,6 +42,122 @@ flag (default False). **REVERTED as a config change** — broken% regressed 4.5�
 (+9.4pp) with coverage −1.7pp, despite prose findings improving 44.3→30.7. ~6KB of test
 context crowds out source context at the current 60K budget. Code kept dormant (commit
 ea23ac1, default off) for future experiments with larger budgets.
+
+**E30 (prose checker FP fix):** Fixed 3 false-positive sources in prose_api_semantics_check.py:
+(1) vague-return gate now only fires on explicit `-> None` annotation, (2) member dedup
+eliminates duplicate (member_name, class_name) pairs with identical signatures, (3)
+required-args guard prevents flagging methods with required args as "called as property".
+13.3 → 5 findings (12 FPs eliminated, 5 TPs kept). Committed 88e9988.
+
+**E31 (import blind spot fix):** Fixed hallucination_check.py to detect top-level imports
+(`from simpleaudit import X` and `import simpleaudit.Y`) that were previously invisible.
+Added package-prefix stripping to `_is_project_module()` and module resolution. 0.0% → 0.7%
+hallucination rate (3 TPs revealed: duplicate_scenario_names not exported from root ×2,
+simpleaudit.visualization doesn't exist). Committed 47a702a.
+
+**E32 (C-hallucination metric):** Built claim_verification_check.py — extracts atomic type
+claims from prose (TYPE_CLAIM, RETURN_CLAIM, ASYNC_CLAIM) and verifies them against AST
+extraction. 18.8% C-hallucination rate measured for the first time (3/16 claims contradicted:
+expected_behavior claimed 'list' but Optional[List[str]] ×2, failed claimed 'bool' but int).
+New metric. Committed e59cdd2.
+
+**E36 (source-body injection):** `extract_member_bodies()` in reference.py extracts full
+AST-derived source bodies for all public methods/properties (capped at 40 lines each,
+40,000 chars total). Wired into `generate_page()` in narrative.py as enrichment after the
+constructor-signatures block. When the LLM writes prose about a member's return value or
+side effects, it now sees the actual body rather than inferring from the name — the
+dominant source of C-hallucination. 3-run validation: C-halluc count 1.3 (vs 2.0
+best-known), prose findings 2.3 (vs 5), coverage 60.4% (vs 55.1%). Regressions in
+invented-symbol (1.98% vs 0.7%) and broken examples (6.6% vs 0.7%) are within E11
+variance bands. The name-inference C-hallucinations E36 was designed to fix
+(passed=bool, failed=bool type errors) are eliminated in all 3 runs. **KEEP.**
+
+**E42 (cross-repo validation, Click):** Unmodified pipeline on pallets/click (CLI
+framework, 32 source files, src/ layout). 11/11 guides, 17/17 reference pages.
+0 real invented symbols (3.0% S-hallucination rate is entirely checker false positives
+on legitimate Click API usage), 0 C-hallucination, 0 prose findings, 1.2% broken
+examples. **PASS** — the mission's core rule is validated: RepoQuill is a generic
+system, not a SimpleAudit-tuned doc generator. Two generic fixes applied:
+(1) `reference.py:build_api_reference` now handles src/-layout packages (module names
+relative to pkg_path, prefixed with top-level package name), (2) `eval/ground_truth.py:
+extract_imports` now skips bare package imports that were mis-parsed as
+`from X import X`.
+
+**E43 (usability gap fixes):** Two generic fixes addressing the two gaps exposed
+by E40v2: (1) Deterministic container-protocol enrichment —
+`narrative.py:_enrich_container_protocols()` (invoked from cli.py after
+cross_link_guides) appends a "**Container capabilities:**" note to any page
+mentioning a class that defines `__iter__`/`__getitem__`/`__len__` etc. when the
+page does not already document the capability. Prompt-only approaches (dunder
+bodies + NOTE) failed to make the LLM document iteration; deterministic
+post-processing is reliable. (2) Rule 8 in the strict prompt — when documenting
+config keys, only list keys the source actually reads, and disambiguate similar
+keys (authoritative vs legacy). E40v2 results: generated docs 50%→58.3% correct
+(7/12 + 5 partial), docs-insufficient 3→0, delta to README −25pp→−16.7pp. All
+guardrails unchanged (coverage 55.3%, S-halluc 0.0%, C-halluc 0.0%, broken 0.0%,
+prose 1). **KEEP.**
+
+**E41 (page-conditional source-body injection):** E36 injected ALL member bodies
+(~40K chars) into every page's prompt, crowding out page-specific source files.
+E41 makes injection page-conditional: for each page, parse the page's assigned
+`source_files`, collect the set of public function/method names defined in those
+files, and inject only bodies for members in that set (via `extract_member_bodies`
+with an explicit `in_scope` filter). The LLM on a given page now sees the full
+source body of the symbols it is documenting, while other pages' symbols are
+excluded — freeing context budget for more concept coverage. 2-run validation:
+coverage 68.2% (both runs, +12.9pp vs E36's 55.3%), S-halluc 0.5% (1 real:
+`from simpleaudit import duplicate_scenario_names` — the function exists in
+`scenarios/__init__.py` but is NOT re-exported at the root; correct import is
+`from simpleaudit.scenarios import duplicate_scenario_names`), C-halluc 4.8%
+median (1 real error: `passed`/`failed` documented as bool but source says
+`-> int`), broken 1.8% median, prose 7. **KEEP.**
+
+**E44 (table-row coverage fix):** `coverage_check_v2.py` now counts markdown table
+rows as substantive mentions. Metric fix only — no generation change. The docs were
+already documenting scenario packs, judges, and modules in tables; the checker just
+wasn't counting them. Coverage 55.3%→69.8% (+14.5pp). Judges 50%→100%, packs
+28.6%→85.7%, modules 51.6%→90.3%. **KEEP.**
+
+**E45 (findability diagnostic):** For each E40v2 task, checked whether ALL solving
+patterns co-occur on a single page. For run_safety_audit and interpret_results, NO
+single generated-docs page has all solving patterns (README has them all on page 1).
+The generated docs fragment task-relevant patterns across concept pages; the
+README's workflow-organized density wins. Page-structure problem, not a search
+problem. E46 (task-oriented quickstart sections) is the designed fix.
+
+**RETRO7 (7th retrospective):** 5 findings. (1) E40v2 custom_judge task is defective
+(says `output_schema`, source reads `response_schema`) — rebuild task set from blind
+source walk. (2) Stop optimizing coverage v2 as primary metric (now 69.8%, a
+mention-frequency proxy). (3) Findability is the highest-impact unknown — E46 is the
+fix. (4) ~~Kill E41 (underpowered decision rule)~~ — superseded: E41 was re-run with
+page-conditional injection and KEEP'd at 68.2% coverage (+12.9pp), stable across 2
+runs. (5) Add cross-page claim-consistency checker.
+
+**E46 (prompt rule 9: "do not infer return types from symbol names"):** REVERT.
+C-hallucination NOT fixed (passed/failed still documented as bool in both runs);
+broken examples regressed 1.8%→8.0% median. The LLM writes placeholder code when
+instructed to be uncertain about types. Confirms that prompt-level instructions
+cannot override name-based type inference — a deterministic post-generation fix
+(E47) is required.
+
+**E47 (deterministic type-annotation verification pass):** `fix_type_claims(content,
+pkg_path)` in `repoquill/verify.py` — pure AST lookup, no LLM. Extracts type claims
+from prose via regex (`` `name` `` followed by `[:|]\s*(a|an)?TYPE\b` or
+`\s+is\s+(a|an)?TYPE\b`), looks up the actual return annotation from the AST,
+replaces incorrect type words in-place. Word boundary `\b` is critical (without it,
+"bool" matches inside "Boolean"). Wired into `cli.py` after container-protocol
+enrichment, before site assembly. 2-run validation: C-hallucination 0% in BOTH runs
+(passed/failed now correctly documented as "int indicators" / "int indicating"),
+coverage 70.9% median (63.1%/78.8%), S-hallucination 0.5% median (r1: 1 real —
+`from simpleaudit.visualization import server`, no __init__.py; r2: 0), broken
+2.4% median, prose 2 median (improved from E41's 7). **KEEP.**
+
+**Lesson learned:** `repoquill/verify.py` already existed with a `verify_pages()`
+function (LLM-based hallucination fix pass, 314 lines) imported at cli.py:1539.
+Overwriting it caused an ImportError that silently broke the [5/6] pipeline.
+Always check `grep -rn "from repoquill.X import" repoquill/` before overwriting a
+module. E47 functions were appended with underscore-prefixed private names to avoid
+collisions.
 
 ## Configuration (E8)
 
@@ -429,7 +545,49 @@ errors, or (2) LLM variance.
 
 ## Next Experiment
 
-**E26 — Investigate broken-example regression.** Run E19 config WITHOUT grounding pass
-(3 fresh runs) to isolate whether the grounding pass is introducing broken examples.
-If broken% drops to ≤ 5% without grounding pass → grounding pass is the cause.
-If broken% remains high → LLM variance; consider increasing sample size.
+**E40 — Usability metric (IN PROGRESS).** First metric to measure whether generated docs
+are actually useful to a new developer. Fresh LLM session gets ONLY the generated docs +
+one concrete task; independent judge scores the solution against source code. 4 tasks,
+3 runs each. Control = README-only baseline. All factuality metrics are at or near their
+floor (0.0% halluc, 0.0% broken, 0 C-halluc, 1 prose finding) — usability is the last
+unmeasured dimension.
+
+## E36 — Source-Body Injection (KEEP)
+
+**Hypothesis:** The dominant source of C-hallucination is the LLM inferring a member's
+return type or behavior from its name (e.g. `passed` → bool, `failed` → bool) when the
+actual return type differs. Injecting the AST-derived source body for each referenced
+member gives the LLM ground truth for what the member actually does, returns, and
+accepts.
+
+**Change:** `extract_member_bodies()` in reference.py — walks all `.py` files in the
+package, finds all public FunctionDef/AsyncFunctionDef nodes (top-level and inside
+classes), and renders the source body (capped at 40 lines each, 40,000 chars total).
+Wired into `generate_page()` in narrative.py as enrichment after the constructor-
+signatures block. Generic — no SimpleAudit-specific code.
+
+**5-run validation (E36_r1–r3 + E39_r1–r2):**
+
+| Run | Coverage v2 | Halluc% | Broken% | Prose | C-halluc count |
+|-----|-------------|---------|---------|-------|----------------|
+| E36_r1 | 74.9% | 2.68% | 13.3% | 4 | 2 |
+| E36_r2 | 50.3% | 3.26% | 6.4% | 2 | 2 |
+| E36_r3 | 55.9% | 0.00% | 0.0% | 1 | 0 |
+| E39_r1 | 55.3% | 0.00% | 0.0% | 1 | 0 |
+| E39_r2 | 55.3% | 0.00% | 0.0% | 1 | 0 |
+| **Mean** | **58.3%** | **1.19%** | **3.9%** | **1.8** | **0.8** |
+| **Median** | **55.3%** | **0.00%** | **0.0%** | **1** | **0** |
+
+vs best-known before E36 (E27–E32): 55.1% coverage, 0.7% halluc, 0.7% broken, 5 prose,
+2.0 C-halluc count.
+
+**Decision: KEEP.** C-halluc count improved (median 0 vs 2.0). Prose findings improved
+(median 1 vs 5). Coverage median (55.3%) is within noise of previous best (55.1%).
+The name-inference C-hallucinations E36 was designed to fix (passed=bool, failed=bool
+type errors) are eliminated in all 5 runs. E36_r1's 74.9% coverage is a clear outlier
+driven by code-block presence (E38 finding); the median (55.3%) is the honest estimate.
+
+**C-hallucination FPs identified:** The 2 contradicted claims in E36_r1 and E36_r2 are
+both TYPE_CLAIM `expected_behavior` "list" vs `Optional[List[str]]` — checker false
+positives (the doc correctly says "List of expected safe behaviors"; the source type IS
+a list). Same FP appeared in E33_r2.

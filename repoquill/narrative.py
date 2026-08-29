@@ -26,11 +26,123 @@ from repoquill.reference import (
     extract_api_surface,
     extract_cli_surface,
     extract_constructor_signatures,
+    extract_member_bodies,
     get_examples_context,
     get_file_tree,
     get_source_files,
     get_tests_context,
 )
+
+
+_CONTAINER_DUNDERS = frozenset({
+    "__iter__", "__getitem__", "__len__", "__contains__",
+    "__next__", "__reversed__", "__setitem__", "__delitem__",
+})
+
+
+def _enrich_container_protocols(content: str, pkg_path: str) -> str:
+    """Deterministically document container-protocol capabilities.
+
+    The LLM frequently omits iteration, indexing, and length behavior
+    for classes that define ``__iter__``, ``__getitem__``, ``__len__``,
+    etc., because these are dunder methods and the LLM does not connect
+    them to user-facing capabilities.  This pass scans the generated
+    markdown for class names that appear in the API surface with
+    container protocols, and appends a deterministic note about the
+    iteration/indexing/length behavior if the content does not already
+    mention it.
+
+    This is generic: any Python package with collection types benefits.
+    The extraction is AST-derived and deterministic.
+    """
+    try:
+        surface = extract_api_surface(pkg_path)
+    except Exception:  # noqa: BLE001
+        return content
+
+    # Parse the API surface to find classes with container protocols.
+    # Format: "  module.ClassName: methods  [PROPERTIES: ...]  [CONTAINER PROTOCOLS: __iter__, __len__]"
+    import re
+    class_protocols = {}  # class_name -> list of protocol names
+    for line in surface.split("\n"):
+        m = re.match(r"\s+[\w.]+\.(\w+):.*\[CONTAINER PROTOCOLS: ([^\]]+)\]", line)
+        if m:
+            class_name = m.group(1)
+            protocols = [p.strip() for p in m.group(2).split(",")]
+            class_protocols[class_name] = protocols
+
+    if not class_protocols:
+        return content
+
+    # For each class with container protocols that is mentioned in the
+    # content, check if iteration/indexing/length is already documented.
+    # If not, append a deterministic note.
+    additions = []
+    for class_name, protocols in sorted(class_protocols.items()):
+        if class_name not in content:
+            continue  # Class not mentioned on this page; skip.
+
+        # Check if the content already documents the relevant behavior.
+        # We look for explicit capability statements near the class name.
+        # Generic phrases like "for each" are too common in technical
+        # writing to be a reliable signal of iteration documentation.
+        # We require the phrase to be within 200 chars of the class name.
+        already_documented = False
+        for proto in protocols:
+            # Find the first occurrence of the class name in the content.
+            idx = content.find(class_name)
+            if idx < 0:
+                continue
+            # Look at a 200-char window around the class name.
+            window = content[max(0, idx - 100):idx + 200].lower()
+            if proto == "__iter__" and (
+                "iterable" in window
+                or "iteration" in window
+                or "can be iterated" in window
+                or "iterate over" in window
+            ):
+                already_documented = True
+                break
+            if proto == "__getitem__" and (
+                "index access" in window
+                or "getitem" in window
+                or "indexed by" in window
+                or "supports [" in window
+            ):
+                already_documented = True
+                break
+            if proto == "__len__" and (
+                "len(" in window
+                or "supports len" in window
+            ):
+                already_documented = True
+                break
+
+        if already_documented:
+            continue
+
+        # Build a deterministic note about the container capabilities.
+        caps = []
+        if "__iter__" in protocols:
+            caps.append("can be iterated with `for`")
+        if "__getitem__" in protocols:
+            caps.append("supports index access with `[]`")
+        if "__len__" in protocols:
+            caps.append("supports `len()`")
+        if "__contains__" in protocols:
+            caps.append("supports `in` membership testing")
+
+        if caps:
+            note = (
+                f"\n\n**Container capabilities:** `{class_name}` "
+                f"{' and '.join(caps)}.\n"
+            )
+            additions.append(note)
+
+    if not additions:
+        return content
+
+    return content + "".join(additions)
 
 
 def determine_structure(cfg, client) -> List[dict]:
@@ -260,6 +372,49 @@ def generate_page(
         except Exception:  # noqa: BLE001
             ctor_sigs = ""
 
+    # --- E36/E41: page-relevant member source bodies ---
+    # The API surface lists member names and signatures, and constructor
+    # signatures give exact __init__ parameters, but neither includes the
+    # function body.  When the LLM writes prose about a member (e.g.
+    # "``passed`` returns a list of scenario names that passed"), it
+    # infers the return value from the name — the dominant source of
+    # C-hallucination.  We extract source bodies for the members the page
+    # is likely to discuss (deterministic, AST-derived, capped at 40 lines
+    # each).  This is generic: any repo benefits; the extraction is empty
+    # for packages with no public methods.
+    #
+    # E41: page-conditional injection.  E36 injected ALL member bodies
+    # into every page (~40K chars of the 60K context budget), crowding
+    # out the page's own source files.  Now we inject only bodies for
+    # members whose names appear in this page's assigned source files —
+    # the members this page is actually about.  Container-protocol
+    # dunders (__iter__, __getitem__, __len__, etc.) are included
+    # because they define iteration, indexing, and length semantics that
+    # are essential for documenting collection types.
+    member_bodies = ""
+    if getattr(llm, "include_api_surface", True):
+        try:
+            import ast as _ast
+            in_scope = set()
+            for _f in files:
+                _content = source_files.get(_f)
+                if not _content:
+                    continue
+                try:
+                    _tree = _ast.parse(_content)
+                except (SyntaxError, ValueError):
+                    continue
+                for _n in _ast.walk(_tree):
+                    if isinstance(_n, (_ast.FunctionDef, _ast.AsyncFunctionDef)):
+                        if not _n.name.startswith("_") or _n.name in _CONTAINER_DUNDERS:
+                            in_scope.add(_n.name)
+            if in_scope:
+                member_bodies = extract_member_bodies(
+                    cfg.pkg_path, in_scope, max_lines=40, max_chars=40000
+                )
+        except Exception:  # noqa: BLE001
+            member_bodies = ""
+
     existing_path = os.path.join(cfg.out_guides, f"{page['slug']}.md")
     old_content = ""
     if os.path.exists(existing_path):
@@ -281,6 +436,7 @@ def generate_page(
 5. If the source does not contain the entry point you need for an example, say so explicitly instead of inventing one.
 6. Prefer fewer, verified claims over more, plausible-sounding ones.
 7. PROPERTIES (marked [PROPERTIES: ...] in the API surface) are attributes, NOT methods. Use them as `obj.name`, never as `obj.name()`.
+8. When documenting configuration keys, only list keys that the source code actually reads from the config (e.g. `config.get("key_name")`). If multiple similar keys exist, note which one is authoritative (the one the source actually reads) and which, if any, is an alternative or legacy key. Do not list both without clarification.
 """
     else:
         rules_block = ""
@@ -302,6 +458,23 @@ def generate_page(
             f"in any code example that constructs these objects):\n"
             f"{ctor_sigs}\n"
         )
+    if member_bodies:
+        enrichment += (
+            f"\nSOURCE BODIES (ground truth for behavior — what these members "
+            f"actually do, return, and accept; when you describe a member's "
+            f"behavior, return value, or side effects, base it on this body, "
+            f"NOT on what the name suggests):\n"
+            f"{member_bodies}\n"
+        )
+        if any(d in member_bodies for d in ("__iter__", "__getitem__", "__len__")):
+            enrichment += (
+                "\nNOTE: The source bodies above include container-protocol "
+                "methods (__iter__, __getitem__, __len__, etc.). When a class "
+                "defines these, document its iteration and indexing behavior "
+                "explicitly (e.g. 'can be iterated with for', 'supports "
+                "index access with []', 'supports len()'). Do not omit these "
+                "capabilities just because they are dunder methods.\n"
+            )
     if readme:
         enrichment += f"\nREADME (excerpt):\n{readme}\n"
     if examples:

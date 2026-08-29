@@ -1,150 +1,94 @@
-# Next Experiment
+# NEXT_EXPERIMENT
 
-## E31 Results (KEEP)
+## E48: Deterministic import-path verification pass
 
-**Change:** `eval/hallucination_check.py` — 3 fixes to eliminate the top-level import blind spot:
+**Status:** DESIGNED, NOT STARTED
 
-1. **Remove "simpleaudit" from `_KNOWN_NON_PROJECT`**: Previously all `from simpleaudit import X`
-   statements were silently skipped.
+### Context
 
-2. **Update `_is_project_module()` to accept `pkg_name`**: Now checks if the module name
-   (or a prefix) matches when the package prefix is stripped. Also treats the package root
-   itself as a valid module.
+E47 (KEEP) eliminated C-hallucination (0% both runs) via a deterministic
+type-annotation verification pass. The remaining quality gap is S-hallucination:
+the LLM invents import paths for symbols that exist in submodules but are not
+re-exported at the root level.
 
-3. **Handle submodule imports**: `from simpleaudit import judges` (where `judges` is a
-   submodule) is now correctly grounded, not flagged as a hallucination.
+Two confirmed instances across E41/E47 runs:
+1. `from simpleaudit import duplicate_scenario_names` — the function exists in
+   `scenarios/__init__.py` but is NOT re-exported at the root. Correct import:
+   `from simpleaudit.scenarios import duplicate_scenario_names`.
+2. `from simpleaudit.visualization import server` — `visualization/` has no
+   `__init__.py`, so `simpleaudit.visualization` is not an importable module.
+   Correct import: `from simpleaudit.visualization.server import server`.
 
-**Results (re-scored E27_r3):**
+Both are real runtime-failing imports that a developer copying the docs would hit
+immediately.
 
-| Metric | Before (E27) | After (E31) | Change |
-|--------|-------------|-------------|--------|
-| Hallucination rate | 0.0% | 0.7% | +0.7pp |
-| High-severity findings | 0 | 3 | +3 |
-| Grounded imports | 406 | 449 | +43 |
+### Hypothesis
 
-The 3 new findings are TRUE POSITIVES:
-- `from simpleaudit import duplicate_scenario_names` (×2 pages) — exists in
-  `simpleaudit.scenarios` but NOT exported from root
-- `from simpleaudit.visualization import server` — module doesn't exist
+A deterministic post-generation pass that:
+1. Extracts all `from X import Y` and `import X.Y` statements from generated
+   code blocks (AST-parse each python block, collect Import/ImportFrom nodes)
+2. Verifies each import resolves against the actual package structure:
+   - For `from simpleaudit import Y`: check if Y is in `simpleaudit/__init__.py`
+     (parse `__all__` or `from X import Y` re-exports)
+   - For `from simpleaudit.sub import Y`: check if `sub/__init__.py` exists and
+     re-exports Y, or if Y is defined in `sub.py`
+   - For `import simpleaudit.sub`: check if `sub.py` or `sub/__init__.py` exists
+3. If an import fails, fix it by finding the correct module path via AST search
+   (search all `.py` files for the symbol definition, derive the import path)
+4. If no fix is found, flag the import for the grounding pass (or remove it)
 
-**Decision: KEEP.** De-Goodhart fix — the metric now measures real hallucinations,
-not blind spots. The 0.0% headline was 100% blind to top-level imports. No generation
-change.
+...will eliminate the S-hallucination import-path errors without LLM involvement,
+mirroring E47's architecture (deterministic AST lookup, no variance, no side
+effects).
 
-## E32 Results (KEEP)
+### Design
 
-**Change:** `eval/claim_verification_check.py` — NEW checker that extracts atomic
-factual claims from generated docs and validates them against the source AST.
+1. **Baseline:** E47 output (already have it: 0.5% S-hallucination median,
+   1 real error in r1).
+2. **Change:** Add `fix_imports(content, pkg_path)` in `repoquill/verify.py`:
+   - Parse each fenced python block with `ast.parse()`
+   - Collect all `Import` and `ImportFrom` nodes
+   - For each import, verify resolution against the package structure:
+     - Build an index of all importable symbols: for each `.py` file, parse
+       top-level names (functions, classes, `__all__` entries, re-exports)
+     - For `from X import Y`: check if Y is importable from X
+     - For `import X.Y`: check if X.Y is an importable module
+   - If an import is wrong, search the index for the correct module that
+     defines Y, and rewrite the import statement
+   - Only fix imports that are clearly wrong (symbol exists in the package
+     but at a different path). Do NOT touch imports of external packages.
+3. **Wire into cli.py:** After type-claim verification (E47), before [6/6]
+   site assembly.
+4. **Run:** 2 runs from clean state (same config as E47).
+5. **Measure:** S-hallucination rate (target: 0%), coverage v2 (target: ≥65%),
+   C-hallucination (target: 0%), broken examples (target: ≤2.4%), prose
+   findings (target: ≤2).
+6. **Decision rule:** KEEP if S-hallucination 0% in both runs AND no other
+   metric regresses >1pp. REVERT if any metric regresses.
 
-**Claim types checked:**
-1. TYPE_CLAIM — "X is a bool/int/list/dict/str" vs source annotation
-2. RETURN_CLAIM — "X() returns a list/dict/str/None" vs source return annotation
-3. ASYNC_CLAIM — "X() is async" vs source @async def
-4. FIELD_CLAIM — "result.X" where X doesn't exist on the class
+### Why this is generic
 
-**Results (E27_r3):**
+Import-path verification is a universal technique — it works for any Python
+package. The fix is deterministic (no LLM involvement), so it has no variance
+and no side effects on other metrics. Any package with submodules and
+re-exports benefits.
 
-| Metric | Value |
-|--------|-------|
-| Total claims | 16 |
-| Contradicted | 3 |
-| Supported | 9 |
-| Unverifiable | 6 |
-| **C-hallucination rate** | **18.8%** |
+### Alternative approaches (if E48 fails)
 
-The 3 contradicted claims:
-- `expected_behavior` claimed as `list` but actually `Optional[List[str]]` (×2 classes)
-- `failed` claimed as `bool` but actually `int`
+1. **Checker-side fix (ground_truth.py):** Parse `__all__` and add re-exported
+   names to module_symbols; handle submodules without `__init__.py`. This
+   changes the METRIC (S-hallucination rate would drop because the checker
+   would no longer flag legitimate imports), which requires careful Goodhart
+   analysis — it makes the metric more honest but doesn't fix the docs.
+2. **Prompt rule:** Add a rule to the strict prompt: "When writing import
+   statements, verify the symbol is actually importable from the stated module.
+   Check `__init__.py` for re-exports." Risk: prompt dilution (E3/E4 pattern),
+   and the LLM may not reliably verify import paths.
+3. **Accept as known limitation:** 0.5% S-hallucination (1 real error in 1 of
+   2 runs) may be an acceptable residual. The error is in a code block, not
+   prose, so it's less likely to mislead a developer reading the narrative.
 
-**Decision: KEEP.** New metric that measures the largest unmeasured gap (C-hallucination).
-The 18.8% rate is a significant finding — nearly 1 in 5 factual claims in the best-known
-state is contradicted by the source. No generation change.
+### RETRO8 note
 
-## Next: E33 — Reduce C-hallucination Rate
-
-**Hypothesis:** The 18.8% C-hallucination rate is driven by the LLM making confident
-but wrong type claims (e.g., "bool" when the field is "int", "list" when it's
-"Optional[List[str]]"). A prompt change that encourages the LLM to be more conservative
-about type claims (or to verify them against the source) could reduce the rate.
-
-**Design:**
-1. Analyze the 3 contradicted claims to identify the pattern.
-2. Test hypothesis: is the LLM confident but wrong, or is it hedging?
-3. If confident but wrong: add a prompt rule that encourages the LLM to be more
-   conservative about type claims (e.g., "If you're not sure about the type, say
-   'a value' instead of 'a bool'").
-4. If hedging: the prompt is already conservative; the issue is elsewhere.
-5. Generate 3 new runs with the prompt change.
-6. Measure C-hallucination rate.
-7. Compare against E27+E28+E30+E31 baseline (18.8% C-hallucination).
-
-**Decision criteria:**
-- If C-hallucination rate drops by ≥5pp: KEEP (generation improvement).
-- If C-hallucination rate is unchanged or worse: REVERT.
-
-**Baseline for comparison:** E27+E28+E30+E31+E32 (55.1% coverage, 0.7% broken, 5 prose, 0.7% halluc, 18.8% C-halluc).
-
-## E30 Results (KEEP)
-
-**Change:** `eval/prose_api_semantics_check.py` — 3 fixes to eliminate false positives:
-
-1. **Vague-return gate**: Only flag "Returns a <noun>" when source EXPLICITLY annotates
-   `-> None`. Previously flagged on missing annotation (ambiguous — method might return
-   something unannotated).
-
-2. **Member dedup**: Dedupe `member_lookup` so one sentence → one finding, not one per
-   same-named class. Previously "Returns a summary of the results" generated 3 findings
-   (one per class with a `summary` member: AuditResults, ModelStabilityReport,
-   RepeatedExperimentResults).
-
-3. **Required-args guard**: `PROSE_METHOD_AS_PROPERTY` now only flags when the method
-   takes required args (no defaults). Previously flagged unconditionally, contradicting
-   the documented intent.
-
-**Results (re-scored E27_r3):**
-
-| Metric | Before (E27) | After (E30) | Change |
-|--------|-------------|-------------|--------|
-| Prose findings | 13.3 (mean of 3) | 5 (single run) | -62.4% |
-| False positives | ~12 | 0 | -100% |
-| True positives | 1 | 5 | +4 (4 summary() TPs + 1 install-extra) |
-
-The 4 remaining `summary()` findings are TRUE POSITIVES — the doc claims "Returns a
-summary" but `summary()` only prints and returns None. The 1 `MISSING_INSTALL_EXTRA`
-is also a true positive.
-
-**Decision: KEEP.** De-Goodhart fix — the metric now measures real semantic errors,
-not false positives. The 13.3 headline was ~92% false positive. No generation change.
-
-## Next: E31 — Fix Top-Level Import Blind Spot
-
-**Hypothesis:** `hallucination_check.py` skips all `from simpleaudit import X` statements
-because "simpleaudit" is in `_KNOWN_NON_PROJECT` and `_is_project_module()` returns
-False for the project root module. This creates a 100% blind spot for top-level imports.
-
-**Evidence:** `from simpleaudit import duplicate_scenario_names` (r3/available-scenarios.md:44)
-is a real ImportError but generates 0 hallucination findings.
-
-**Design:**
-1. Remove "simpleaudit" from `_KNOWN_NON_PROJECT` in `hallucination_check.py`.
-2. Special-case the project root module in `_is_project_module()` so top-level imports
-   are checked against the actual module namespace.
-3. Re-score E27 docs with the fixed checker.
-4. Expect: 0.0% hallucination rate may increase (new blind spot revealed).
-
-**Decision criteria:**
-- If new findings are true positives: KEEP (de-Goodhart, more honest metric).
-- If new findings are false positives: refine the checker further.
-
-**Baseline for comparison:** E27+E28+E30 (55.1% coverage, 0.7% broken, 5 prose, 0.0% halluc).
-
-## Backlog (after E31)
-
-1. **E32**: Build claim-verification checker (C-hallucination metric) on `ground_truth.py`.
-2. **Async-usage check**: Add to `example_check.py` to catch `run_async()` without `await`.
-3. **Attribute-existence check**: Add to `example_check.py` to catch `result.recommendation`
-   (field is `recommendations`).
-4. **Reframe hallucination headline**: "0.0% hallucination" → "0.0% invented symbols
-   (S-hallucination); C-hallucination unmeasured".
-5. **De-SimpleAudit the harness**: Make `ground_truth.py` and checkers generic.
-6. **Usability metric**: Non-self-judging usability probe.
+E45/E46/E47 have completed since RETRO7. A RETRO8 retrospective is due. Run it
+before or alongside E48 to ensure the experiment direction is still valid.

@@ -153,7 +153,12 @@ def extract_imports(md: str) -> list[tuple[str, str]]:
                 name = part.split(" as ")[0].strip()
                 pairs.append((mod, name))
         for m in _RE_IMPORT_AS.finditer(block):
-            pairs.append((m.group(1), m.group(1).split(".")[-1]))
+            mod = m.group(1)
+            name = mod.split(".")[-1]
+            # Skip bare package imports (e.g. "import click" → name == mod).
+            # These are valid package imports, not "from click import click".
+            if name != mod:
+                pairs.append((mod, name))
     return pairs
 
 

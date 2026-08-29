@@ -719,9 +719,18 @@ def extract_api_surface(pkg_path: str, max_chars: int = 12000) -> str:
         Multi-line string describing the real API surface.
     """
     pkg_name = os.path.basename(os.path.normpath(pkg_path))
-    classes: dict = {}   # "Mod.Class" -> ["method(self, x, y)", ...]
+    classes: dict = {}   # "Mod.Class" -> (["method(self, x, y)", ...], ["prop", ...])
     functions: dict = {} # "mod.func" -> "(a, b, c)"
     constants: dict = {} # "mod.CONST" -> value (short)
+
+    # E43: container-protocol dunders that define iteration, indexing,
+    # and length semantics.  These are essential for documenting
+    # collection types and must be explicitly listed so the LLM
+    # knows to document iteration/indexing behavior.
+    _CONTAINER_DUNDERS = frozenset({
+        "__iter__", "__getitem__", "__len__", "__contains__",
+        "__next__", "__reversed__", "__setitem__", "__delitem__",
+    })
 
     for dirpath, _, filenames in os.walk(pkg_path):
         for f in sorted(filenames):
@@ -742,6 +751,7 @@ def extract_api_surface(pkg_path: str, max_chars: int = 12000) -> str:
                 if isinstance(node, ast.ClassDef):
                     methods = []
                     properties = []
+                    container_protocols = []
                     for item in node.body:
                         if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)):
                             if not item.name.startswith("_"):
@@ -762,7 +772,12 @@ def extract_api_surface(pkg_path: str, max_chars: int = 12000) -> str:
                                     if args and args[0] in ("self", "cls"):
                                         args = args[1:]
                                     methods.append(f"{item.name}({', '.join(args)})")
-                    classes[f"{mod}.{node.name}"] = (methods, properties)
+                            elif item.name in _CONTAINER_DUNDERS:
+                                # E43: track container-protocol dunders
+                                # explicitly so the LLM knows to document
+                                # iteration/indexing behavior.
+                                container_protocols.append(item.name)
+                    classes[f"{mod}.{node.name}"] = (methods, properties, container_protocols)
                 elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                     if not node.name.startswith("_"):
                         args = [a.arg for a in node.args.args]
@@ -782,10 +797,12 @@ def extract_api_surface(pkg_path: str, max_chars: int = 12000) -> str:
     lines = []
     if classes:
         lines.append("CLASSES (name -> public methods; PROPERTIES are attributes, not methods):")
-        for cname, (methods, props) in sorted(classes.items()):
+        for cname, (methods, props, container_protocols) in sorted(classes.items()):
             m = ", ".join(methods) if methods else "(no public methods)"
             if props:
                 m += f"  [PROPERTIES: {', '.join(props)}]"
+            if container_protocols:
+                m += f"  [CONTAINER PROTOCOLS: {', '.join(sorted(container_protocols))}]"
             lines.append(f"  {cname}: {m}")
     if functions:
         lines.append("FUNCTIONS:")
@@ -914,6 +931,81 @@ def _sig_args(node) -> list:
     if args.kwarg:
         parts.append(f"**{args.kwarg.arg}")
     return parts
+
+
+def extract_member_bodies(
+    pkg_path: str, names: set, max_lines: int = 40, max_chars: int = 8000
+) -> str:
+    """Extract full source bodies for the given function/method/property names.
+
+    E36: source-body injection.  The API surface lists member *names* and
+    *signatures*, and constructor signatures give exact ``__init__``
+    parameters, but neither includes the function body.  When the LLM
+    writes prose about a member (e.g. "``passed`` returns a list of
+    scenario names that passed"), it infers the return value from the
+    name — the dominant source of C-hallucination.  This function fills
+    that gap with deterministic, AST-derived source bodies.
+
+    A name matches a top-level function, a method, or a property when the
+    node's ``.name`` is in the set.  The body is rendered from the source
+    text using the node's line span, capped at ``max_lines`` lines.
+
+    Args:
+        pkg_path: Absolute path to the package directory.
+        names: Set of function/method/property names to include.
+        max_lines: Cap on rendered lines per member body.
+        max_chars: Truncate the result to this many characters.
+
+    Returns:
+        Multi-line string with source bodies, or empty string if nothing
+        matches.
+    """
+    blocks: list = []
+    seen: set = set()
+    for dirpath, _, filenames in os.walk(pkg_path):
+        for f in sorted(filenames):
+            if not f.endswith(".py"):
+                continue
+            full = os.path.join(dirpath, f)
+            rel = os.path.relpath(full, pkg_path)
+            mod = rel[:-3].replace(os.sep, ".")
+            if mod.endswith(".__init__"):
+                mod = mod[:-9]
+            try:
+                with open(full, "r", encoding="utf-8", errors="replace") as fh:
+                    source = fh.read()
+                tree = ast.parse(source)
+            except (SyntaxError, OSError):
+                continue
+            src_lines = source.splitlines()
+
+            for node in ast.walk(tree):
+                if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    continue
+                if node.name not in names:
+                    continue
+                # Deduplicate: keep the first match for each name.
+                if node.name in seen:
+                    continue
+                seen.add(node.name)
+                start = node.lineno
+                end = getattr(node, "end_lineno", None) or start
+                body_lines = src_lines[start - 1:end]
+                if len(body_lines) > max_lines:
+                    body_lines = body_lines[:max_lines]
+                    body_lines.append("    # ... (truncated)")
+                prefix = "async " if isinstance(node, ast.AsyncFunctionDef) else ""
+                blocks.append(f"### {mod}.{node.name} ({prefix}def)\n"
+                              f"```python\n" + "\n".join(body_lines) + "\n```")
+
+    if not blocks:
+        return ""
+    text = ("SOURCE BODIES (ground truth for behavior — what these members "
+            "actually do, return, and accept):\n")
+    text += "\n".join(blocks)
+    if len(text) > max_chars:
+        text = text[:max_chars] + "\n... (truncated)"
+    return text
 
 
 def get_examples_context(root: str, max_chars: int = 4000) -> str:
@@ -1199,26 +1291,39 @@ def build_api_reference(cfg) -> List[str]:
     module_descriptions = cfg.raw.get("module_descriptions", {})
 
     os.makedirs(ref_dir, exist_ok=True)
+    # Derive the top-level package name from pkg_path so that module
+    # names are fully qualified (e.g. "click.core", not "core").
+    pkg_name = os.path.basename(os.path.normpath(pkg_path))
     modules = []
     for dirpath, _, filenames in os.walk(pkg_path):
         for f in filenames:
             if not f.endswith(".py"):
                 continue
-            rel = os.path.relpath(os.path.join(dirpath, f), root)
+            # Module names are relative to pkg_path (the package root),
+            # not to repo root, so src/-layout packages work correctly.
+            rel = os.path.relpath(os.path.join(dirpath, f), pkg_path)
             mod = rel[:-3].replace(os.sep, ".")
             if mod.endswith(".__init__"):
                 mod = mod[:-9]
+            # Prefix with the top-level package name for mkdocstrings.
+            if mod == "__init__":
+                mod = pkg_name
+            else:
+                mod = f"{pkg_name}.{mod}"
             modules.append(mod)
     modules.sort()
 
     rendered = []
     for mod in modules:
-        # Skip modules in directories without __init__.py (not importable)
+        # Skip modules in directories without __init__.py (not importable).
+        # Strip the top-level package name (pkg_path is already the
+        # package root) and check each parent dir for __init__.py.
         parts = mod.split(".")
-        # Walk up: each parent package must have __init__.py
+        if parts[0] == pkg_name:
+            parts = parts[1:]  # strip top-level package name
         importable = True
         for i in range(1, len(parts)):
-            parent_dir = os.path.join(root, *parts[:i])
+            parent_dir = os.path.join(pkg_path, *parts[:i])
             if not os.path.isfile(os.path.join(parent_dir, "__init__.py")):
                 importable = False
                 break

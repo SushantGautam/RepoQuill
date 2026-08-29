@@ -12,6 +12,7 @@ The concept inventory is derived from the source tree via AST (not hand-authored
 """
 import ast, json, os, re, sys
 
+# Default to SimpleAudit for backward compatibility; overridden by CLI args.
 SRC = "/tmp/rq-trials/simpleaudit-src/simpleaudit"
 SRC_ROOT = "/tmp/rq-trials/simpleaudit-src"
 
@@ -327,6 +328,15 @@ def is_substantive_mention(concept, md_text):
     if re.search(rf'(?i)\*{concept_escaped}\*', md_text):
         return True
 
+    # 5. Table row check: concept appears in a markdown table row (| ... |)
+    # Tables are a standard documentation format for enumerating items
+    # (scenario packs, CLI flags, config keys, API parameters, etc.).
+    # A concept in a table cell is a substantive mention.
+    for line in md_text.split('\n'):
+        stripped = line.strip()
+        if stripped.startswith('|') and concept_lower in stripped.lower():
+            return True
+
     return False
 
 
@@ -334,11 +344,21 @@ def is_substantive_mention(concept, md_text):
 
 def main():
     if len(sys.argv) < 3:
-        print("Usage: coverage_check_v2.py <guide_dir> <output_json>")
+        print("Usage: coverage_check_v2.py <guide_dir> <output_json> [src] [src_root]")
         sys.exit(1)
 
     guide_dir = sys.argv[1]
     output_path = sys.argv[2]
+
+    # E44: generic source paths (optional, backward-compatible)
+    global SRC, SRC_ROOT
+    if len(sys.argv) >= 4:
+        SRC = sys.argv[3]
+    if len(sys.argv) >= 5:
+        SRC_ROOT = sys.argv[4]
+    elif len(sys.argv) == 4:
+        # Derive src_root from src (parent of package dir)
+        SRC_ROOT = os.path.dirname(os.path.normpath(SRC))
 
     text = ""
     for fname in sorted(os.listdir(guide_dir)):

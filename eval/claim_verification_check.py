@@ -136,13 +136,15 @@ def extract_claims(md_text: str) -> list[dict]:
 
     # Pattern 1: TYPE_CLAIM — "`name`: a bool/int/list/dict/str"
     # or "`name` is a bool/int/list/dict/str"
+    # E44: "is set" / "is not set" are not type claims — they describe
+    # whether a value is configured. Exclude "set" from the "is" branch.
     type_re = re.compile(
         r"""
         `(?P<name>[\w]+)`
         \s*
         (?:
             [:|]\s*(?:a\s+|an\s+)?(?P<type1>bool|boolean|int|integer|list|dict|dictionary|str|string|float|tuple|set|object)
-            |\s+is\s+(?:a\s+|an\s+)?(?P<type2>bool|boolean|int|integer|list|dict|dictionary|str|string|float|tuple|set|object)
+            |\s+is\s+(?:a\s+|an\s+)?(?P<type2>bool|boolean|int|integer|list|dict|dictionary|str|string|float|tuple|object)
         )
         """,
         re.IGNORECASE | re.VERBOSE,
@@ -236,10 +238,29 @@ def extract_claims(md_text: str) -> list[dict]:
 # ---------------------------------------------------------------------------
 
 def normalize_type(t: str | None) -> str | None:
-    """Normalize a type string for comparison."""
+    """Normalize a type string for comparison.
+
+    E44: extended to handle Optional[...], Union[...], cabc.MutableMapping,
+    cabc.Mapping, cabc.Sequence, and other common type aliases that were
+    previously causing false-positive CONTRADICTED findings.
+    """
     if t is None:
         return None
     t = t.lower().strip()
+
+    # Strip Optional[...] and Union[...] wrappers — take the first non-None type
+    m = re.match(r'(?:typing\.)?optional\[(.+)\]', t)
+    if m:
+        t = m.group(1).strip()
+    m = re.match(r'(?:typing\.)?union\[(.+)\]', t)
+    if m:
+        # Take the first non-None type in the union
+        parts = [p.strip() for p in m.group(1).split(',')]
+        for p in parts:
+            if p not in ('none', 'none'):
+                t = p
+                break
+
     # Handle generic types like List[str], Dict[str, int]
     if t.startswith("list") or t.startswith("typing.list"):
         return "list"
@@ -259,6 +280,14 @@ def normalize_type(t: str | None) -> str | None:
         return "set"
     if t in ("none", "none", "null"):
         return "none"
+
+    # E44: mapping-like types (cabc.MutableMapping, cabc.Mapping, etc.)
+    # These are semantically equivalent to dict for documentation purposes.
+    if "mapping" in t or "mutuablemapping" in t:
+        return "dict"
+    if "sequence" in t:
+        return "list"
+
     return t
 
 
