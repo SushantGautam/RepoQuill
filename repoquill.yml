@@ -8,8 +8,8 @@ package_dir: repoquill
 llm:
   provider: openai
   model: Qwen/Qwen3.8-27B-FP8
-  api_key_env: OPENAI_API_KEY
   base_url: https://simulachat.sushant.info.np/api/v1
+  api_key_env: OPENAI_API_KEY
 
 site:
   name: repoquill

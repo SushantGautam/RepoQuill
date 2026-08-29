@@ -5,6 +5,11 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# Required: the reusable workflow commits docs back to this repo, and
+# cross-repo workflow calls default to contents:read without this.
+permissions:
+  contents: write
+
 jobs:
   docs:
     uses: SushantGautam/RepoQuill/.github/workflows/reusable.yml@main
@@ -13,6 +18,6 @@ jobs:
       api_key_secret: LLM_API_KEY
       api_key_env: OPENAI_API_KEY
       deploy_branch: gh-pages
-      deploy_path: site
+      deploy_path: site_repoquill
     secrets:
       LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
