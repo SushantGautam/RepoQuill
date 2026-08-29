@@ -20,6 +20,8 @@ Generic two-layer developer-docs generator. Point it at any Python package and i
 
 Your repo keeps one `repoquill.yml` and a GitHub Actions workflow that calls RepoQuill's reusable workflow.
 
+📖 Full docs: [sushantgautam.github.io/RepoQuill](https://sushantgautam.github.io/RepoQuill)
+
 ## Quick start
 
 ### 1. Scaffold your repo
