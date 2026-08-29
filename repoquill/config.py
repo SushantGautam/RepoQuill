@@ -168,7 +168,7 @@ def load_config(config_path: Optional[str] = None) -> RepoQuillConfig:
         site_src=site_src,
         out_guides=os.path.join(site_src, "guides"),
         ref_dir=os.path.join(site_src, "reference"),
-        pkg_path=os.path.join(root, cfg_dict.get("package_dir", "")),
+        pkg_path=os.path.join(root, cfg_dict.get("package_dir") or ""),
         plan_file=os.path.join(site_src, ".plan.json"),
     )
     return cfg
