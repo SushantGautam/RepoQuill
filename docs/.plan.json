@@ -57,7 +57,7 @@
     "repoquill/config.py": "ad7dde928c6ed78ca8e25779b989f02822c747d53a44d386e85ec7a413fd9139",
     "repoquill/verify.py": "452cbd8efd52d7716dff36b6b8d82a225142e71db754fa0e0392e243dc9a1060",
     "repoquill/grounding.py": "3f7f36bbfbed794b799c8547b5f4e0658e54323e57799a6906cba582d729ea09",
-    "repoquill/cli.py": "49610d5f53bbaa49472ff0f7a8c652aea06e89314aaddbfc08b9e54aef62a2ba",
+    "repoquill/cli.py": "3a5efed6067b57432e5c7e7893cab17cad9907cbfe299fb2de97436411380037",
     "README.md": "4110d20b799a02099bd25656edac92810e16f41ec1f71240b677c7bb653e0f62",
     "pyproject.toml": "4974ac8aa346e6d0e178b69001f110c3c69774b4d8a329a8ca6185c4dcd477a4"
   }
