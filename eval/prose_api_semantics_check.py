@@ -105,10 +105,21 @@ def build_extended_index(pkg_path: str) -> dict:
                     elif isinstance(dec, ast.Attribute) and dec.attr == "setter":
                         is_property = True  # setter also means it's a property
 
+                # Check if method has required args (no defaults)
+                has_required_args = False
+                if not is_property:
+                    all_args = list(item.args.args)
+                    if all_args and all_args[0].arg in ("self", "cls"):
+                        all_args = all_args[1:]
+                    all_args = all_args + list(item.args.kwonlyargs)
+                    defaults = list(item.args.defaults) + list(item.args.kw_defaults)
+                    if all_args and len(all_args) > len(defaults):
+                        has_required_args = True
+
                 if is_property:
                     info["properties"][item.name] = ret_ann
                 else:
-                    info["methods"][item.name] = ret_ann
+                    info["methods"][item.name] = (ret_ann, has_required_args)
 
     return {"classes": classes, "free_functions": free_functions}
 
@@ -388,13 +399,36 @@ def validate_claims(claims: list[dict], index: dict) -> list[dict]:
     classes = index["classes"]
     free_functions = index["free_functions"]
 
-    # Build reverse lookup: member_name -> list of (class_name, is_property, ret_ann)
-    member_lookup: dict[str, list[tuple[str, bool, str | None]]] = defaultdict(list)
+    # Build reverse lookup: member_name -> list of (class_name, is_property, ret_ann, has_required_args)
+    # Deduped: if multiple classes have the same member name, keep only the
+    # first occurrence to avoid one sentence generating N findings.
+    member_lookup: dict[str, list[tuple[str, bool, str | None, bool]]] = defaultdict(list)
+    seen_members: set[tuple[str, str]] = set()  # (member_name, class_name)
     for cls_name, info in classes.items():
         for prop_name, ret_ann in info["properties"].items():
-            member_lookup[prop_name].append((cls_name, True, ret_ann))
-        for meth_name, ret_ann in info["methods"].items():
-            member_lookup[meth_name].append((cls_name, False, ret_ann))
+            key = (prop_name, cls_name)
+            if key not in seen_members:
+                seen_members.add(key)
+                member_lookup[prop_name].append((cls_name, True, ret_ann, False))
+        for meth_name, (ret_ann, has_required_args) in info["methods"].items():
+            key = (meth_name, cls_name)
+            if key not in seen_members:
+                seen_members.add(key)
+                member_lookup[meth_name].append((cls_name, False, ret_ann, has_required_args))
+
+    # Also dedupe across classes: if the same member name appears in multiple
+    # classes with identical (is_property, ret_ann, has_required_args), keep only one entry.
+    deduped: dict[str, list[tuple[str, bool, str | None, bool]]] = {}
+    for name, entries in member_lookup.items():
+        unique: list[tuple[str, bool, str | None, bool]] = []
+        seen: set[tuple[bool, str | None, bool]] = set()
+        for entry in entries:
+            sig = (entry[1], entry[2], entry[3])
+            if sig not in seen:
+                seen.add(sig)
+                unique.append(entry)
+        deduped[name] = unique
+    member_lookup = deduped
 
     for claim in claims:
         name = claim["name"]
@@ -405,7 +439,7 @@ def validate_claims(claims: list[dict], index: dict) -> list[dict]:
 
         # Check if this name is a known class member
         if name in member_lookup:
-            for cls_name, is_property, ret_ann in member_lookup[name]:
+            for cls_name, is_property, ret_ann, has_required_args in member_lookup[name]:
                 source_type = "property" if is_property else "method"
 
                 # Property-vs-method check
@@ -422,15 +456,16 @@ def validate_claims(claims: list[dict], index: dict) -> list[dict]:
                 elif not is_property and not is_call:
                     # Method written as bare property — only flag if it takes
                     # required args (otherwise it's ambiguous)
-                    findings.append({
-                        "type": "PROSE_METHOD_AS_PROPERTY",
-                        "line": line,
-                        "name": name,
-                        "class": cls_name,
-                        "detail": f"Doc writes bare `{name}` but source has method {name}()",
-                        "source_truth": f"method {name}() on {cls_name}",
-                        "context": context,
-                    })
+                    if has_required_args:
+                        findings.append({
+                            "type": "PROSE_METHOD_AS_PROPERTY",
+                            "line": line,
+                            "name": name,
+                            "class": cls_name,
+                            "detail": f"Doc writes bare `{name}` but source has method {name}() with required args",
+                            "source_truth": f"method {name}() on {cls_name}",
+                            "context": context,
+                        })
 
                 # Return-type check
                 if return_claim:
@@ -438,17 +473,18 @@ def validate_claims(claims: list[dict], index: dict) -> list[dict]:
                     claim_norm = normalize_type(return_claim)
 
                     # Special case: "vague" return claim (e.g. "Returns a summary")
-                    # If source returns None (or has no annotation), the method
-                    # only prints — claiming it "returns a summary" is wrong.
+                    # Only flag if the source EXPLICITLY returns None (annotated
+                    # -> None). A missing annotation is ambiguous — the method
+                    # might return something unannotated. Don't flag on ambiguity.
                     if return_claim == "vague":
-                        if source_norm == "None" or ret_ann is None:
+                        if source_norm == "None":
                             findings.append({
                                 "type": "RETURN_TYPE_MISMATCH",
                                 "line": line,
                                 "name": name,
                                 "class": cls_name,
-                                "detail": f"Doc claims '{name}' returns a value but source has no return annotation (method only prints)",
-                                "source_truth": f"no return annotation on {cls_name}.{name}",
+                                "detail": f"Doc claims '{name}' returns a value but source annotates -> None (method only prints)",
+                                "source_truth": f"-> None on {cls_name}.{name}",
                                 "context": context,
                             })
                         continue

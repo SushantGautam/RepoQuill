@@ -1,7 +1,7 @@
 # CURRENT_STATE
 
-**Last updated:** 2026-08-29 (E27 KEEP)
-**Best-known state:** E8+E9+E10+E13+E13b+E14+E19+E23+E27 (grounding pass with prose checker only + de-Goodhart coverage + @property detection) — 55.1% coverage v2 (mean of 3 runs), 0.0% invented-symbol rate, 3.5% broken examples, 13.3 prose findings mean
+**Last updated:** 2026-08-29 (RETRO5 complete, E30 in progress)
+**Best-known state:** E8+E9+E10+E13+E13b+E14+E19+E23+E27+E28 (grounding pass + de-Goodhart coverage + @property detection + dedent fix) — 55.1% coverage v2 (mean of 3 runs), 0.0% invented-symbol rate, 0.7% broken examples, 13.3 prose findings mean
 **Experiments complete:** E1–E26 + RETRO2 + RETRO3 + RETRO4 + E15. E22 (full 3-run validation of grounding pass with prose+semantic checkers): REVERT. E23 (de-Goodhart workflows category): KEEP. E15 (LLM-planned structure): REVERT. E24 (grounding pass variance): REVERT. E25 (fix example checker to exclude signature snippets): REVERT — checker fix is correct but E25's broken% (13.5%) is worse than E19 (4.2%) with same fixed checker. E26 (E19 config WITHOUT grounding pass): INFORMATIVE — broken% 15.2% WORSE than E19 (4.2%) and E25 (13.5%), proving grounding pass is NOT the cause of broken-example regression. Root cause identified: extract_api_surface() lists @property attributes as methods, so LLM calls them as methods.
 **E13 (surgical verify pass):** deterministic post-generation edit step. Property-call fix is genuine. Committed (18f365d).
 **E13b (placeholder fix):** replaced `<REQUIRED>` sentinel with value inference (AST default, sibling mirroring) or omit+comment. 0 placeholders across 3 runs. Broken% now honest (13.8% mean). Committed (5c08779).
@@ -654,9 +654,57 @@ This is a one-off generation error, not a systematic issue.
 (8/9 calls include required params). The 1 missing_required finding is within variance.
 No prompt change or checker refinement warranted.
 
-## Next Steps (re-ranked after E29 NO_ACTION)
+## RETRO5 — Research Retrospective (after E29)
 
-1. **Research retrospective in progress** (RETRO5: 3 subagents launched — patterns,
-   Goodhart, adversarial).
-2. **Backlog:** rename `hallucination_rate` → `invented_symbol_rate`; independent judge
-   (different model family); usability metric (next blind spot).
+Completed 2026-08-29. Three independent subagents (patterns, Goodhart, adversarial).
+Synthesis in `/tmp/rq-trials/agents/RETRO5_synthesis.md`.
+
+**Key findings (cross-validated):**
+
+1. **Prose findings metric is ~92% one false positive.** The `RETURN_TYPE_MISMATCH`
+   "vague return claim" branch in `prose_api_semantics_check.py` fires on "returns" + noun
+   when the source method has no return annotation. "Returns a summary of the results" →
+   3 findings (one per class with a `summary` member) × 4 lines × 2 pages = 12 findings.
+   The "13.3 prose findings" headline is dominated by this FP. **Action: fix before
+   anything else (E30).**
+
+2. **0.0% hallucination has a 100% blind spot for top-level imports.**
+   `hallucination_check.py` skips every `from simpleaudit import X` because `"simpleaudit"`
+   is in `_KNOWN_NON_PROJECT` and `_is_project_module("simpleaudit")` returns False.
+   Verified: `from simpleaudit import duplicate_scenario_names` (real ImportError) → 0
+   hallucinations. **Action: fix (E31).**
+
+3. **C-hallucination is the largest unmeasured gap.** Invented-symbol check verifies nouns
+   exist; nothing verifies predicates. 8 CONTRADICTED semantics found in best-known state
+   (passed/failed typed as bool, summary() returns string/dict, AuditExperiment.run()
+   returns AuditResults, run_async without await, run_scenario documented as sync).
+   **Action: build claim-verification checker (E32).**
+
+4. **0.7% broken examples is honest about syntax but blind to runtime.** No async-usage
+   check, no attribute-existence check, no CLI/shell block validation. True broken rate
+   on sampled pages: ~55% vs reported 0.7%.
+
+5. **Coverage v2 inventory has structural gaps.** `get_workflows()` scrapes docstring
+   vocabulary (noise); `is_substantive_mention` over-credits code-block mentions; 3-run
+   spread is 12.3pp.
+
+6. **Usability is the ultimate blind spot but not the next step.** Claim-level factuality
+   (Finding 3) is the next step that is high-impact, deterministic, generic, and reuses
+   existing ground-truth code.
+
+**Patterns from E22–E29:**
+- Root-cause fixes win (E27). Tuning parameters (E24) or adding more checkers (E22)
+  without understanding the root cause is ineffective.
+- Evaluation-infrastructure changes are low-risk (E23, E28 consistently KEEP).
+- The grounding pass is most effective when focused (E19 prose-only > E22 combined).
+- Hand-authored structure beats LLM-planned structure (E15-LLM: -16.1pp coverage).
+
+## Next Steps (re-ranked after RETRO5)
+
+1. **E30 (in progress): Fix the prose false positive** in `prose_api_semantics_check.py`.
+   Gate the vague-return branch on an actual return-value claim. Dedupe `member_lookup`.
+   Implement the documented "required args" guard in `PROSE_METHOD_AS_PROPERTY`.
+2. **E31: Fix the top-level import blind spot** in `hallucination_check.py`.
+3. **E32: Build a claim-verification checker** (C-hallucination metric) on `ground_truth.py`.
+4. **Backlog:** add async-usage check to example_check.py; add attribute-existence check;
+   reframe hallucination headline; de-SimpleAudit the harness; usability metric.

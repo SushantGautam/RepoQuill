@@ -1,113 +1,66 @@
 # Next Experiment
 
-## E29 Results (NO_ACTION)
+## E30 Results (KEEP)
 
-**Analysis:** `models` is a required param (no default) in AuditExperiment.__init__.
-The LLM generated AuditExperiment() without it in 1/9 cases (E27_r2 cli-reference.md).
-In the other 8 AuditExperiment() calls across 3 runs, the LLM correctly includes models.
-This is a one-off generation error, not a systematic issue.
+**Change:** `eval/prose_api_semantics_check.py` — 3 fixes to eliminate false positives:
 
-**Decision: NO_ACTION.** The E14 constructor signature enrichment is working correctly
-(8/9 calls include required params). No prompt change or checker refinement warranted.
+1. **Vague-return gate**: Only flag "Returns a <noun>" when source EXPLICITLY annotates
+   `-> None`. Previously flagged on missing annotation (ambiguous — method might return
+   something unannotated).
 
-## Next: Research Retrospective (RETRO5)
+2. **Member dedup**: Dedupe `member_lookup` so one sentence → one finding, not one per
+   same-named class. Previously "Returns a summary of the results" generated 3 findings
+   (one per class with a `summary` member: AuditResults, ModelStabilityReport,
+   RepeatedExperimentResults).
 
-3 subagents launched (patterns, Goodhart, adversarial). Awaiting results.
+3. **Required-args guard**: `PROSE_METHOD_AS_PROPERTY` now only flags when the method
+   takes required args (no defaults). Previously flagged unconditionally, contradicting
+   the documented intent.
 
-After RETRO5, the next experiment will be chosen based on the retrospective findings.
-Likely candidates:
-- Usability metric (next blind spot per RETRO4)
-- Independent judge (different model family)
-- Rename `hallucination_rate` → `invented_symbol_rate` (naming clarity)
+**Results (re-scored E27_r3):**
 
-## E28 Results (KEEP)
+| Metric | Before (E27) | After (E30) | Change |
+|--------|-------------|-------------|--------|
+| Prose findings | 13.3 (mean of 3) | 5 (single run) | -62.4% |
+| False positives | ~12 | 0 | -100% |
+| True positives | 1 | 5 | +4 (4 summary() TPs + 1 install-extra) |
 
-**Change:** `eval/example_check.py`: `extract_python_blocks()` now applies
-`textwrap.dedent()` to each code block before returning it.
+The 4 remaining `summary()` findings are TRUE POSITIVES — the doc claims "Returns a
+summary" but `summary()` only prints and returns None. The 1 `MISSING_INSTALL_EXTRA`
+is also a true positive.
 
-**Results (re-scored E27 docs):**
+**Decision: KEEP.** De-Goodhart fix — the metric now measures real semantic errors,
+not false positives. The 13.3 headline was ~92% false positive. No generation change.
 
-| Run | Broken% (before) | Broken% (after) | syntax_error (before→after) |
-|-----|-----------------|-----------------|------------------------------|
-| E27_r1 | 2.4% | 0.0% | 1 → 0 |
-| E27_r2 | 8.2% | 2.0% | 3 → 0 (1 missing_required remains) |
-| E27_r3 | 0.0% | 0.0% | 0 → 0 |
-| **Mean** | **3.5%** | **0.7%** | **5 → 0** |
+## Next: E31 — Fix Top-Level Import Blind Spot
 
-**Decision: KEEP.** De-Goodhart fix — the metric now measures code correctness, not
-markdown formatting. All 5 syntax_error findings were from indented code blocks. No
-generation change.
+**Hypothesis:** `hallucination_check.py` skips all `from simpleaudit import X` statements
+because "simpleaudit" is in `_KNOWN_NON_PROJECT` and `_is_project_module()` returns
+False for the project root module. This creates a 100% blind spot for top-level imports.
 
-## E29 — Investigate Remaining missing_required Finding
-
-**Hypothesis:** The 1 remaining `missing_required` finding in E27_r2 (AuditExperiment()
-missing 'models' param) is either a genuine generation error or a checker false positive.
-If genuine, a prompt fix can address it. If a false positive, the checker needs refinement.
-
-**Context:** After E27 eliminated property_called_as_method and E28 eliminated
-syntax_error (formatting artifacts), the only remaining broken-example type is
-missing_required (1 finding in E27_r2).
+**Evidence:** `from simpleaudit import duplicate_scenario_names` (r3/available-scenarios.md:44)
+is a real ImportError but generates 0 hallucination findings.
 
 **Design:**
-1. Inspect the specific code block in E27_r2 that triggers the missing_required finding.
-2. Check the AuditExperiment.__init__ signature in the source code.
-3. Determine: is 'models' truly required (no default)? Is the LLM omitting it?
-4. If genuine: add a prompt rule or enrichment to ensure required params are included.
-5. If false positive: refine the checker's required-param detection.
+1. Remove "simpleaudit" from `_KNOWN_NON_PROJECT` in `hallucination_check.py`.
+2. Special-case the project root module in `_is_project_module()` so top-level imports
+   are checked against the actual module namespace.
+3. Re-score E27 docs with the fixed checker.
+4. Expect: 0.0% hallucination rate may increase (new blind spot revealed).
 
 **Decision criteria:**
-- If genuine: KEEP prompt fix (generation improvement).
-- If false positive: KEEP checker refinement (de-Goodhart).
+- If new findings are true positives: KEEP (de-Goodhart, more honest metric).
+- If new findings are false positives: refine the checker further.
 
-**Baseline for comparison:** E27+E28 (55.1% coverage, 0.7% broken, 13.3 prose, 0.0% halluc).
+**Baseline for comparison:** E27+E28+E30 (55.1% coverage, 0.7% broken, 5 prose, 0.0% halluc).
 
-## E27 Results (KEEP)
+## Backlog (after E31)
 
-| Run | Coverage v2 | Broken% | prop_as_method | Prose | Halluc% |
-|-----|-------------|---------|----------------|-------|---------|
-| E27_r1 | 53.6% | 2.4% | 0 | 12 | 0.0% |
-| E27_r2 | 62.0% | 8.2% | 0 | 15 | 0.0% |
-| E27_r3 | 49.7% | 0.0% | 0 | 13 | 0.0% |
-| **Mean** | **55.1%** | **3.5%** | **0.0** | **13.3** | **0.0%** |
-
-vs E19 baseline: 54.6% coverage, 4.2% broken, 11.3 prose, 0.3% halluc.
-
-**Decision: KEEP.** property_called_as_method = 0 in 3/3 runs (was the dominant error
-type in E25/E26). Broken% 3.5% (best ever). Coverage 55.1% (best ever, within band).
-Generic fix — any Python package with @property benefits.
-
-## E28 — Investigate Remaining syntax_error Findings
-
-**Hypothesis:** The 5 remaining syntax_error findings across 3 E27 runs are from
-legitimate code blocks (not API signature snippets) that the example checker is
-incorrectly flagging. If so, the checker should be refined to exclude them, or the
-prompt should be adjusted to avoid the pattern.
-
-**Context:** After E27 eliminated property_called_as_method (0 in 3/3 runs), the
-remaining broken findings are all syntax_error (5 total). E24 already identified
-signature snippets as a Goodharting concern — E25's checker fix (excluding signature
-blocks) was REVERTED because E25's broken% was worse than E19's (13.5% vs 4.2%).
-But E27's broken% is 3.5% (better than E19's 4.2%), so the syntax_error findings
-are now the only remaining broken-example type.
-
-**Design:**
-1. Inspect the 5 syntax_error findings in E27_r1/r2/r3 eval outputs.
-2. Classify each: is it a signature snippet, a legitimate code block, or a genuine error?
-3. If signature snippets → refine `_is_signature_block()` in example_check.py to catch
-   the remaining patterns (E25's version may have been too narrow).
-4. If legitimate code blocks → the checker is too aggressive; adjust the detection logic.
-5. If genuine errors → investigate what's causing the LLM to generate them.
-
-**Decision criteria:**
-- If findings are signature snippets: KEEP refined checker (de-Goodhart, no generation change).
-- If findings are legitimate code blocks: KEEP checker refinement (more honest metric).
-- If findings are genuine errors: investigate root cause before changing anything.
-
-**Baseline for comparison:** E27 (55.1% coverage, 3.5% broken, 13.3 prose, 0.0% halluc).
-
-## Backlog (after E28)
-
-1. **Research retrospective due** (7 experiments since RETRO4: E22, E23, E15, E24, E25,
-   E26, E27).
-2. **Backlog:** rename `hallucination_rate` → `invented_symbol_rate`; independent judge
-   (different model family); usability metric (next blind spot per RETRO4).
+1. **E32**: Build claim-verification checker (C-hallucination metric) on `ground_truth.py`.
+2. **Async-usage check**: Add to `example_check.py` to catch `run_async()` without `await`.
+3. **Attribute-existence check**: Add to `example_check.py` to catch `result.recommendation`
+   (field is `recommendations`).
+4. **Reframe hallucination headline**: "0.0% hallucination" → "0.0% invented symbols
+   (S-hallucination); C-hallucination unmeasured".
+5. **De-SimpleAudit the harness**: Make `ground_truth.py` and checkers generic.
+6. **Usability metric**: Non-self-judging usability probe.
