@@ -123,8 +123,6 @@ llm_cfg = LLMConfig() # Or extract from cfg if available in your specific versio
 # Initialize client
 client = LLMClient(llm_cfg
     # NOTE: llm_cfg is required (no default)
-,
-    # NOTE: llm_cfg is required (no default)
 )
 ```
 
@@ -134,9 +132,7 @@ The `narrative` module handles the generation of conceptual guides.
 
 *   `narrative.determine_structure(cfg, client)`: Determines the structure of the documentation based on the config and LLM.
 *   `narrative.generate_page(page, source_files, client, cfg)`: Generates content for a single page.
-*   `narrative.generate_all_pages(pages, source_files, client, cfg, old_hashes, new_hashes)`: Generates all pages, supporting incremental updates by comparing file hashes.
-
-Examimport narrative
+*   `narrative.generate_all_pages(pages, source_files, client, cfg, old_hashes, new_hashes)`: Generates all pages, supporting incrementalimport narrative
 import reference
 import config
 import plan
