@@ -48,6 +48,7 @@ class LLMConfig:
     strict_prompt: bool = True        # anti-hallucination prompt variant
     # Post-generation verification (hallucination check + fix passes)
     verify_passes: int = 0            # 0 = off; 1-2 recommended
+    grounding_pass: bool = False      # LLM correction pass fed by prose-checker findings
 
 
 @dataclass
@@ -159,6 +160,7 @@ def load_config(config_path: Optional[str] = None) -> RepoQuillConfig:
         include_tests=bool(llm_raw.get("include_tests", False)),
         strict_prompt=bool(llm_raw.get("strict_prompt", True)),
         verify_passes=int(llm_raw.get("verify_passes", 0)),
+        grounding_pass=bool(llm_raw.get("grounding_pass", False)),
     )
 
     # --- Build block ---

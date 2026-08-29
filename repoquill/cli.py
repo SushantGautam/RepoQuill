@@ -1551,6 +1551,18 @@ def _cmd_generate(args) -> int:
                   f"{ssummary['required_fixes']} required-kwarg fixes "
                   f"({ssummary['pages_fixed']} pages)")
 
+        # Grounding pass: LLM correction fed by prose-checker findings
+        grounding_pass = getattr(cfg.llm, "grounding_pass", False)
+        if grounding_pass:
+            from repoquill.grounding import run_grounding_pass
+            print("  Running grounding pass (prose-checker feedback loop)...")
+            gsummary = run_grounding_pass(
+                cfg.out_guides, cfg.pkg_path, client, cfg.llm
+            )
+            print(f"  grounding: {gsummary['pages_fixed']} pages fixed, "
+                  f"{gsummary['findings_before']} findings before, "
+                  f"{gsummary['findings_after']} after")
+
         store_plan(cfg.plan_file, pages, new_hashes)
 
     print()
