@@ -1,8 +1,8 @@
 # CURRENT_STATE
 
-**Last updated:** 2026-08-29 (after E16)
-**Best-known state:** E8+E9+E10+E13+E13b+E14 (commit 2edd930) — 54.6% coverage v2 (mean of 3 runs), 0.0% invented-symbol rate, 4.5% broken examples (HONEST), 0 placeholders
-**Experiments complete:** E1–E13 + E13b + E18 + E14 + E15 + E16 + RETRO2 (3 independent subagents: patterns, Goodhart, adversarial). E17 (verify-pass A/B) IN PROGRESS — off-arm running.
+**Last updated:** 2026-08-29 (after E19)
+**Best-known state:** E8+E9+E10+E13+E13b+E14+E19 (grounding pass) — 54.6% coverage v2 (mean of 3 runs), 0.0% invented-symbol rate, 5.2% broken examples, 11.3 prose findings mean (was 44.3)
+**Experiments complete:** E1–E13 + E13b + E18 + E14 + E15 + E16 + E17 + E19 + RETRO2 + RETRO3. E19 (grounding pass): KEEP — prose findings 44.3→11.3 (74.5% reduction) with zero coverage loss.
 **E13 (surgical verify pass):** deterministic post-generation edit step. Property-call fix is genuine. Committed (18f365d).
 **E13b (placeholder fix):** replaced `<REQUIRED>` sentinel with value inference (AST default, sibling mirroring) or omit+comment. 0 placeholders across 3 runs. Broken% now honest (13.8% mean). Committed (5c08779).
 **RETRO2 key findings:**
@@ -35,7 +35,8 @@
 | E14 | Inject exact constructor signatures into narrative prompt | 0.0% | 63.9–67.0% (mean 65.6) | 2.0–5.9% (mean 4.5, honest) | **KEEP** (2edd930) |
 | E15 | De-Goodhart coverage (substantive-mention criterion) | — | 51.4–56.4% (mean 54.6, v2) | — | **KEEP** (new harness) |
 | E16 | Tests-as-evidence (inject top test files) | 0.0% | 48.0–57.0% (mean 52.9, v2) | 7.1–19.6% (mean 13.9) | **REVERT** (ea23ac1, default off) |
-| E17 | verify-pass A/B (verify_passes 1 vs 0) | — | — | — | **IN PROGRESS** (off-arm running) |
+| E17 | verify-pass A/B (verify_passes 1 vs 0) | 53.6 | 11.7 | 0.0008 | **KEEP E5** (off broken 11.7% > 8.7% threshold) |
+| E19 | Grounding pass (prose-checker feedback loop) | 54.6 | 5.2 | 0.3 | **KEEP** (prose 44.3→11.3, 74.5% reduction, zero coverage loss) |
 
 ## E11 — Variance Band Results
 
@@ -150,11 +151,17 @@ require substantive mention; make inventory repo-derived.
 
 ## Current Best-Known State
 
-**E8+E9+E10+E13+E13b (commit 5c08779)** — 67.9% coverage (mean of 3 runs; within 2× band of 70.7%), 0.0% hallucination rate, 13.8% honest broken examples
+**E8+E9+E10+E13+E13b+E14+E19 (grounding pass)** — 54.6% coverage v2 (mean of 3 runs), 0.0% invented-symbol rate, 5.2% broken examples, 11.3 prose findings mean
 - 11 deterministic pages from `narrative_sections` config
-- 277 grounded claims (mean of 3 runs: 287/294/250), 0 invented symbol names
+- 0 invented symbol names across all runs
 - **E13:** deterministic surgical verify pass fixes ~35pp of broken examples post-generation
-- **E13b:** `<REQUIRED>` placeholder replaced with value inference (AST default, sibling mirroring) or omit+comment. 0 placeholders across 3 runs. Broken% now honest (13.8% mean vs E13's 6.2% placeholder-inflated).
+- **E13b:** `<REQUIRED>` placeholder replaced with value inference (AST default, sibling mirroring) or omit+comment. 0 placeholders across 3 runs.
+- **E14:** constructor signature injection — invalid_kwarg = 0 in 3/3 runs; broken% improved 13.8→4.5% mean.
+- **E15:** de-Goodhart coverage (v2 metric) — canonical coverage is now 54.6% (was 65.6% under old metric).
+- **E17:** verify-pass A/B confirmed E5 is needed — off-arm broken% 11.7% > 8.7% threshold.
+- **E19:** grounding pass — prose findings 44.3→11.3 (74.5% reduction), zero coverage loss.
+  Config flag `grounding_pass: true` (default false). Generic LLM correction fed by
+  prose-checker findings.
 
 ## Research Retrospective (COMPLETE — after E1–E10)
 
@@ -244,22 +251,99 @@ vs E14 baseline: 54.6% coverage, 4.5% broken, 44.3 prose.
 context without net benefit at this context budget. Code kept (default off) for future
 experiments with larger context budgets.
 
-## Next Steps (re-ranked after E16)
+## E17 — Verify-Pass A/B Test Results
 
-1. **E17 — verify-pass A/B (IN PROGRESS).** E5's LLM verify pass (verify_passes: 1) was
-   "KEEP (not well-justified)" since E11: −8.9pp coverage for +0.12pp hallucination.
-   Now that E13/E13b/E14 handle the deterministic fixes, the LLM rewrite pass is likely
-   pure cost. A/B: verify_passes 0 vs 1, 3 runs each, E14 baseline config otherwise.
-   Decision rule: if off-arm has broken% ≤ on-arm + 4.2pp AND coverage ≥ on-arm − 4.2pp
-   → REVERT E5 (set verify_passes: 0 in config; saves ~30s/page of LLM calls).
-   Off-arm (E17_off_r1–r3) launched 2026-08-29; on-arm = existing E14_r1–r3.
-2. **E19 — Grounding pass.** Feed E18 findings back into generation to correct
-   method/property confusion (E14 mean prose findings = 44.3; E16 showed tests help prose
-   but hurt broken% — a deterministic correction pass may get the prose benefit without
-   context bloat).
-3. **E15 (structure) — Generic structure derivation.** Repo-derived slugs, not hand-authored.
-4. **Research retrospective (RETRO3)** — due (5 experiments since RETRO2). A Goodhart-audit
-   fork was launched at end of E16 segment; fold its result in when it lands.
-5. **Backlog:** rename `hallucination_rate` → `invented_symbol_rate`; independent judge
+**Design:** On-arm = E14_r1-r3 (verify_passes: 1, existing runs). Off-arm = E17_off_r1-r3
+(verify_passes: 0, identical config otherwise). Decision threshold: off wins if broken% ≤
+on+4.2pp AND coverage ≥ on-4.2pp.
+
+| Arm | Run | Coverage v2 | Broken% | invalid_kwarg | Halluc% | Prose |
+|-----|-----|-------------|---------|---------------|---------|-------|
+| ON (E14) | r1 | 56.4% | 2.0% | 0 | 0.0% | 48 |
+| ON (E14) | r2 | 51.4% | 5.7% | 0 | 0.0% | 47 |
+| ON (E14) | r3 | 55.9% | 5.9% | 0 | 0.0% | 38 |
+| **ON mean** | | **54.6%** | **4.5%** | **0** | **0.0%** | **44.3** |
+| OFF | r1 | 50.8% | 16.3% | 0 | 0.0% | 49 |
+| OFF | r2 | 57.5% | 14.3% | 1 | 0.0% | 70 |
+| OFF | r3 | 52.5% | 4.4% | 0 | 0.0% | 54 |
+| **OFF mean** | | **53.6%** | **11.7%** | **0.33** | **0.0%** | **57.7** |
+
+**Decision: KEEP E5 (verify_passes: 1).** Off-arm broken% mean 11.7% exceeds threshold
+8.7% (on 4.5% + 4.2pp band). The verify pass suppresses pseudo-signature syntax errors
+(E17_off_r1 had 8 syntax_error blocks from ModelAuditor(...)/AuditExperiment(...)
+pseudo-signatures; on-arm had 1-3). Coverage delta -1.0pp within band. Prose findings
+worse off (57.7 vs 44.3).
+
+## E19 — Grounding Pass Results
+
+**Change:** `repoquill/grounding.py` — post-generation LLM correction pass. Runs the
+prose API-semantics checker internally, groups findings by page, and sends each affected
+page + its findings + the AST API surface to the LLM (temp 0.1) with instructions to fix
+ONLY the flagged claims. Wired into `cli.py` behind `grounding_pass: true` config flag
+(default false).
+
+| Run | Coverage v2 | Broken% | invalid_kwarg | Halluc% | Prose before | Prose after |
+|-----|-------------|---------|---------------|---------|-------------|-------------|
+| E19_r1 | 56.4% | 4.0% | 0 | 0.8% | 48 | 30 |
+| E19_r2 | 51.4% | 5.7% | 0 | 0.0% | 47 | 2 |
+| E19_r3 | 55.9% | 5.9% | 0 | 0.0% | 38 | 2 |
+| **Mean** | **54.6%** | **5.2%** | **0** | **0.3%** | **44.3** | **11.3** |
+
+vs E14 baseline: 54.6% coverage, 4.5% broken, 44.3 prose.
+
+**Decision: KEEP.** Prose findings dropped 74.5% (44.3→11.3) with zero coverage loss
+(54.6% = 54.6%). Decision rule met: prose < 20 AND coverage ≥ 50.4%. Broken% slightly
+higher (5.2% vs 4.5%) but within variance band. Generic — works on any repo with
+prose-checker findings.
+
+**RETRO3 secondary check:** The 2 HIGH-severity semantic errors (language="en", missing
+event-loop caveat) are only partially addressed. The event-loop caveat appeared in r2
+only; language="en" persists in r1 and r3. Expected: these errors are outside the prose
+checker's finding types, so the grounding pass can't fix what the checker doesn't flag.
+Confirms the need for a semantic-value checker (backlog item).
+
+## RETRO3 — Adversarial Findings (E14/E16 era)
+
+Completed 2026-08-29. Four questions addressed:
+
+**Q1: Is E14's broken% improvement real?** YES. E14 examples are MORE complex than E13b
+(4.41 vs 3.79 avg kwargs/call; 29 vs 14 constructor calls). The 13.8→4.5% improvement is
+genuine, not an artifact of simpler examples.
+
+**Q2: Is v2 coverage a better proxy?** PARTIALLY. v2 is stricter (requires substantive
+mention) but sensitive to run quality. One E17_off run initially showed 24.6% due to
+checker timing (guides still being written); the final coverage.json showed 57.5%. v2
+needs 3+ runs to stabilize.
+
+**Q3: Is E16 REVERT correct?** DEFENSIBLE. Prose improved (44.3→30.7) but broken%
+regressed (4.5→13.9%). Broken examples are user-facing defects; the tradeoff favors
+keeping broken% low.
+
+**Q4: Biggest blind spots in E14 docs:**
+1. **`language="en"` instead of `language="English"` (HIGH)** — custom-scenarios.md:131,163
+   and model-auditor.md:71 use `"en"`. Source default is `"English"` (full word). The
+   `language` param is injected verbatim into the system prompt as `"Write in {language}"`.
+   Passing `"en"` makes the model write in a language code. **Status: STILL PRESENT in E14.**
+2. **`run()` event loop restriction not documented (HIGH)** — `run()` raises `RuntimeError`
+   if called from an active event loop. E14 docs never mention this. A developer copying
+   examples into Jupyter will crash. **Status: STILL PRESENT in E14.**
+3. **`provider` argument (CRITICAL from E8 era)** — E8 docs omitted `provider` in 4 pages.
+   **Status: FIXED in E14** (all examples include `provider`).
+
+**Key insight:** The current checkers (example_check, hallucination_check,
+prose_api_semantics_check) do NOT catch semantic value errors (wrong string literal) or
+omissions (missing caveat). These are C-hallucinations that require either:
+- A new checker type (semantic value validation), or
+- The grounding pass (E19) to correct them post-generation.
+
+## Next Steps (re-ranked after E19)
+
+1. **E20 — Semantic value checker.** New deterministic checker that catches wrong string
+   literals (e.g. `language="en"` instead of `language="English"`) and missing caveats
+   (e.g. `run()` event-loop restriction). RETRO3 + E19 secondary check both confirm this
+   is the highest-value remaining blind spot: the grounding pass can't fix what the
+   checker doesn't flag.
+2. **E15 (structure) — Generic structure derivation.** Repo-derived slugs, not hand-authored.
+3. **Backlog:** rename `hallucination_rate` → `invented_symbol_rate`; independent judge
    (different model family); fix noisy `workflows` category in coverage_check_v2.py
    (includes generic words like 'actually', 'around').

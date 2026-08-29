@@ -1,6 +1,6 @@
 # NEXT_EXPERIMENT
 
-**Last updated:** 2026-08-29 (after E16)
+**Last updated:** 2026-08-29 (after E19)
 
 ## E13b — Fix the `<REQUIRED>` Placeholder — DONE (KEEP, 5c08779)
 
@@ -137,41 +137,126 @@ Prose findings improved (44.3→30.7) but broken% regression dominates.
 Tests crowd out source context without net benefit at 60KB budget.
 Code kept (default off) for future experiments with larger context budgets.
 
-## E17 — Investigate E5 Regression — NEXT
+## E17 — Verify-Pass A/B — DONE (KEEP E5, verify_passes: 1)
 
 ### Hypothesis
 
-Now that E13b handles the deterministic fixes, the LLM verify pass (E5) is unnecessary
-and its −8.9pp coverage cost is pure harm.
+Now that E13/E13b/E14 handle the deterministic fixes (property calls, missing required
+kwargs, invalid kwargs), the E5 LLM verify pass (verify_passes: 1) is unnecessary — its
+whole-page rewrite costs coverage (−8.9pp in E11) and adds variance without a remaining
+benefit.
+
+### Design
+
+- **On-arm:** E14_r1–r3 (verify_passes: 1).
+- **Off-arm:** E17_off_r1–r3 (verify_passes: 0, identical config otherwise).
+
+### Result: KEEP E5 (verify_passes: 1)
+
+| Metric | On-arm (E14) | Off-arm (E17_off) | Threshold |
+|--------|-------------|------------------|-----------|
+| Coverage v2 | 54.6% | 53.6% | ≥ 50.4% ✓ |
+| Broken% | 4.5% | **11.7%** | ≤ 8.7% ✗ |
+| Prose findings | 44.3 | 57.7 | — |
+| Invented symbols | 0.0% | 0.0008% | — |
+
+Off-arm broken% mean 11.7% exceeds 8.7% threshold (on 4.5% + 4.2pp band). Root cause:
+without the verify pass, pseudo-signature code blocks (e.g. `ModelAuditor(\n model: str, ...`)
+survive — E17_off_r1 had 8 syntax_error blocks; on-arm had 1–3. E14's constructor-signature
+injection suppresses pseudo-signature *generation*, but the verify pass is what *removes*
+residual ones. E5 is not redundant.
+
+### Status
+
+Complete 2026-08-29. No config change needed (verify_passes: 1 already in E14 baseline).
+
+## E19 — Grounding Pass — DONE (KEEP)
+
+**Result:** Prose findings 44.3→11.3 (74.5% reduction), zero coverage loss (54.6% = 54.6%),
+broken% 5.2% (within variance). Decision rule met: prose < 20 AND coverage ≥ 50.4%.
+Generic LLM correction pass fed by prose-checker findings. Config flag `grounding_pass: true`
+(default false). RETRO3 secondary check: semantic errors (language="en", event-loop caveat)
+only partially addressed — outside checker coverage, confirming need for E20.
+
+## E20 — Semantic Value Checker — NEXT
+
+### Hypothesis
+
+The current checkers (example_check, hallucination_check, prose_api_semantics_check) catch
+API misuse (wrong method/property, wrong return type, wrong kwarg) but NOT wrong string
+literals or missing caveats. A new deterministic checker that validates string-literal
+values against source defaults and flags missing behavioral caveats will close the last
+major C-hallucination blind spot identified by RETRO3.
+
+### Why first
+
+E19's grounding pass confirmed that the checker is the bottleneck: it can only fix what
+the checker flags. RETRO3 found 2 HIGH-severity semantic errors in E14 docs that no
+checker catches:
+1. `language="en"` instead of `language="English"` (source default is `"English"`)
+2. `run()` event-loop restriction not documented (raises RuntimeError in active event loop)
+
+These are user-facing defects: a developer copying `language="en"` into their config will
+get degraded output; a developer calling `run()` in Jupyter will crash.
 
 ### Goal
 
-A/B test: E5 on vs off, 3 runs each, on the E14 baseline. If E5-off has equal or better
-metrics → revert E5.
+Build `semantic_value_check.py` that flags at minimum:
+- String literal values in code blocks that differ from the source parameter's default
+  (e.g. `language="en"` when source has `language: str = "English"`)
+- Missing behavioral caveats: functions that raise exceptions under specific conditions
+  (e.g. `run()` raises RuntimeError in active event loop) where the docs never mention
+  the condition
 
-### Changes
+### Implementation sketch
 
-1. **Config A (E5 on):** `verify_passes: 1` in llm config (current E14 state)
-2. **Config B (E5 off):** `verify_passes: 0` in llm config
-3. 3 runs each, same E14 baseline, same checkers (v2 coverage, example_check, hallucination, prose)
+1. **String literal validation:**
+   - Extract all `param="value"` and `param='value'` patterns from fenced code blocks
+   - For each, look up the parameter in the AST class index
+   - If the param has a string default and the doc value differs, flag as
+     `STRING_VALUE_MISMATCH`
+   - Generic: works on any repo with string-typed parameters
+
+2. **Missing caveat detection:**
+   - AST-walk for methods with `raise` statements that depend on runtime state
+     (e.g. `asyncio.get_event_loop()`, `threading.current_thread()`)
+   - Check if any guide page mentions the method AND the caveat condition
+   - If the method is documented but the caveat is absent, flag as `MISSING_CAVEAT`
+   - Generic: works on any repo with conditional exceptions
 
 ### Decision rule
 
-- If E5-off coverage ≥ E5-on coverage (within variance) AND broken% ≤ E5-on → revert E5.
-- If E5-off coverage < E5-on by >4.2pp → E5 is genuinely helping; keep E5.
-- Either way, record the A/B result in registry.
+- If the checker flags both known RETRO3 errors on E14 docs → KEEP (instrument works).
+- If the checker misses 1+ of the 2 → refine patterns and re-test.
 
-## E15 — Generic Structure Derivation
+### Controlled variables
+
+- Same E14+E19 config (grounding_pass: true), same source, same other checkers.
+- Only change: new checker added to the evaluation suite.
+- 3 runs to measure variance.
+
+## E15 (structure) — Generic Structure Derivation
 
 ### Hypothesis
 
 The 11 narrative slugs are hand-authored for SimpleAudit. A generic system should derive
 page structure from the repository itself.
 
-## Backlog (after E16)
+## RETRO3 — Research Retrospective — DONE (2026-08-29)
 
-- **E19 — Grounding pass.** Feed E18 findings back into generation to correct
-  method/property confusion.
+Completed directly (fork spawning unavailable in this session). Four questions addressed:
+1. E14 broken% improvement is REAL (examples more complex, not simpler).
+2. v2 coverage is stricter but noisier (needs 3+ runs).
+3. E16 REVERT is defensible (broken% regression dominates prose improvement).
+4. Biggest blind spots: semantic value errors (`language="en"`) and omissions
+   (event-loop caveat) that no current checker catches.
+
+## Backlog (after E19)
+
+- **E20 — Semantic value checker.** New deterministic checker for wrong string literals
+  and missing caveats. (Promoted from backlog — now NEXT.)
 - **E15 — Generic structure derivation.** Repo-derived slugs, not hand-authored.
 - **Independent judge:** use a different model family for judging.
 - **Rename `hallucination_rate` to `invented_symbol_rate`** in the registry.
+- **Fix noisy `workflows` category** in coverage_check_v2.py (admits generic words like
+  'actually', 'around').

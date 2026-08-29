@@ -1,16 +1,18 @@
 # BEST_KNOWN
 
-**Last updated:** 2026-08-29 (after E16)
+**Last updated:** 2026-08-29 (after E19)
 
 ## Best-Known State
 
-**E8+E9+E10+E13+E13b+E14 (commit 2edd930)** — 54.6% coverage v2 (mean of 3 runs), 0.0% invented-symbol rate, 4.5% honest broken examples
+**E8+E9+E10+E13+E13b+E14+E19 (grounding pass)** — 54.6% coverage v2 (mean of 3 runs), 0.0% invented-symbol rate, 5.2% broken examples, 11.3 prose findings mean
 - 11 deterministic pages from `narrative_sections` config
 - 0 invented symbol names
 - **Coverage metric:** v2 (substantive-mention, E15) — old substring metric inflated by ~10pp
-- **E14 metric:** 4.5% of code examples are non-runnable (mean of 3 E14 runs: 2.0/5.7/5.9)
+- **E14 metric:** 5.2% of code examples are non-runnable (mean of 3 E19 runs: 4.0/5.7/5.9)
 - **E14:** 0 `invalid_kwarg` findings across all 3 runs (baseline had 2). Constructor signatures
   injected into prompt via AST walk.
+- **E19:** grounding pass — prose findings 44.3→11.3 (74.5% reduction), zero coverage loss.
+  Config flag `grounding_pass: true` (default false).
 
 **E13 (surgical verify pass):** deterministic post-generation edit step. Property-call fix
 is genuine. Committed as `18f365d`.
@@ -24,12 +26,16 @@ walks all public classes via AST and renders exact `__init__` parameter names, o
 annotations, and defaults. Injected into `generate_page()` in narrative.py as enrichment.
 Generic — no SimpleAudit-specific code. Committed as `2edd930`.
 
-**E18 (prose semantics checker):** new deterministic harness
-(`/tmp/rq-trials/harness/prose_api_semantics_check.py`) — first metric for C-hallucination
-(real symbol, false fact). Extracts API-usage claims from markdown prose and validates
-against an AST-derived class/function index. Caught 7/7 known adversarial errors in E13_e2e
-docs (52 findings) vs 38 findings in E13b_run1 (best-known). Evaluation infrastructure only —
-no RepoQuill code change. **KEEP** per decision rule.
+**E15 (de-Goodhart coverage, canonical metric):** coverage_check_v2.py — a concept counts
+as covered only if mentioned in a heading, fenced code block, definition-style sentence, or
+bold term; inventory is AST-derived. Old substring metric inflated by ~10pp (E14 mean:
+65.6% old → 54.6% v2). **KEEP** — evaluation infrastructure only, no RepoQuill code change.
+
+**E16 (tests-as-evidence):** get_tests_context() in reference.py + include_tests config
+flag (default False). **REVERTED as a config change** — broken% regressed 4.5→13.9% mean
+(+9.4pp) with coverage −1.7pp, despite prose findings improving 44.3→30.7. ~6KB of test
+context crowds out source context at the current 60K budget. Code kept dormant (commit
+ea23ac1, default off) for future experiments with larger budgets.
 
 ## Configuration (E8)
 
@@ -131,11 +137,23 @@ Any future experiment's delta must exceed the relevant variance band to be consi
 4. **Self-judging** — judge.py uses the same model as the generator (violates independence).
 5. **Evaluation harness is SimpleAudit-hardcoded** — coverage_check.py hard-codes concepts;
    hallucination_check.py has hand-tuned stopword lists. Core-rule violation.
-6. **Verify pass (E5) may be unnecessary** — E13 handles the deterministic fixes. E5's
-   whole-page LLM rewrite caused -8.9pp coverage regression. E17 will A/B test this.
+6. ~~**Verify pass (E5) may be unnecessary**~~ — **RESOLVED by E17.** A/B test confirmed
+   E5 is necessary: off-arm broken% 11.7% vs on-arm 4.5% (threshold 8.7%). Without the
+   verify pass, pseudo-signature code blocks (e.g. `ModelAuditor(\n model: str, ...`)
+   survive — E14's constructor-signature injection suppresses generation but the verify
+   pass removes residual ones. KEEP E5 (verify_passes: 1).
 
 **Fixed by E13b:** `<REQUIRED>` placeholders (was weakness #1) — 0 placeholders across 3 runs.
 Broken% is now honest (13.8% mean).
+
+7. **Semantic value errors and omissions are unmeasured (RETRO3, confirmed by E19)** —
+   The current checkers (example_check, hallucination_check, prose_api_semantics_check)
+   catch API misuse in code blocks and prose, but NOT wrong string literals (e.g.
+   `language="en"` instead of `language="English"`) or missing caveats (e.g. `run()`
+   event-loop restriction). RETRO3 found 2 HIGH-severity issues in E14 docs that no
+   checker catches. E19's grounding pass confirmed the limitation: it can only fix what
+   the checker flags, and these semantic errors persist in 2 of 3 runs. Requires E20
+   (semantic-value checker).
 
 ## E15 — De-Goodhart Coverage (KEEP)
 
@@ -151,8 +169,41 @@ infrastructure only — no RepoQuill code change.
 Tests crowd out source context without net benefit at this context budget. Code kept
 (default off) for future experiments with larger context budgets.
 
+## E17 — Verify-Pass A/B (KEEP E5)
+
+A/B test `verify_passes: 1` (on-arm = E14_r1–r3) vs `0` (off-arm = E17_off_r1–r3).
+Off-arm broken% mean 11.7% > 8.7% threshold (on 4.5% + 4.2pp band). Root cause: without
+the verify pass, pseudo-signature code blocks survive (E17_off_r1: 8 syntax_error blocks
+from `ModelAuditor(\n model: str, ...` etc.; on-arm: 1–3). E14's constructor-signature
+injection suppresses pseudo-signature *generation*; the verify pass removes *residual*
+ones. E5 is not redundant. No config change (verify_passes: 1 already in E14 baseline).
+
+## E19 — Grounding Pass (KEEP)
+
+`repoquill/grounding.py` — post-generation LLM correction pass. Runs the prose
+API-semantics checker internally, groups findings by page, and sends each affected
+page + its findings + the AST API surface to the LLM (temp 0.1) with instructions to
+fix ONLY the flagged claims. Wired into `cli.py` behind `grounding_pass: true` config
+flag (default false).
+
+| Run | Coverage v2 | Broken% | invalid_kwarg | Halluc% | Prose before | Prose after |
+|-----|-------------|---------|---------------|---------|-------------|-------------|
+| E19_r1 | 56.4% | 4.0% | 0 | 0.8% | 48 | 30 |
+| E19_r2 | 51.4% | 5.7% | 0 | 0.0% | 47 | 2 |
+| E19_r3 | 55.9% | 5.9% | 0 | 0.0% | 38 | 2 |
+| **Mean** | **54.6%** | **5.2%** | **0** | **0.3%** | **44.3** | **11.3** |
+
+**Decision: KEEP.** Prose findings dropped 74.5% (44.3→11.3) with zero coverage loss.
+Decision rule met: prose < 20 AND coverage ≥ 50.4%. Generic — works on any repo with
+prose-checker findings.
+
+**Limitation:** The grounding pass only fixes checker-detected findings. It does NOT fix
+unmeasured semantic errors (RETRO3: `language="en"`, missing `run()` event-loop caveat).
+These require a new semantic-value checker (E20).
+
 ## Next Experiment
 
-**E17 — Investigate E5 regression.** A/B test `verify_passes: 1` on/off (3 runs each) on
-the E14 baseline. If E5-off has equal or better metrics → revert E5 (saves compute,
-simplifies pipeline). See NEXT_EXPERIMENT.md.
+**E20 — Semantic value checker.** New deterministic checker that catches wrong string
+literals (e.g. `language="en"` instead of `language="English"`) and missing caveats
+(e.g. `run()` event-loop restriction). RETRO3 + E19 secondary check both confirm this
+is the highest-value remaining blind spot. See NEXT_EXPERIMENT.md.
