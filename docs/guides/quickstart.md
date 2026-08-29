@@ -112,6 +112,8 @@ llm_cfg = LLMConfig() # Or extract from cfg if available in your specific versio
 # Initialize client
 client = LLMClient(llm_cfg
     # NOTE: llm_cfg is required (no default)
+,
+    # NOTE: llm_cfg is required (no default)
 )
 ```
 

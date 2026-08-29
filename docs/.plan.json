@@ -51,7 +51,7 @@
     "repoquill/site.py": "c5196508d138600d534b4f7ce97d80f2c8bb403ebd3c2aa91cc6530075c988b7",
     "repoquill/plan.py": "640378056bb5174494a28e1eb316729a4c77b775651315176d1d2e36371394f8",
     "repoquill/llm.py": "10ed4ec6e98a1720012ba3cf3ad0872d18c5806259664e4350409719980e3906",
-    "repoquill/narrative.py": "972ec9ec4045286cd0830e209d664f1164ee1f3a574f99eded816fdc5f45b03f",
+    "repoquill/narrative.py": "dc83826ef192097313b6bf495f5d0d9725db76243e32d2a19a957a70dd9f2334",
     "repoquill/surgical_verify.py": "04fda2b1a8443e7c3b93d70e5f728ccd0daf08598f44c048775f94ba6f5cacb3",
     "repoquill/reference.py": "e567a37b24d1a203e447b28d8ded27fcfcbd4102a2daf00848cc3e2c49aba99b",
     "repoquill/config.py": "ad7dde928c6ed78ca8e25779b989f02822c747d53a44d386e85ec7a413fd9139",

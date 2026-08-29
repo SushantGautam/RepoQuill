@@ -38,6 +38,8 @@ This module implements **Layer 1** of the architecture: deterministic API refere
 - **`extract_member_bodies(pkg_path, names, max_lines, max_chars)`**: Extracts method bodies for documentation.
 - **`get_source_files(pkg_path)`**: Lists all source files in the package.
 - **`get_file_tree(pkg_path)`**: Generates a file tree structure for the package.
+- **`get_examples_context(root, max_chars)`**: Extracts context from example files for documentation generation.
+- **`get_tests_context(root, max_chars)`**: Extracts context from test files for documentation generation.
 - **`build_api_reference(cfg)`**: Renders the final API reference pages using the extracted data.
 - **`render_module_reference(module_name, search_path, module_descriptions)`**: Renders a specific module's reference.
 
