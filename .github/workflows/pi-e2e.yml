@@ -1,0 +1,139 @@
+# ============================================================================
+# RepoQuill — real-Pi E2E + no-LLM determinism CI
+#
+# `pi-e2e` provisions the pinned Pi package (@earendil-works/pi-coding-agent,
+# version pinned in repoquill/pi/contracts.py: PI_PACKAGE / PI_PINNED_VERSION)
+# into repoquill's app cache so tests/test_pi_agentic_e2e.py finds the real
+# binary at <cache>/node_modules/.bin/pi (contracts.DEFAULT_PI_CACHE_DIR,
+# i.e. $HOME/.cache/repoquill/pi) and runs the flagship E2E instead of
+# skipping. No secrets: the E2E drives Pi against a local scripted mock
+# model server.
+#
+# `no-llm` proves `repoquill generate --no-llm` needs zero Node/Pi: it runs
+# the deterministic generate on fixtures/miniutil with a HOME that has no
+# cached Pi binary at all.
+# ============================================================================
+name: Pi E2E
+
+on:
+  pull_request:
+  push:
+    branches: [dev, main]
+  workflow_dispatch:
+
+concurrency:
+  group: pi-e2e-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  pi-e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install project (dev extras)
+        run: uv sync --extra dev
+
+      # Node >= 22.19.0 is required by the pinned pi-coding-agent
+      # package (engines); 24 is the current LTS line.
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      # Provision exactly what contracts.py expects: the pinned package's
+      # bin lands at <DEFAULT_PI_CACHE_DIR>/node_modules/.bin/pi, which is
+      # what tests/test_pi_agentic_e2e.py probes for. npm's cache directory
+      # is cached by pinned version (the lockfile does not exist before the
+      # first install, so it cannot be a cache key).
+      - name: Cache npm packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.npm
+            $HOME/.cache/repoquill/pi/node_modules
+          key: npm-pi-${{ runner.os }}-1.2.0
+          restore-keys: npm-pi-${{ runner.os }}-
+
+      - name: Provision pinned Pi into app cache
+        run: |
+          PI_CACHE="$HOME/.cache/repoquill/pi"
+          mkdir -p "$PI_CACHE"
+          npm install --prefix "$PI_CACHE" --no-audit --no-fund \
+            @earendil-works/pi-coding-agent@1.2.0
+          test -x "$PI_CACHE/node_modules/.bin/pi" || {
+            echo "pi binary missing at expected path: $PI_CACHE/node_modules/.bin/pi"
+            exit 1
+          }
+          "$PI_CACHE/node_modules/.bin/pi" --version || true
+
+      # Informational only: doctor's non-zero exit must not fail the job.
+      - name: repoquill doctor (informational)
+        run: |
+          set +e
+          uv run repoquill doctor
+          doctor_rc=$?
+          set -e
+          echo "doctor exited $doctor_rc (informational)"
+
+      - name: Full test suite
+        run: uv run python -m pytest -q
+
+      # The flagship E2E must have RUN with the real binary, not skipped
+      # for a missing pi/node.
+      - name: Assert real-Pi E2E did not skip
+        run: |
+          set +e
+          out="$(uv run python -m pytest -q tests/test_pi_agentic_e2e.py 2>&1)"
+          rc=$?
+          set -e
+          printf '%s\n' "$out"
+          if [ "$rc" -ne 0 ] || printf '%s' "$out" | grep -q 'skipped'; then
+            echo "FAIL: tests/test_pi_agentic_e2e.py did not pass (skipped or failed)"
+            exit 1
+          fi
+          printf '%s' "$out" | grep -q '1 passed' || {
+            echo "FAIL: expected exactly 1 passed in tests/test_pi_agentic_e2e.py"
+            exit 1
+          }
+
+  no-llm:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install project (dev extras)
+        run: uv sync --extra dev
+
+      # Deterministic generate on fixtures/miniutil with a HOME that has
+      # no cached Pi binary and a PATH with no node: proves --no-llm needs
+      # zero Node/Pi.
+      - name: Generate fixture docs with --no-llm (no Node/Pi)
+        run: |
+          set -e
+          WORK="$GITHUB_WORKSPACE/_no_llm"
+          mkdir -p "$WORK/home/bin" "$WORK/scratch"
+          cp -r fixtures/miniutil "$WORK/scratch/miniutil"
+          export HOME="$WORK/home"
+          export PATH="$WORK/home/bin:$PATH"
+          cd "$WORK/scratch/miniutil"
+          uv run --project "$GITHUB_WORKSPACE" repoquill generate \
+            --no-llm --no-scaffold --config repoquill.yml
+          test -f docs/index.md
+          test -f docs/mkdocs.yml
+          ls docs/reference
