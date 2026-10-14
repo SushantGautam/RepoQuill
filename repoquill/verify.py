@@ -145,13 +145,18 @@ def check_page(page_md: str, idx: SymbolIndex, pkg_name: str) -> List[dict]:
         all_methods |= methods
 
     # 1. Imports
+    bare_module_names = {m.split(".")[-1] for m in idx.modules}
     for imp in extract_imports(page_md):
         if imp in idx.modules or imp in idx.module_symbols:
             continue
         top = imp.split(".")[0]
         if top == pkg_name or top in idx.modules:
-            # from pkg.sub import X — check X
+            # from pkg.sub import X — imp is either the module path
+            # itself (e.g. "pkg.sub" — its bare tail is a known module)
+            # or the imported symbol X (checked separately).
             parts = imp.split(".")
+            if parts[-1] in bare_module_names:
+                continue  # valid submodule path
             if len(parts) > 1 and parts[-1] not in idx.module_symbols:
                 findings.append({"symbol": imp, "kind": "import",
                                  "severity": "medium"})
@@ -160,8 +165,6 @@ def check_page(page_md: str, idx: SymbolIndex, pkg_name: str) -> List[dict]:
                              "severity": "high"})
 
     # 2. Backtick identifiers
-    # Build a set of bare module names (last part of each module path)
-    bare_module_names = {m.split(".")[-1] for m in idx.modules}
     for sym in extract_backtick_symbols(page_md):
         if sym in idx.module_symbols or sym in idx.string_literals \
                 or sym in idx.function_params or sym in idx.constants \
