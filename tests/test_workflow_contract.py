@@ -152,6 +152,21 @@ def test_docs_workflow_permissions_and_concurrency():
     assert isinstance(wf.get("concurrency"), dict)
 
 
+def test_docs_workflow_has_daily_reconciliation_schedule():
+    wf = _load(DOCS)
+    # PyYAML parses the bare `on:` key as boolean True.
+    on = wf.get("on", wf.get(True, {}))
+    schedules = on.get("schedule", [])
+    assert schedules, "docs.yml must run a scheduled reconciliation"
+    cron = schedules[0]["cron"]
+    assert len(cron.split()) == 5, f"invalid cron expression: {cron!r}"
+    # Existing triggers must be preserved alongside the schedule.
+    assert on.get("push", {}).get("branches") == ["main"]
+    assert "workflow_dispatch" in on
+    # The schedule is serialized with the rest of the docs runs.
+    assert wf.get("concurrency", {}).get("cancel-in-progress") is False
+
+
 def test_docs_call_inputs_are_declared():
     reusable_inputs = set(_inputs(_load(REUSABLE)))
     docs = _load(DOCS)["jobs"]["docs"]

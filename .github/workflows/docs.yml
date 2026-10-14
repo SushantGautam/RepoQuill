@@ -3,6 +3,13 @@ name: Docs
 on:
   push:
     branches: [main]
+  # Daily reconciliation (M4): the retry-safe manifest re-attempts pages
+  # that failed or were left unverified by an earlier run and picks up
+  # source drift. Runs are cheap no-ops when everything is already
+  # verified (unchanged pages skip LLM calls entirely). A schedule on the
+  # default branch is a trusted publishing context, like push/dispatch.
+  schedule:
+    - cron: "17 3 * * *"
   workflow_dispatch:
     inputs:
       clean:
@@ -23,8 +30,8 @@ concurrency:
 # Required: the reusable workflow's publish job (contents: write) commits
 # generated docs back to this repo, and reusable-workflow job permissions
 # are capped by the caller's workflow-level permissions. This workflow only
-# runs in trusted contexts (push to main / manual dispatch), so no
-# privileged push ever happens from PRs.
+# runs in trusted contexts (push to main / schedule / manual dispatch),
+# so no privileged push ever happens from PRs.
 permissions:
   contents: write
 
