@@ -2203,8 +2203,9 @@ def _print_doctor_dict(d: dict, indent: int = 0) -> None:
 def _cmd_doctor(args) -> int:
     """Report readiness of the optional Pi runtime (Node / Pi / model).
 
-    Purely informational for a working setup (exit 0); exits 1 when the
-    Pi runtime modules are not present in this RepoQuill install.
+    Loads the project's ``repoquill.yml`` (via ``--config`` or the cwd) so
+    the model-readiness section reflects the actually configured endpoint.
+    Exits 1 only when the Pi runtime modules are missing from this install.
     """
     try:
         from repoquill.pi.bootstrap import doctor as pi_doctor
@@ -2216,7 +2217,18 @@ def _cmd_doctor(args) -> int:
               "RepoQuill app cache (or preprovisioned in CI). "
               "`repoquill generate --no-llm` needs no Node/Pi at all.")
         return 1
-    result = pi_doctor() or {}
+    # Load the project config so `model` reflects the real endpoint/key.
+    llm_cfg = None
+    config_path = getattr(args, "config", None)
+    try:
+        from repoquill.config import load_config
+        llm_cfg = load_config(config_path).llm
+    except FileNotFoundError:
+        print("note: no repoquill.yml found in cwd (pass --config PATH to "
+              "point at one); model readiness not checked.\n")
+    except Exception as e:  # malformed config etc.
+        print(f"note: could not load project config for model check: {e}\n")
+    result = pi_doctor(check_model_cfg=llm_cfg) or {}
     _print_doctor_dict(result)
     return 0
 
@@ -2265,7 +2277,7 @@ def main(argv=None) -> int:
     init.add_argument("-y", "--yes", action="store_true", help="Accept all defaults (non-interactive)")
 
     sub.add_parser("plan", parents=[common], help="Show the page plan")
-    sub.add_parser("doctor",
+    sub.add_parser("doctor", parents=[common],
                    help="Check Node/Pi/model readiness for the Pi engine")
 
     def _add_engine_flags(p):

@@ -140,11 +140,16 @@ def _check_model(cfg: Any) -> Tuple[Dict[str, Any], List[str]]:
                 "api_key_env": None,
                 "api_key_present": False,
                 "note": (
-                    "No model configuration supplied; pass the project LLM "
-                    "config to doctor() to check model readiness."
+                    "No model configuration supplied; run `repoquill doctor` "
+                    "from a project root (with repoquill.yml) to check the "
+                    "model endpoint."
                 ),
             },
-            [],
+            [
+                "No LLM config found — run `repoquill doctor` from the "
+                "project root (where repoquill.yml sets llm.base_url + "
+                "llm.api_key_env), or pass --config PATH."
+            ],
         )
     base_url = getattr(cfg, "base_url", None) or None
     api_key_env = getattr(cfg, "api_key_env", None) or None
@@ -361,8 +366,9 @@ def doctor(*, check_model_cfg: Any = None) -> Dict[str, Any]:
 
     ``check_model_cfg`` is an optional duck-typed llm config exposing
     ``provider``/``model``/``base_url``/``api_key_env``. ``ready`` is True
-    only when Node works, a pi binary works, and its version matches the
-    pin; every shortfall produces a concrete, command-level
+    only when Node works, a pi binary works, its version matches the pin,
+    AND the model is reachable (base_url + api_key_env set and the key
+    present); every shortfall produces a concrete, command-level
     recommendation.
     """
     node_version = find_node()
@@ -409,6 +415,7 @@ def doctor(*, check_model_cfg: Any = None) -> Dict[str, Any]:
         "cache_dir": DEFAULT_PI_CACHE_DIR,
         "cache_install_present": os.path.exists(_cache_bin_path()),
         "model": model,
-        "ready": bool(node_ok and pi_ok and version_matches),
+        "ready": bool(node_ok and pi_ok and version_matches
+                      and model.get("ok", False)),
         "recommendations": recommendations,
     }

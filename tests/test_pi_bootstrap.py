@@ -429,7 +429,11 @@ def test_doctor_ready_with_pinned_pi(tmp_path, monkeypatch):
     _make_bin(cache / "node_modules" / ".bin", "pi", PIN)
     monkeypatch.setattr(bs, "DEFAULT_PI_CACHE_DIR", str(cache))
 
-    doc = doctor()
+    monkeypatch.setenv("FOO_API_KEY", "sk-test-secret")
+    cfg = Cfg(provider="qwen", model="qwen3-max",
+              base_url="https://api.example/v1", api_key_env="FOO_API_KEY")
+
+    doc = doctor(check_model_cfg=cfg)
     assert doc["node"]["ok"] is True
     assert doc["node"]["version"] == "v24.21.0"
     assert doc["pi"]["ok"] is True
@@ -440,6 +444,36 @@ def test_doctor_ready_with_pinned_pi(tmp_path, monkeypatch):
     assert doc["cache_install_present"] is True
     assert doc["ready"] is True
     # No node/pi/model failures → no runtime recommendations.
+    assert doc["recommendations"] == []
+
+
+def test_doctor_ready_requires_model(tmp_path, monkeypatch):
+    """`ready` is a first-class model signal: node+pi good is not enough."""
+    bindir = tmp_path / "bin"
+    bindir.mkdir()
+    _make_bin(bindir, "node", "v24.21.0")
+    _make_bin(bindir, "pi", PIN)
+    monkeypatch.delenv(PI_BIN_ENV, raising=False)
+    monkeypatch.setenv("PATH", str(bindir))
+    cache = tmp_path / "pi-cache"
+    (cache / "node_modules" / ".bin").mkdir(parents=True)
+    _make_bin(cache / "node_modules" / ".bin", "pi", PIN)
+    monkeypatch.setattr(bs, "DEFAULT_PI_CACHE_DIR", str(cache))
+
+    # Node + pi fully ready, but no model config -> NOT ready.
+    doc = doctor()
+    assert doc["pi"]["ok"] is True
+    assert doc["model"]["ok"] is False
+    assert doc["ready"] is False
+    assert any("llm.base_url" in r for r in doc["recommendations"])
+
+    # Add a valid model config -> ready flips to True, no recommendations.
+    monkeypatch.setenv("FOO_API_KEY", "sk-test-secret")
+    cfg = Cfg(provider="qwen", model="qwen3-max",
+              base_url="https://api.example/v1", api_key_env="FOO_API_KEY")
+    doc = doctor(check_model_cfg=cfg)
+    assert doc["model"]["ok"] is True
+    assert doc["ready"] is True
     assert doc["recommendations"] == []
 
 
