@@ -14,10 +14,17 @@ on:
   release:
     types: [published]
 
+# Serialized: at most one PyPI publish at a time; never cancel an in-flight
+# publish (a cancelled publish can leave a half-uploaded release).
+concurrency:
+  group: pypi-publish
+  cancel-in-progress: false
+
 jobs:
   publish:
     runs-on: ubuntu-latest
     permissions:
+      contents: read # checkout only; no other grants needed
       id-token: write # required for trusted publishing (if configured)
     steps:
       - name: Checkout

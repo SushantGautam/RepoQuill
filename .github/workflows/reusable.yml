@@ -6,6 +6,21 @@
 #   - a `repoquill.yml` config (at repo root or docs/)
 #   - the LLM API key as a secret (name configurable via `api_key_secret`)
 #
+# Two-stage safety contract (P0-5):
+#   1. `validate` (read-only, contents: read): generates + builds the docs
+#      and uploads the generated docs/ tree and the built site as artifacts.
+#      It never commits or pushes. On any failure the workflow stops here
+#      and nothing is published, so a failed generation can never ship.
+#   2. `publish` (trusted only): runs only when `publish` is "true" (the
+#      default) and never in pull_request / pull_request_target contexts.
+#      Holds contents: write, uses only GITHUB_TOKEN (no LLM key), and
+#      commits + pushes the validated docs uploaded by `validate`.
+#   3. `deploy`: optional GitHub Pages deploy, only when a `deploy_branch`
+#      is set and the `publish` job actually ran.
+#
+# Set `publish: "false"` to validate only (e.g. PR checks) without
+# committing or pushing anything.
+#
 # See README.md for the full "how to use this in your repo" guide.
 # ============================================================================
 name: RepoQuill Docs
@@ -69,14 +84,30 @@ on:
         required: false
         default: "false"
         type: string
+      # Set to "false" to validate only without committing/pushing.
+      publish:
+        description: "Set to false to validate only without committing/pushing"
+        required: false
+        default: "true"
+        type: string
     secrets:
       LLM_API_KEY:
         description: "LLM API key (wired into the env var named by api_key_env)"
         required: true
 
+# One docs run per repo+config at a time; never cancel an in-flight run so
+# two runs can never race on the docs commit/push.
+concurrency:
+  group: ${{ github.repository }}-docs-${{ inputs.config }}
+  cancel-in-progress: false
+
 jobs:
-  generate-and-build:
+  # Stage 1: generate + build (read-only). Uploads the generated docs/ tree
+  # and the built site as artifacts; never touches git.
+  validate:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -129,16 +160,11 @@ jobs:
           if [ "${{ inputs.install_rag }}" = "true" ]; then RAG="[rag]"; fi
           uvx --from "./_repoquill${RAG}" repoquill generate $NO_LLM_FLAG --config ${{ inputs.config }} --build
 
-      - name: Commit docs
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          CFG="${{ inputs.config }}"
-          [ -f "$CFG" ] || CFG="repoquill.yml"
-          git add docs/ "$CFG"
-          if ! git diff --cached --quiet; then
-            git commit -m "docs: regenerate [skip ci]" && git push
-          fi
+      - name: Upload docs artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: docs-tree
+          path: docs
 
       - name: Upload site artifact
         if: inputs.deploy_branch != ''
@@ -147,9 +173,42 @@ jobs:
           name: docs-site
           path: ${{ inputs.deploy_path }}
 
+  # Stage 2: trusted publishing. Only runs after a successful validate, only
+  # when publishing is requested, and never in PR trigger contexts.
+  publish:
+    needs: validate
+    if: inputs.publish == 'true' && github.event_name != 'pull_request' && github.event_name != 'pull_request_target'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download generated docs
+        uses: actions/download-artifact@v4
+        with:
+          name: docs-tree
+          path: _generated_docs
+
+      - name: Commit and push docs
+        run: |
+          CFG="${{ inputs.config }}"
+          [ -f "$CFG" ] || CFG="repoquill.yml"
+          rm -rf docs
+          mkdir -p docs
+          cp -a _generated_docs/. docs/
+          rm -rf _generated_docs
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/ "$CFG"
+          if ! git diff --cached --quiet; then
+            git commit -m "docs: regenerate [skip ci]" && git push
+          fi
+
   deploy:
-    if: inputs.deploy_branch != ''
-    needs: generate-and-build
+    if: inputs.deploy_branch != '' && inputs.publish == 'true'
+    needs: publish
     runs-on: ubuntu-latest
     permissions:
       contents: write
