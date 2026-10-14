@@ -65,6 +65,16 @@ _TOOLING_NAMES = frozenset({
     "langchain-core", "langchain-community",
 })
 
+#: ALL_CAPS multi-word names ending in a credential/config suffix are
+#: environment-variable references (``OPENAI_API_KEY``, ``ANTHROPIC_API_KEY``),
+#: not package constants. Every application documents its env vars in an
+#: installation guide; a *package constant* using a credential suffix is
+#: implausible, so these are out of scope. Real constants such as
+#: ``SEVERITY_RESPONSE_SCHEMA`` / ``FINDING_SEVERITY`` do not match.
+_CRED_ENVVAR_RE = re.compile(
+    r"^[A-Z][A-Z0-9]*(_[A-Z0-9]+)*(_API_KEY|_KEY|_TOKEN|_SECRET|"
+    r"_PASSWORD|_ACCESS_KEY|_CREDENTIAL|_AUTH)$")
+
 
 # ---------------------------------------------------------------------------
 # Ground-truth symbol index (AST-based)
@@ -569,8 +579,9 @@ def check_page(page_md: str, idx: SymbolIndex, pkg_name: str) -> List[dict]:
         # its tests, or its declared dependency stack. A backticked name that
         # is a language keyword/builtin, a package symbol, a real test helper
         # (``include_tests: true``), a declared dependency (``grpcio``,
-        # ``ruff``), or standard ecosystem tooling is not an invented package
-        # API.
+        # ``ruff``), standard ecosystem tooling, a single-letter placeholder
+        # (`` `S` `` / `` `x` `` in a worked example), or a credential env-var
+        # (`` `OPENAI_API_KEY` ``) is not an invented package API.
         if (sym in idx.module_symbols or sym in idx.string_literals
                 or sym in idx.function_params or sym in idx.constants
                 or sym in idx.attributes or sym in all_methods
@@ -580,7 +591,9 @@ def check_page(page_md: str, idx: SymbolIndex, pkg_name: str) -> List[dict]:
                 or sym in _KEYWORD_NAMES
                 or sym in idx.test_symbols
                 or sym.lower() in idx.declared_dependencies
-                or sym.lower() in _TOOLING_NAMES):
+                or sym.lower() in _TOOLING_NAMES
+                or len(sym) == 1
+                or _CRED_ENVVAR_RE.match(sym)):
             continue
         if sym.isupper():
             findings.append({"symbol": sym, "kind": "constant",

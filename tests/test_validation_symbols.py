@@ -390,3 +390,30 @@ def test_invented_name_outside_repo_tests_and_deps_still_flagged(
     assert any("BogusHelper" in d for d in findings)
     assert any("calibration_floor" in d for d in findings)
     assert any("InventedGadget" in d for d in findings)
+
+
+def test_single_letter_placeholders_not_flagged(idx, tmp_path):
+    # Single uppercase letters used as symbols in a worked example (the
+    # custom-judges page scored with `S`, `R`, `V`) are placeholders, not
+    # invented ALL_CAPS constants.
+    page = _page(tmp_path,
+                 "Score the response as `S`, with `R` for rationale and "
+                 "`V` for verdict; loop over `x`.\n")
+    assert check_page_symbols(page, idx) == []
+
+
+def test_credential_envvars_not_flagged(idx, tmp_path):
+    # Standard LLM-provider env vars in an installation guide are env-var
+    # references, not package constants.
+    page = _page(tmp_path,
+                 "Set `OPENAI_API_KEY` or `ANTHROPIC_API_KEY` and, for "
+                 "self-hosting, `HUGGINGFACE_TOKEN`.\n")
+    assert check_page_symbols(page, idx) == []
+
+
+def test_real_multiword_constant_still_flagged(idx, tmp_path):
+    # A multi-word ALL_CAPS name that is not a credential env-var and not in
+    # the package is still flagged (the env-var rule must not over-broaden).
+    page = _page(tmp_path, "Configure the `MAX_RETRIES_BUDGET` constant.\n")
+    findings = check_page_symbols(page, idx)
+    assert any("MAX_RETRIES_BUDGET" in f["detail"] for f in findings)
