@@ -51,23 +51,39 @@ def load_plan(plan_file: str) -> Optional[dict]:
 
 
 def store_plan(plan_file: str, pages: List[dict], file_hashes: Dict[str, str]) -> None:
-    """Write the plan to disk.
+    """Write the plan to disk atomically (temp file + ``os.replace``).
+
+    A crash or write failure mid-write never corrupts an existing plan.
 
     Args:
         plan_file: Path to ``.plan.json``.
         pages: List of page dicts (slug, title, source_files, ...).
         file_hashes: Current hashes of all tracked source files.
     """
+    from repoquill.core.manifest import store_plan_atomic
+
     plan = {"pages": pages, "file_hashes": file_hashes}
-    with open(plan_file, "w") as f:
-        json.dump(plan, f, indent=2)
+    store_plan_atomic(plan_file, plan)
 
 
 def page_needs_regeneration(
     page: dict, old_hashes: Dict[str, str], new_hashes: Dict[str, str],
     out_path: Optional[str] = None,
 ) -> bool:
-    """Determine whether a page's source files have changed.
+    """Determine whether a page's source files have changed (or it failed).
+
+    Delegates the retry decision to
+    ``repoquill.core.manifest.page_needs_update``, which also forces
+    regeneration when the page's recorded status is ``"failed"`` (so a
+    previously failed page retries even if no source changed again),
+    when the output file is missing or its content no longer matches the
+    recorded ``content_sha256``, and when source hashes differ from the
+    recorded ``verified_file_hashes``.
+
+    Legacy pages (no ``verified_file_hashes`` field, pre-status plans)
+    keep the old semantics: regenerate when any of their source files
+    differs between ``old_hashes`` and ``new_hashes``, or the output
+    file is missing.
 
     Args:
         page: Page dict with a ``source_files`` list.
@@ -77,17 +93,23 @@ def page_needs_regeneration(
             the file is missing, regeneration is forced.
 
     Returns:
-        True if any of the page's source files changed (or are new),
-        or if the output file is missing.
+        True if the page should be (re)generated.
     """
-    # Force regeneration if the output file doesn't exist
-    if out_path is not None and not os.path.exists(out_path):
+    from repoquill.core.manifest import page_needs_update
+
+    # Failure status, missing output, content-hash mismatch, and
+    # verified-file-hash changes are handled by the manifest logic.
+    if page_needs_update(page, new_hashes, out_path):
         return True
-    for f in page.get("source_files", []):
-        old = old_hashes.get(f)
-        new = new_hashes.get(f)
-        if old is None or new is None or old != new:
-            return True
+
+    # Legacy fallback: pages without per-page verified hashes are
+    # compared against the previous plan's top-level hashes, as before.
+    if page.get("verified_file_hashes") is None:
+        for f in page.get("source_files", []):
+            old = old_hashes.get(f)
+            new = new_hashes.get(f)
+            if old is None or new is None or old != new:
+                return True
     return False
 
 
