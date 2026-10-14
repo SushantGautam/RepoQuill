@@ -18,9 +18,12 @@ Safety invariants (enforced, not documented-only)
   source) or anywhere else.
 * **Example execution is isolated.** ``run_example`` runs the snippet in a
   fresh ``sys.executable -I`` subprocess in a throwaway working directory,
-  with an environment stripped of credentials (only ``PATH``, ``HOME`` and
-  ``PYTHONPATH`` are kept) and a hard wall-clock timeout. No shell is used
-  (argv list form) and the network is never granted.
+  in its own process group, with an environment reduced to an allowlist
+  (only ``PATH``, ``HOME`` and ``PYTHONPATH`` are kept — parent credentials
+  are never visible) and a hard wall-clock timeout that SIGKILLs the whole
+  process group (so processes the example itself spawned die too). No shell
+  is used (argv list form) and no network restrictions are granted beyond
+  the inherited user account (see ``_run_isolated``).
 * **No tool raises.** Every execution is wrapped and returned as a
   :class:`ToolResult` (``ok=False`` + ``error``) so the agent loop can
   never be crashed by a single tool call.
@@ -34,6 +37,7 @@ from __future__ import annotations
 import fnmatch
 import os
 import re
+import signal
 import subprocess
 import sys
 import tempfile
@@ -278,21 +282,36 @@ class RepoQuillTools(ToolRegistry):
             )
             cmd = [sys.executable, "-I", "-c", bootstrap]
             try:
-                proc = subprocess.run(
-                    cmd, cwd=base, env=env, capture_output=True,
-                    text=True, timeout=timeout)
+                # Own session + process group (POSIX) so the timeout can
+                # kill the example AND anything it spawned.
+                pg_kw = ({"start_new_session": True}
+                         if hasattr(os, "killpg") else {})
+                proc = subprocess.Popen(
+                    cmd, cwd=base, env=env,
+                    stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                    text=True, **pg_kw)
+                try:
+                    stdout, stderr = proc.communicate(timeout=timeout)
+                except subprocess.TimeoutExpired:
+                    self._kill_process_tree(proc)
+                    # Drain whatever the example printed before the kill.
+                    try:
+                        stdout, stderr = proc.communicate(timeout=5)
+                    except (subprocess.TimeoutExpired, ValueError):
+                        stdout, stderr = "", ""
+                    return {
+                        "ok": False, "returncode": None,
+                        "stdout": (stdout or "")[-_STDOUT_LIMIT:],
+                        "stderr": (f"exceeded {timeout:g}s wall-clock "
+                                   "limit; process group killed"),
+                        "timed_out": True,
+                    }
                 return {
                     "ok": proc.returncode == 0,
                     "returncode": proc.returncode,
-                    "stdout": (proc.stdout or "")[-_STDOUT_LIMIT:],
-                    "stderr": (proc.stderr or "")[-_STDERR_LIMIT:],
+                    "stdout": (stdout or "")[-_STDOUT_LIMIT:],
+                    "stderr": (stderr or "")[-_STDERR_LIMIT:],
                     "timed_out": False,
-                }
-            except subprocess.TimeoutExpired:
-                return {
-                    "ok": False, "returncode": None, "stdout": "",
-                    "stderr": f"exceeded {timeout:g}s wall-clock limit",
-                    "timed_out": True,
                 }
             except Exception as e:  # noqa: BLE001 - report, don't raise
                 return {
@@ -300,6 +319,24 @@ class RepoQuillTools(ToolRegistry):
                     "stderr": f"could not execute example: {e}",
                     "timed_out": False,
                 }
+
+    @staticmethod
+    def _kill_process_tree(proc: "subprocess.Popen") -> None:
+        """SIGKILL the example process and (POSIX) its whole process group."""
+        try:
+            if hasattr(os, "killpg"):
+                os.killpg(proc.pid, signal.SIGKILL)
+            else:
+                proc.kill()
+        except (ProcessLookupError, PermissionError, OSError):
+            try:
+                proc.kill()
+            except OSError:
+                pass
+        try:
+            proc.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            pass
 
     # ------------------------------------------------------------------
     # Docs tools (the only writable surface)

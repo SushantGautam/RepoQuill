@@ -13,6 +13,7 @@ import json
 import os
 import select
 import shutil
+import signal
 import socket
 import subprocess
 import time
@@ -255,6 +256,120 @@ def test_run_example_enabled_runs(bridge_exec):
     assert resp["data"]["ok"] is True
     assert "hello-world" in resp["data"]["stdout"]
     assert resp["data"]["timed_out"] is False
+
+
+def test_run_example_imports_from_source_root(bridge_exec):
+    """The child's path setup must let the example import the documented
+    package from its package root (``from miniutil import slugify``)."""
+    code = (
+        "from miniutil import slugify\n"
+        "print(slugify('Hello, World!'))\n"
+    )
+    with BridgeClient(bridge_exec.socket_path) as client:
+        resp = client.call("run_example", {"code": code})
+    assert resp["ok"] is True, resp
+    assert resp["data"]["ok"] is True
+    assert resp["data"]["stdout"].strip() == "hello-world"
+
+
+def test_run_example_pkg_discovery_without_tools(tmp_path, repo):
+    """The scheduler builds the bridge with only source_root +
+    staging_docs_dir (no tools, no explicit pkg_path). Package imports in
+    run_example must still work via single-package discovery."""
+    staging = tmp_path / "staging"
+    staging.mkdir()
+    server = PiBridgeServer(
+        source_root=str(repo), staging_docs_dir=str(staging),
+        slug=SLUG, allow_example_exec=True,
+        socket_dir=str(tmp_path / "sock-disc"))
+    server.start()
+    try:
+        with BridgeClient(server.socket_path) as client:
+            resp = client.call(
+                "run_example",
+                {"code": ("from miniutil import slugify\n"
+                          "print(slugify('Hello, World!'))\n")})
+    finally:
+        server.stop()
+    assert resp["ok"] is True, resp
+    assert resp["data"]["ok"] is True, resp
+    assert resp["data"]["stdout"].strip() == "hello-world"
+
+
+def test_run_example_env_stripped(bridge_exec, monkeypatch):
+    """The child env is an allowlist: no parent credentials may leak."""
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test-never-leak")
+    monkeypatch.setenv("REPOQUILL_LIVE_KEY", "sk-test-never-leak-2")
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "ant-test-never-leak")
+    monkeypatch.setenv("GITHUB_TOKEN", "ghp-test-never-leak")
+    code = "import os\nprint(sorted(os.environ))\n"
+    with BridgeClient(bridge_exec.socket_path) as client:
+        resp = client.call("run_example", {"code": code})
+    assert resp["ok"] is True, resp
+    child_keys = eval(resp["data"]["stdout"].strip())  # safe: plain str list
+    for secret in ("OPENAI_API_KEY", "REPOQUILL_LIVE_KEY",
+                   "ANTHROPIC_API_KEY", "GITHUB_TOKEN"):
+        assert secret not in child_keys, (secret, child_keys)
+    # Allowlist, not denylist: only PATH/HOME/PYTHONPATH survive.
+    # (LC_CTYPE may be ADDED by the child interpreter's own locale init;
+    # it is not inherited from the parent.)
+    assert set(child_keys) - {"LC_CTYPE"} <= \
+        {"PATH", "HOME", "PYTHONPATH"}, child_keys
+
+
+def test_run_example_timeout_kills_process_tree(bridge_exec):
+    """A hanging example — including processes IT spawns — must be
+    hard-killed when the wall-clock limit is hit."""
+    code = (
+        "import subprocess, sys, time\n"
+        "child = subprocess.Popen(\n"
+        "    [sys.executable, '-c', 'import time; time.sleep(300)'])\n"
+        "print('child-pid', child.pid)\n"
+        "sys.stdout.flush()\n"
+        "time.sleep(30)\n"
+    )
+    with BridgeClient(bridge_exec.socket_path) as client:
+        start = time.monotonic()
+        resp = client.call("run_example", {"code": code, "timeout": 2})
+        elapsed = time.monotonic() - start
+    assert resp["ok"] is True, resp  # the bridge answered
+    data = resp["data"]
+    assert data["ok"] is False
+    assert data["timed_out"] is True
+    assert data["returncode"] is None
+    assert "wall-clock" in data["stderr"]
+    assert elapsed < 15.0, f"timeout kill took too long: {elapsed:.1f}s"
+    # The example's own child (same process group) must be dead too.
+    child_pid = int(data["stdout"].strip().split()[-1])
+    deadline = time.monotonic() + 10.0
+    while True:
+        try:
+            os.kill(child_pid, 0)
+        except ProcessLookupError:
+            return  # gone
+        if time.monotonic() >= deadline:
+            os.kill(child_pid, signal.SIGKILL)  # cleanup, then fail
+            pytest.fail(f"child pid {child_pid} survived the timeout kill")
+        time.sleep(0.2)
+
+
+def test_run_example_output_capped(bridge_exec):
+    """stdout/stderr are tail-capped (4000 chars) and the whole envelope
+    stays under the bridge size cap."""
+    code = (
+        "import sys\n"
+        "sys.stdout.write('A' * 10000)\n"
+        "sys.stderr.write('B' * 10000)\n"
+    )
+    with BridgeClient(bridge_exec.socket_path) as client:
+        resp = client.call("run_example", {"code": code})
+    assert resp["ok"] is True, resp
+    data = resp["data"]
+    assert data["ok"] is True
+    assert data["returncode"] == 0
+    assert data["stdout"] == "A" * 4000
+    assert data["stderr"] == "B" * 4000
+    assert len(json.dumps(resp).encode()) <= 256 * 1024
 
 
 # --------------------------------------------------------------------------- #

@@ -65,6 +65,31 @@ _MAX_REQUEST_BYTES = 2 * 1024 * 1024
 _STOP = object()
 
 
+def _discover_pkg_path(source_root: str) -> Optional[str]:
+    """Best-effort discovery of the single top-level package under
+    *source_root* (a subdirectory containing ``__init__.py``).
+
+    Used only when no explicit ``pkg_path`` is provided, so that
+    ``run_example`` puts the directory that CONTAINS the package on the
+    example's ``sys.path``. Returns ``None`` when there is no package or
+    the choice is ambiguous (caller falls back to *source_root*).
+    """
+    try:
+        entries = sorted(os.listdir(source_root))
+    except OSError:
+        return None
+    candidates = [
+        name for name in entries
+        if not name.startswith(".")
+        and os.path.isdir(os.path.join(source_root, name))
+        and os.path.isfile(
+            os.path.join(source_root, name, "__init__.py"))
+    ]
+    if len(candidates) == 1:
+        return os.path.join(source_root, candidates[0])
+    return None
+
+
 class _BridgePolicyError(ValueError):
     """A defense-in-depth policy violation at the bridge layer."""
 
@@ -116,10 +141,14 @@ class PiBridgeServer:
                     "PiBridgeServer requires a tools instance or "
                     "source_root + staging_docs_dir")
             # build_tool_context takes a config-like object; bridge tasks
-            # map directly onto its three path attributes.
+            # map directly onto its three path attributes. Without an
+            # explicit pkg_path, discover the single top-level package so
+            # run_example can import it (parent of the package dir goes on
+            # the example's sys.path).
+            pkg = pkg_path or _discover_pkg_path(source_root) or source_root
             cfg = types.SimpleNamespace(
                 root=source_root,
-                pkg_path=pkg_path or source_root,
+                pkg_path=pkg,
                 out_guides=staging_docs_dir,
             )
             tools = RepoQuillTools(build_tool_context(
