@@ -34,6 +34,14 @@ on:
         required: false
         default: "repoquill.yml"
         type: string
+      # RepoQuill ref (branch/tag/commit) used to run the generator. Default
+      # 'main'; set this to a ref that includes the Pi engine when the config
+      # requests `documentation.engine: pi`. Pin a release/tag for stability.
+      repoquill_ref:
+        description: "RepoQuill ref (branch/tag/commit) to run for generation"
+        required: false
+        default: "main"
+        type: string
       # Name of the GitHub secret that holds the LLM API key.
       api_key_secret:
         description: "Name of the secret containing the LLM API key"
@@ -116,7 +124,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: SushantGautam/RepoQuill
-          ref: main
+          ref: ${{ inputs.repoquill_ref }}
           path: _repoquill
 
       - name: Read source repo from config
@@ -141,6 +149,37 @@ jobs:
         uses: astral-sh/setup-uv@v5
         with:
           python-version: ${{ inputs.python_version }}
+
+      # --- Pi engine (optional) ---------------------------------------
+      # Provision Node + the pinned Pi runtime only when the config requests
+      # the Pi narrative engine (`documentation.engine: pi`). Deterministic and
+      # legacy generations need neither, so these steps are a no-op for them.
+      - name: Detect Pi engine
+        id: pi_engine
+        run: |
+          CFG="${{ inputs.config }}"
+          [ -f "$CFG" ] || CFG="repoquill.yml"
+          if grep -qE '^[[:space:]]*engine:[[:space:]]*pi[[:space:]]*$' "$CFG"; then
+            echo "use_pi=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "use_pi=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up Node.js (Pi engine)
+        if: steps.pi_engine.outputs.use_pi == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Preprovision pinned Pi runtime (Pi engine)
+        if: steps.pi_engine.outputs.use_pi == 'true'
+        run: |
+          CACHE="$HOME/.cache/repoquill/pi"
+          mkdir -p "$CACHE"
+          printf '{"name":"repoquill-pi-cache","private":true,"version":"0.0.0"}\n' > "$CACHE/package.json"
+          npm install --prefix "$CACHE" --no-audit --no-fund \
+            "@earendil-works/pi-coding-agent@1.2.0"
+          echo "pi version: $("$CACHE/node_modules/.bin/pi" --version 2>/dev/null || echo 'n/a')"
 
       - name: Clean previously generated docs
         if: inputs.clean == 'true'
