@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import os
 import re
-from typing import List
+from typing import List, Optional, Set
 
 
 def _read_file(path):
@@ -38,6 +38,19 @@ def _section_modules(cfg, section_name, reference_modules):
 def _narrative_sections(cfg):
     """Narrative sections as (title, slugs) tuples."""
     return [(s["title"], s["slugs"]) for s in cfg.narrative_sections]
+
+
+def _page_available(cfg, slug: str, generated: Optional[Set[str]] = None) -> bool:
+    """Whether a narrative page may be linked from the assembled site.
+
+    When ``generated`` (an explicit set of successful slugs) is given it is
+    authoritative; otherwise a page counts as available when its guide file
+    exists on disk. This keeps the site free of dead links when a run only
+    produced a subset of the planned pages.
+    """
+    if generated is not None:
+        return slug in generated
+    return os.path.exists(os.path.join(cfg.out_guides, f"{slug}.md"))
 
 
 def _reference_sections(cfg, reference_modules=None):
@@ -158,13 +171,19 @@ def _extract_module_docstring(path):
         return ""
 
 
-def build_index_md(cfg, pages: List[dict], reference_modules: List[str]) -> None:
+def build_index_md(cfg, pages: List[dict], reference_modules: List[str],
+                   generated: Optional[Set[str]] = None) -> None:
     """Write the ``index.md`` landing page (deterministic, from config).
 
     Args:
         cfg: A :class:`repoquill.config.RepoQuillConfig`.
         pages: List of narrative page dicts.
         reference_modules: List of documented module names.
+        generated: Optional explicit set of slugs that were actually
+            generated this run. When ``None``, availability is determined
+            from the guide files present on disk. Pages that are not
+            available are listed without a link (marked "not yet available")
+            so the landing page never contains dead links.
     """
     page_map = {p["slug"]: p for p in pages}
     assigned = set()
@@ -192,6 +211,16 @@ def build_index_md(cfg, pages: List[dict], reference_modules: List[str]) -> None
         if quick.get("cli"):
             lines += ["```bash", quick["cli"].rstrip(), "```", ""]
 
+    def _page_lines(section_pages):
+        """Link available pages; mark missing ones without a dead link."""
+        out = []
+        for p in section_pages:
+            if _page_available(cfg, p["slug"], generated):
+                out.append(f"- [{p['title']}](guides/{p['slug']}.md) — {p.get('description', '')}")
+            else:
+                out.append(f"- {p['title']} (not yet available) — {p.get('description', '')}")
+        return out
+
     lines += ["## Guides", ""]
     for section_name, slugs in _narrative_sections(cfg):
         section_pages = [page_map[s] for s in slugs if s in page_map]
@@ -199,8 +228,8 @@ def build_index_md(cfg, pages: List[dict], reference_modules: List[str]) -> None
             continue
         lines.append(f"### {section_name}")
         lines.append("")
+        lines += _page_lines(section_pages)
         for p in section_pages:
-            lines.append(f"- [{p['title']}](guides/{p['slug']}.md) — {p.get('description', '')}")
             assigned.add(p["slug"])
         lines.append("")
 
@@ -208,8 +237,7 @@ def build_index_md(cfg, pages: List[dict], reference_modules: List[str]) -> None
     if unassigned:
         lines.append("### More")
         lines.append("")
-        for p in unassigned:
-            lines.append(f"- [{p['title']}](guides/{p['slug']}.md) — {p.get('description', '')}")
+        lines += _page_lines(unassigned)
         lines.append("")
 
     lines += ["## API Reference", ""]
@@ -232,13 +260,18 @@ def build_index_md(cfg, pages: List[dict], reference_modules: List[str]) -> None
     print("  index.md")
 
 
-def build_llms_txt(cfg, pages: List[dict], reference_modules: List[str]) -> None:
+def build_llms_txt(cfg, pages: List[dict], reference_modules: List[str],
+                   generated: Optional[Set[str]] = None) -> None:
     """Write ``llms.txt`` — a concise AI-agent-friendly index.
 
     Args:
         cfg: A :class:`repoquill.config.RepoQuillConfig`.
         pages: List of narrative page dicts.
         reference_modules: List of documented module names.
+        generated: Optional explicit set of slugs that were actually
+            generated this run (see :func:`build_index_md`). Unavailable
+            pages are listed without a URL so agents are never pointed at
+            a dead path.
     """
     page_map = {p["slug"]: p for p in pages}
     base = cfg.site_url.rstrip("/") if cfg.site_url else ""
@@ -259,6 +292,10 @@ def build_llms_txt(cfg, pages: List[dict], reference_modules: List[str]) -> None
             continue
         for p in section_pages:
             desc = p.get("description", "")
+            if not _page_available(cfg, p["slug"], generated):
+                line = f"- {p['title']} (NOT AVAILABLE — planned page, not yet generated)"
+                lines.append(f"{line}: {desc}" if desc else line)
+                continue
             url = f"{base}/guides/{p['slug']}/" if base else f"guides/{p['slug']}/"
             lines.append(f"- [{p['title']}]({url}): {desc}" if desc else f"- [{p['title']}]({url})")
     lines.append("")
@@ -293,13 +330,17 @@ def build_llms_txt(cfg, pages: List[dict], reference_modules: List[str]) -> None
     print(f"  llms.txt ({len(lines)} lines)")
 
 
-def build_llms_full_txt(cfg, pages: List[dict], reference_modules: List[str]) -> None:
+def build_llms_full_txt(cfg, pages: List[dict], reference_modules: List[str],
+                        generated: Optional[Set[str]] = None) -> None:
     """Write ``llms-full.txt`` — the full docs concatenated for AI agents.
 
     Args:
         cfg: A :class:`repoquill.config.RepoQuillConfig`.
         pages: List of narrative page dicts.
         reference_modules: List of documented module names.
+        generated: Optional explicit set of slugs that were actually
+            generated this run (see :func:`build_index_md`). Pages outside
+            it are excluded even if a stale file remains on disk.
     """
     page_map = {p["slug"]: p for p in pages}
     parts = [
@@ -320,7 +361,7 @@ def build_llms_full_txt(cfg, pages: List[dict], reference_modules: List[str]) ->
             continue
         for p in section_pages:
             path = os.path.join(cfg.out_guides, f"{p['slug']}.md")
-            if os.path.exists(path):
+            if _page_available(cfg, p["slug"], generated) and os.path.exists(path):
                 parts.append(f"{'=' * 60}")
                 parts.append(f"## {p['title']}")
                 parts.append("")
@@ -332,7 +373,7 @@ def build_llms_full_txt(cfg, pages: List[dict], reference_modules: List[str]) ->
     for p in pages:
         if p["slug"] not in assigned:
             path = os.path.join(cfg.out_guides, f"{p['slug']}.md")
-            if os.path.exists(path):
+            if _page_available(cfg, p["slug"], generated) and os.path.exists(path):
                 parts.append(f"{'=' * 60}")
                 parts.append(f"## {p['title']}")
                 parts.append("")
@@ -490,13 +531,21 @@ def cross_link_guides(cfg, pages: List[dict]) -> int:
     return len(pages_info)
 
 
-def build_nav(cfg, pages: List[dict], reference_modules: List[str]) -> List:
+def build_nav(cfg, pages: List[dict], reference_modules: List[str],
+              generated: Optional[Set[str]] = None) -> List:
     """Build the navigation tree from narrative pages + reference modules.
+
+    Reading order: sections appear in the configured order of
+    ``narrative_sections`` and, within a section, pages appear in the
+    planner's page order (the config's slug order) — never alphabetical.
 
     Args:
         cfg: A :class:`repoquill.config.RepoQuillConfig`.
         pages: List of narrative page dicts.
         reference_modules: List of documented module names.
+        generated: Optional explicit set of slugs that were actually
+            generated this run (see :func:`build_index_md`). Unavailable
+            pages are omitted so the nav never contains dead entries.
 
     Returns:
         The nav tree (list of section dicts / page entries).
@@ -508,6 +557,8 @@ def build_nav(cfg, pages: List[dict], reference_modules: List[str]) -> List:
     guides_nav = []
     for section_name, slugs in _narrative_sections(cfg):
         section_pages = [page_map[s] for s in slugs if s in page_map]
+        section_pages = [p for p in section_pages
+                         if _page_available(cfg, p["slug"], generated)]
         if not section_pages:
             continue
         if len(section_pages) == 1:
@@ -517,6 +568,8 @@ def build_nav(cfg, pages: List[dict], reference_modules: List[str]) -> List:
             guides_nav.append([section_name, [f"guides/{p['slug']}.md" for p in section_pages]])
     unassigned = [p for p in pages
                   if p["slug"] not in {s for _, slugs in _narrative_sections(cfg) for s in slugs}]
+    unassigned = [p for p in unassigned
+                  if _page_available(cfg, p["slug"], generated)]
     if unassigned:
         guides_nav.append(["More", [f"guides/{p['slug']}.md" for p in unassigned]])
     if guides_nav:

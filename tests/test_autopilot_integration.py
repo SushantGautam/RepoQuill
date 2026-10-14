@@ -5,7 +5,10 @@ Covers the P0 acceptance criteria through the real ``cli.main`` path:
 - a failed generation does NOT advance that page's state and is retried
   on the next run even when no source file changed;
 - the deterministic quality gate blocks a "successful" generation whose
-  content contains a bogus import (fail closed, nonzero exit);
+  content contains a bogus import (fail closed: the page is excluded from
+  the site, never linked, and its content is not shipped to site sources);
+- a partially successful run still builds the site from the successful
+  subset (no dead links); only an all-failed run skips the site build;
 - ``--no-llm`` still works and leaves plan state untouched.
 """
 
@@ -107,7 +110,15 @@ def test_failed_page_retries_next_run(monkeypatch, tmp_path):
         raise RuntimeError("simulated LLM outage")
 
     rc1 = _run(monkeypatch, tmp_path, beta_fail)
-    assert rc1 == 1, "failed generation must exit nonzero"
+    # Partial success (alpha ok, beta failed): the site is now built from
+    # the successful subset — but the failed page must not be a dead link.
+    assert rc1 == 0, "partial success must still build the site"
+    index = (tmp_path / "docs" / "index.md").read_text()
+    assert "[Alpha](guides/alpha.md)" in index
+    assert "(guides/beta.md)" not in index, "failed page must not be linked"
+    assert "not yet available" in index
+    yml = (tmp_path / "mkdocs.yml").read_text()
+    assert "guides/beta.md" not in yml, "nav must not contain the failed page"
 
     plan = json.loads((tmp_path / "docs" / ".plan.json").read_text())
     by_slug = {p["slug"]: p for p in plan["pages"]}
@@ -126,6 +137,30 @@ def test_failed_page_retries_next_run(monkeypatch, tmp_path):
     assert by_slug2["beta"].get("verified_file_hashes")
 
 
+def test_all_pages_failed_skips_site_build(monkeypatch, tmp_path):
+    _, cfg_path = _make_repo(tmp_path)
+
+    monkeypatch.setattr(
+        cli, "determine_structure", lambda cfg, client: [dict(p) for p in PAGES]
+    )
+
+    def all_fail(page, source_files, client, cfg):
+        raise RuntimeError("simulated LLM outage")
+
+    from repoquill import narrative
+    monkeypatch.setattr(narrative, "generate_page", all_fail)
+    monkeypatch.setattr(
+        narrative, "determine_structure",
+        lambda cfg, client: [dict(p) for p in PAGES],
+    )
+
+    monkeypatch.chdir(tmp_path)
+    rc = cli.main(["generate", "--no-scaffold", "--config", str(cfg_path)])
+    assert rc == 1, "an all-failed run must exit nonzero"
+    # No partial site assembled: the landing page is not (re)written.
+    assert not (tmp_path / "docs" / "index.md").exists()
+
+
 def test_gate_blocks_bad_import_and_retries(monkeypatch, tmp_path):
     _, cfg_path = _make_repo(tmp_path)
 
@@ -134,7 +169,16 @@ def test_gate_blocks_bad_import_and_retries(monkeypatch, tmp_path):
         return BAD_IMPORT_CONTENT
 
     rc1 = _run(monkeypatch, tmp_path, beta_bad)
-    assert rc1 == 1, "gate failure must exit nonzero"
+    # Page-scoped gate failure (alpha clean, beta bad): the site is built
+    # from the successful subset, but beta's bad content must not ship.
+    assert rc1 == 0, "clean subset must still build the site"
+    index = (tmp_path / "docs" / "index.md").read_text()
+    assert "[Alpha](guides/alpha.md)" in index
+    assert "(guides/beta.md)" not in index, "gate-failed page must not be linked"
+    yml = (tmp_path / "mkdocs.yml").read_text()
+    assert "guides/beta.md" not in yml, "nav must not contain the gate-failed page"
+    full = (tmp_path / "docs" / "llms-full.txt").read_text()
+    assert "DoesNotExist" not in full, "gate-failed content must not be shipped"
 
     plan = json.loads((tmp_path / "docs" / ".plan.json").read_text())
     by_slug = {p["slug"]: p for p in plan["pages"]}
@@ -142,9 +186,6 @@ def test_gate_blocks_bad_import_and_retries(monkeypatch, tmp_path):
     assert "quality gate" in (by_slug["beta"].get("error") or "")
     assert not by_slug["beta"].get("verified_file_hashes")
     assert by_slug["alpha"]["status"] == "ok"
-
-    # Build must have been skipped: no site dir produced.
-    assert not (tmp_path / "docs" / "site_repoquill").exists()
 
     # Repair is off by default; next run regenerates beta (now correct).
     rc2 = _run(monkeypatch, tmp_path, lambda _: GOOD_CONTENT)

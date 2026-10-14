@@ -2099,18 +2099,44 @@ def _cmd_generate(args) -> int:
         "repairs": repair_results,
     })
 
+    # Pages good to ship: generated (status not "failed") AND clean under
+    # the quality gate. Everything else is excluded from the assembled
+    # site, which is what keeps the site free of dead links when a run
+    # produced only a subset of the planned pages.
+    failed_slugs = {p["slug"] for p in pages if p.get("status") == "failed"}
+    ok_slugs = {p["slug"] for p in pages
+                if p["slug"] not in failed_slugs
+                and p["slug"] not in gate_bad_pages}
+
     print()
     print("[6/6] Assembling MkDocs site...")
+
+    # Fail closed: the site build is skipped entirely only when NO
+    # narrative page succeeded or the quality gate failed globally (in
+    # which case no content can be trusted); the last known-good site
+    # stays intact. When SOME pages succeeded, the site is built from the
+    # successful subset — the failed pages are omitted (noted below),
+    # never linked, and retried on the next run.
+    if (pages and not ok_slugs) or gate_global_failure:
+        why = []
+        if pages and not ok_slugs:
+            why.append(f"none of the {len(pages)} narrative page(s) succeeded")
+        if gate_global_failure:
+            why.append("quality gate failed")
+        print(f"\nFAILED: {' and '.join(why)} — skipping site build; "
+              f"last known-good site preserved.")
+        return 1
+
     _copy_theme_assets(cfg)
-    build_index_md(cfg, pages, reference_modules)
+    build_index_md(cfg, pages, reference_modules, generated=ok_slugs)
     print("  index.md")
 
-    nav = build_nav(cfg, pages, reference_modules)
+    nav = build_nav(cfg, pages, reference_modules, generated=ok_slugs)
     build_mkdocs_yml(cfg, nav)
     print("  mkdocs.yml")
 
-    build_llms_txt(cfg, pages, reference_modules)
-    build_llms_full_txt(cfg, pages, reference_modules)
+    build_llms_txt(cfg, pages, reference_modules, generated=ok_slugs)
+    build_llms_full_txt(cfg, pages, reference_modules, generated=ok_slugs)
 
     # Build SKILL.md content (don't write to site_src — MkDocs would
     # render it to HTML). We'll write it to the site output after build.
@@ -2123,20 +2149,12 @@ def _cmd_generate(args) -> int:
     n_ref = len([f for f in os.listdir(cfg.ref_dir) if f.endswith(".md")])
     print(f"\nDone. {n_guides} guide pages + {n_ref} reference pages in {cfg.site_src}")
 
-    # Fail closed: if any required page failed to generate or the quality
-    # gate failed, do NOT build the site (the last known-good site stays
-    # intact) and signal failure so CI/automation treats the run as
-    # failed. Unverified pages' state was not advanced, so the next run
-    # retries them.
-    if failed_slugs or not gate.passed:
-        why = []
-        if failed_slugs:
-            why.append(f"{len(failed_slugs)} page(s) failed generation")
-        if not gate.passed:
-            why.append("quality gate failed")
-        print(f"\nFAILED: {' and '.join(why)} — skipping site build; "
-              f"last known-good site preserved.")
-        return 1
+    if failed_slugs or gate_bad_pages:
+        print(f"\n  WARNING: built site from {len(ok_slugs)}/{len(pages)} "
+              f"narrative page(s); "
+              f"failed: {', '.join(sorted(failed_slugs | gate_bad_pages))}. "
+              "Failed pages are omitted from the site and will be retried "
+              "on the next run.")
 
     if args.build:
         _run_mkdocs_build(cfg, skill_content)
