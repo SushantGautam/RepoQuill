@@ -138,8 +138,18 @@ def _check_third_party(module: str) -> Optional[str]:
     return None
 
 
-def check_page_imports(page_path: str, idx) -> List[dict]:
+def check_page_imports(page_path: str, idx, local_tops=None) -> List[dict]:
     """Check all import statements in a page against the symbol index.
+
+    Args:
+        page_path: Path to the guide page.
+        idx: The :class:`repoquill.verify.SymbolIndex` for the documented
+            package.
+        local_tops: Optional set of top-level package names that live in the
+            source repository but are NOT the documented package (e.g. the
+            repo's own ``tests`` package). These are in-scope but not in the
+            index, so they are treated as out-of-scope (skipped) rather than
+            flagged as missing third-party libraries.
 
     Returns a list of findings shaped
     ``{"page": slug, "check": "import", "line": n, "detail": str}``.
@@ -151,6 +161,7 @@ def check_page_imports(page_path: str, idx) -> List[dict]:
         md = fh.read()
 
     project_tops = _top_levels(idx)
+    local_tops = set(local_tops or ()) - project_tops
     findings = []
     for kind, line, module, names in _parse_imports(md):
         # ``import a.b.c`` is parsed with an empty module and dotted
@@ -167,6 +178,11 @@ def check_page_imports(page_path: str, idx) -> List[dict]:
                 details = [detail] if detail else []
             elif top in project_tops:
                 details = _check_project(mod, nms, idx, kind=kind)
+            elif top in local_tops:
+                # A top-level package of the source repo (e.g. its ``tests``
+                # package): part of the repository, so not a third-party lib,
+                # but not part of the documented index either — out of scope.
+                details = []
             else:
                 detail = _check_third_party(mod)
                 details = [detail] if detail else []
