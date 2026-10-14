@@ -5,6 +5,8 @@ llm:
   model: Qwen/Qwen3.8-27B-FP8
   base_url: https://simulachat.sushant.info.np/api/v1
   api_key_env: OPENAI_API_KEY
+documentation:
+  engine: pi
 site:
   name: repoquill
   description: Documentation for repoquill

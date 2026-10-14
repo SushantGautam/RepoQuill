@@ -19,6 +19,9 @@ import os
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
+#: Valid values for ``documentation.engine`` (and ``--engine``).
+VALID_ENGINES = ("pi", "python-agent", "legacy")
+
 
 @dataclass
 class AgenticConfig:
@@ -114,6 +117,12 @@ class RepoQuillConfig:
 
     # LLM
     llm: LLMConfig = field(default_factory=LLMConfig)
+
+    # Narrative engine selected in ``documentation.engine``. None means the
+    # key was absent from the config file (pre-Pi configs) and the engine
+    # must be resolved via the migration rule — see :func:`resolve_engine`.
+    # Fresh configs written by ``repoquill init`` always set it explicitly.
+    documentation_engine: Optional[str] = None
 
     # Site identity
     site: Dict[str, Any] = field(default_factory=dict)
@@ -225,6 +234,20 @@ def load_config(config_path: Optional[str] = None) -> RepoQuillConfig:
         agentic=agentic,
     )
 
+    # --- Documentation engine block (optional key) ---
+    # Fresh configs (written by `repoquill init`) always set
+    # `documentation.engine` explicitly. Existing configs without the key
+    # keep today's behavior via the migration rule in `resolve_engine`.
+    doc_raw = cfg_dict.get("documentation", {}) or {}
+    doc_engine = doc_raw.get("engine")
+    if doc_engine is not None:
+        doc_engine = str(doc_engine).strip()
+        if doc_engine not in VALID_ENGINES:
+            raise ValueError(
+                f"Unknown documentation.engine {doc_engine!r}; expected one "
+                f"of: {', '.join(VALID_ENGINES)}"
+            )
+
     # --- Build block ---
     build = cfg_dict.get("build", {}) or {}
     docs_dir = build.get("docs_dir", "docs")
@@ -251,6 +274,7 @@ def load_config(config_path: Optional[str] = None) -> RepoQuillConfig:
         source_repo=cfg_dict.get("source_repo", "") or "",
         source_ref=cfg_dict.get("source_ref", "") or "",
         llm=llm,
+        documentation_engine=doc_engine,
         site=cfg_dict.get("site", {}) or {},
         narrative_sections=cfg_dict.get("narrative_sections", []) or [],
         index=cfg_dict.get("index", {}) or {},
@@ -266,6 +290,61 @@ def load_config(config_path: Optional[str] = None) -> RepoQuillConfig:
         plan_file=os.path.join(site_src, ".plan.json"),
     )
     return cfg
+
+
+def resolve_engine(
+    cfg: RepoQuillConfig,
+    cli_engine: Optional[str] = None,
+    agentic_flag: Optional[bool] = None,
+) -> str:
+    """Resolve the narrative engine for one run.
+
+    Resolution order:
+
+    1. Explicit CLI ``--engine`` (``cli_engine``) wins over everything.
+       If ``--agentic`` is also given, ``--engine`` wins and a note is
+       printed.
+    2. ``documentation.engine`` from the config file. Fresh configs written
+       by ``repoquill init`` always set it (currently ``pi``), so a fresh
+       install defaults to Pi.
+    3. Legacy migration rule: a config without ``documentation.engine`` but
+       with ``llm.agentic.enabled: true`` maps to ``python-agent``. A
+       one-line note is printed so existing consumers are never silently
+       moved to a different runtime.
+    4. Default: ``legacy`` — existing configs without any agentic signal
+       behave exactly as before.
+
+    ``--agentic`` (``agentic_flag=True``) is a deprecated alias for
+    ``--engine python-agent`` and only applies when ``--engine`` is absent.
+    ``--no-agentic`` (``agentic_flag=False``) only downgrades a resolved
+    ``python-agent`` engine to ``legacy``; it never upgrades.
+
+    ``--no-llm`` bypasses this entirely (deterministic mode, no engine).
+    """
+    if cli_engine:
+        engine = cli_engine
+        if agentic_flag is True and cli_engine != "python-agent":
+            print(f"note: --engine {cli_engine} given with --agentic; "
+                  f"using --engine {cli_engine} (--agentic is a "
+                  f"deprecated alias for --engine python-agent)")
+    elif cfg.documentation_engine:
+        engine = cfg.documentation_engine
+    elif cfg.llm.agentic.enabled:
+        engine = "python-agent"
+        print("note: llm.agentic.enabled maps to engine: python-agent; "
+              "set documentation.engine explicitly to silence this")
+    else:
+        engine = "legacy"
+
+    if agentic_flag is True and not cli_engine:
+        if engine != "python-agent":
+            print("note: --agentic is a deprecated alias for "
+                  "--engine python-agent")
+        engine = "python-agent"
+    elif agentic_flag is False and engine == "python-agent":
+        # Downgrade only; --no-agentic never upgrades a chosen engine.
+        engine = "legacy"
+    return engine
 
 
 def _resolve_config_path(config_path: Optional[str]) -> str:

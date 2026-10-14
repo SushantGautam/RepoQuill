@@ -107,13 +107,15 @@ your Python package
 | `repoquill generate` | Run Layer 1 + Layer 2, assemble the site. |
 | `repoquill build` | Same as `generate`, always runs `mkdocs build`. |
 | `repoquill serve` | Generate + start `mkdocs serve` for local live-reload preview. |
+| `repoquill doctor` | Check Node / Pi / model readiness for the Pi engine. |
 
 Flags:
 
 | Flag | Description |
 |------|-------------|
 | `--config PATH` | Path to `repoquill.yml`, a **directory** of configs, or a **comma-separated list**. Default: `./repoquill.yml` or `./configs/`. |
-| `--no-llm` | Skip Layer 2 (deterministic reference only). |
+| `--no-llm` | Skip Layer 2 (deterministic reference only). Works without Node/Pi. |
+| `--engine {pi,python-agent,legacy}` | Narrative engine (default: `documentation.engine` in the config). |
 | `--force` | Re-plan and regenerate everything (ignore the change cache). |
 | `--build` | Run `mkdocs build` after generating. |
 | `--source-root PATH` | Override the source repo root. |
@@ -157,6 +159,9 @@ llm:
                                 # (matches the provider: OPENAI_API_KEY, ANTHROPIC_API_KEY, ...)
   base_url: null                # null = provider default; set for custom endpoints
 
+documentation:
+  engine: pi                    # pi (default for new projects) | python-agent | legacy
+
 site:
   name: MyProject
   description: "What MyProject does"
@@ -183,6 +188,31 @@ module_descriptions:
   mypackage: "Top-level package."
   mypackage.core: "The core engine."
 ```
+
+### Documentation engine
+
+Narrative guides (Layer 2) can be authored by one of three engines, selected
+with `documentation.engine` in `repoquill.yml` or the `--engine` flag:
+
+- **`pi`** — the default for new projects. Each page is authored by a real
+  [Pi coding agent](https://github.com/earendil-works/pi) process that
+  explores your repository through vetted, docs-only tool calls and stages
+  the page for independent verification. Requires Node + the pinned Pi
+  package (`repoquill doctor` shows what is missing).
+- **`python-agent`** — the built-in Python tool-calling engine (the old
+  `--agentic` mode).
+- **`legacy`** — the original one-shot prompt generator.
+
+Notes:
+
+- `repoquill init` writes `documentation: {engine: pi}`. Existing configs
+  without that key keep their current behavior (a config with
+  `llm.agentic.enabled: true` maps to `python-agent` with a one-line
+  migration note; anything else defaults to `legacy`).
+- `--no-llm` always runs the deterministic path and never needs Node/Pi.
+- There is no silent fallback: if Pi is missing or a run fails, RepoQuill
+  exits non-zero, leaves the last known-good docs intact, and tells you how
+  to override (`--engine python-agent` / `--engine legacy`).
 
 ### LLM providers
 

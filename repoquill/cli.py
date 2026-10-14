@@ -6,12 +6,18 @@ Commands:
     repoquill generate  Run Layer 1 (reference) + Layer 2 (narrative).
     repoquill build     Generate + run ``mkdocs build`` to produce site/.
     repoquill serve     Generate + run ``mkdocs serve`` for local preview.
+    repoquill doctor    Check Node/Pi/model readiness for the Pi engine.
 
 Flags:
     --config PATH       Path to repoquill.yml, a directory of configs, or a
                         comma-separated list of config paths.
                         Default: ./repoquill.yml (or ./configs/ if it exists).
     --no-llm            Skip Layer 2 (deterministic reference only).
+    --engine {pi,python-agent,legacy}
+                        Narrative engine (default: documentation.engine in
+                        the config; fresh installs default to 'pi').
+                        --no-llm forces the deterministic path and ignores
+                        the engine.
     --force             Full re-plan + regenerate everything.
     --build             Also run ``mkdocs build`` after generating.
     --source-root PATH  Override the source repo root.
@@ -31,7 +37,7 @@ import subprocess
 import sys
 from datetime import datetime, timezone
 
-from repoquill.config import load_config
+from repoquill.config import load_config, resolve_engine
 from repoquill.llm import LLMClient
 from repoquill.narrative import determine_structure, generate_all_pages
 from repoquill.plan import (
@@ -652,6 +658,9 @@ llm:
   provider: {provider}
   model: {model}
 {base_url_line}{api_key_env_line}
+# Narrative engine: pi (default) | python-agent | legacy
+documentation:
+  engine: pi
 site:
   name: {project_name}
   description: "{description}"
@@ -1718,6 +1727,16 @@ def _cmd_generate(args) -> int:
     print(f"Site source: {cfg.site_src}")
     if not args.no_llm:
         print(f"LLM backend: {cfg.llm.provider}/{cfg.llm.model}")
+        # Narrative engine selection (--no-llm forces the deterministic
+        # path and bypasses every engine, including Pi/Node).
+        engine = resolve_engine(
+            cfg,
+            cli_engine=getattr(args, "engine", None),
+            agentic_flag=getattr(args, "agentic", None),
+        )
+        print(f"Narrative engine: {engine}")
+    else:
+        engine = None
     print()
 
     # Scaffold missing config sections via LLM (minimal config → full config)
@@ -1754,10 +1773,9 @@ def _cmd_generate(args) -> int:
             print("  No stored plan found; index will list guides as they appear.")
     else:
         client = LLMClient(cfg.llm)
-        # Agentic mode: `--agentic`/`--no-agentic` (when given) override the
-        # config's `llm.agentic.enabled`. Default (neither given) is config.
-        ag_flag = getattr(args, "agentic", None)
-        agentic_active = ag_flag if ag_flag is not None else cfg.llm.agentic.enabled
+        # Narrative engine was resolved up front (`engine`): explicit
+        # --engine > documentation.engine > llm.agentic.enabled migration
+        # mapping > legacy. --no-llm bypassed all of this above.
         if old_plan and not args.force:
             structure_valid = set(old_hashes.keys()) == set(new_hashes.keys())
             if structure_valid:
@@ -1839,7 +1857,40 @@ def _cmd_generate(args) -> int:
 
         print()
         print("[4/6] Generating narrative pages...")
-        if agentic_active:
+        if engine == "pi":
+            print("  mode: pi (embedded Pi documentation agent)")
+            from repoquill.agents.scheduler import run_pi_generation
+            try:
+                generated = run_pi_generation(
+                    pages, cfg,
+                    old_hashes=old_hashes, new_hashes=new_hashes,
+                    force_slugs=force_slugs,
+                    verify_each=True,
+                )
+            except ImportError as e:
+                # The Pi runtime modules (repoquill.pi.*) are not present.
+                print(f"  pi engine unavailable: {e}")
+                print("  How to override: `repoquill doctor` shows setup "
+                      "instructions, or use `--engine python-agent` "
+                      "(custom Python agent) / `--engine legacy` "
+                      "(one-shot prompt).")
+                return 1
+            except Exception as e:  # noqa: BLE001 - fail closed
+                # PiError (not installed / start timeout / run failure) or
+                # anything unexpected: abort BEFORE the quality gate and
+                # before any plan/store state is advanced. No docs, plan,
+                # or site content is touched — no silent fallback to a
+                # lower-quality engine.
+                print(f"  pi engine failed: {e}")
+                print("  How to fix / override:")
+                print("    - `repoquill doctor` shows what is missing "
+                      "(Node, Pi, model endpoint).")
+                print("    - Or override the engine: "
+                      "`repoquill generate --engine python-agent` "
+                      "(custom Python agent) or `--engine legacy` "
+                      "(one-shot prompt).")
+                return 1
+        elif engine == "python-agent":
             print("  mode: agentic (tool-calling documentation engine)")
             from repoquill.agents import run_agentic_generation
             aclient = _make_agentic_client(cfg)
@@ -2109,6 +2160,41 @@ def _cmd_serve(args) -> int:
     return 0
 
 
+def _print_doctor_dict(d: dict, indent: int = 0) -> None:
+    """Pretty-print a doctor readiness dict (recurses one level of dicts)."""
+    pad = "  " * indent
+    for key, value in d.items():
+        if isinstance(value, dict):
+            print(f"{pad}{key}:")
+            _print_doctor_dict(value, indent + 1)
+        elif isinstance(value, list):
+            for item in value:
+                print(f"{pad}  - {item}")
+        else:
+            print(f"{pad}{key}: {value}")
+
+
+def _cmd_doctor(args) -> int:
+    """Report readiness of the optional Pi runtime (Node / Pi / model).
+
+    Purely informational for a working setup (exit 0); exits 1 when the
+    Pi runtime modules are not present in this RepoQuill install.
+    """
+    try:
+        from repoquill.pi.bootstrap import doctor as pi_doctor
+    except ImportError as e:
+        print("Pi runtime not available in this RepoQuill install.")
+        print(f"  import error: {e}")
+        print("Setup instructions: see the 'Pi engine' section of the "
+              "README. The pinned Pi package is provisioned to the "
+              "RepoQuill app cache (or preprovisioned in CI). "
+              "`repoquill generate --no-llm` needs no Node/Pi at all.")
+        return 1
+    result = pi_doctor() or {}
+    _print_doctor_dict(result)
+    return 0
+
+
 def main(argv=None) -> int:
     """Entry point for the ``repoquill`` console script.
 
@@ -2153,41 +2239,54 @@ def main(argv=None) -> int:
     init.add_argument("-y", "--yes", action="store_true", help="Accept all defaults (non-interactive)")
 
     sub.add_parser("plan", parents=[common], help="Show the page plan")
-    def _add_agentic_flags(p):
+    sub.add_parser("doctor",
+                   help="Check Node/Pi/model readiness for the Pi engine")
+
+    def _add_engine_flags(p):
+        p.add_argument("--engine", default=None,
+                       choices=["pi", "python-agent", "legacy"],
+                       help="Narrative engine (default: "
+                            "documentation.engine in the config; fresh "
+                            "installs default to 'pi'). --no-llm forces "
+                            "the deterministic path and ignores the "
+                            "engine.")
         p.add_argument("--agentic", action="store_true", default=None,
                        dest="agentic",
-                       help="Author narrative pages with the agentic "
-                            "tool-calling engine instead of the legacy "
-                            "single-shot prompt (overrides config).")
+                       help="(deprecated alias for "
+                            "--engine python-agent) Author narrative "
+                            "pages with the Python tool-calling engine "
+                            "instead of the configured engine.")
         p.add_argument("--no-agentic", action="store_false", dest="agentic",
-                       help="Force the legacy generation path even if "
-                            "llm.agentic.enabled is true in config.")
+                       help="Downgrade a resolved python-agent engine to "
+                            "legacy (never upgrades; does not affect the "
+                            "pi engine).")
 
     gen = sub.add_parser("generate", parents=[common], help="Generate docs")
     gen.add_argument("--no-llm", action="store_true", help="Skip LLM layer")
     gen.add_argument("--no-scaffold", action="store_true", help="Skip LLM config scaffolding")
     gen.add_argument("--force", action="store_true", help="Full regenerate")
     gen.add_argument("--build", action="store_true", help="Also run mkdocs build")
-    _add_agentic_flags(gen)
+    _add_engine_flags(gen)
 
     build = sub.add_parser("build", parents=[common], help="Generate + mkdocs build")
     build.add_argument("--no-llm", action="store_true", help="Skip LLM layer")
     build.add_argument("--no-scaffold", action="store_true", help="Skip LLM config scaffolding")
     build.add_argument("--force", action="store_true", help="Full regenerate")
-    _add_agentic_flags(build)
+    _add_engine_flags(build)
 
     serve = sub.add_parser("serve", parents=[common], help="Generate + local preview")
     serve.add_argument("--no-llm", action="store_true", help="Skip LLM layer")
     serve.add_argument("--no-scaffold", action="store_true", help="Skip LLM config scaffolding")
     serve.add_argument("--force", action="store_true", help="Full regenerate")
     serve.add_argument("--port", type=int, default=8000, help="Port (default 8000)")
-    _add_agentic_flags(serve)
+    _add_engine_flags(serve)
 
     args = parser.parse_args(argv)
 
     commands = {
         "init": _cmd_init,
         "plan": _cmd_plan,
+        "doctor": _cmd_doctor,
         "generate": _cmd_generate_multi,
         "build": _cmd_build_multi,
         "serve": _cmd_serve,
