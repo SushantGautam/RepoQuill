@@ -146,6 +146,28 @@ def _enrich_container_protocols(content: str, pkg_path: str) -> str:
     return content + "".join(additions)
 
 
+def _apply_max_pages(pages: List[dict]) -> List[dict]:
+    """Budget guard for LLM-planned page counts.
+
+    When ``REPOQUILL_MAX_PAGES`` is set to a positive integer, the planner's
+    proposal is trimmed to its first N entries (the planner's own ordering),
+    and the trimmed slugs are printed so operators can record them.
+    Unset/invalid values leave the proposal untouched.
+    """
+    raw = os.environ.get("REPOQUILL_MAX_PAGES", "")
+    try:
+        cap = int(raw)
+    except ValueError:
+        cap = 0
+    if cap < 1 or len(pages) <= cap:
+        return pages
+    trimmed = [str(p.get("slug", "?")) for p in pages[cap:]]
+    print(f"  [budget] planner proposed {len(pages)} pages; "
+          f"REPOQUILL_MAX_PAGES={cap} — keeping the first {cap} "
+          f"(planner order). Trimmed slugs: {', '.join(trimmed)}")
+    return pages[:cap]
+
+
 def determine_structure(cfg, client) -> List[dict]:
     """Plan the narrative documentation structure.
 
@@ -236,7 +258,7 @@ Rules:
             # Give each page a better title (human-readable from slug)
             p["title"] = p["slug"].replace("-", " ").title()
 
-        return fixed_pages
+        return _apply_max_pages(fixed_pages)
 
     # --- LLM-planned path: no narrative_sections defined ---
     prompt = f"""You are a technical documentation architect. Given this Python project's file tree and README, plan a developer documentation structure.
@@ -260,7 +282,7 @@ Rules:
         temperature=getattr(cfg.llm, "plan_temperature", 0.1),
     )
     pages = json.loads(strip_code_fences(result))
-    return pages
+    return _apply_max_pages(pages)
 
 
 def generate_page(

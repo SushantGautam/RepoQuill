@@ -352,6 +352,12 @@ class UsageAggregator:
         self.cache_write_tokens = 0
         self.cost = 0.0
 
+    @property
+    def total(self) -> int:
+        """Peak cumulative total tokens observed (max per field)."""
+        return (self.input_tokens + self.output_tokens
+                + self.cache_read_tokens + self.cache_write_tokens)
+
     def observe_record(self, record: Any) -> None:
         if isinstance(record, dict) and record.get("type") == contracts.EV_MSG_UPDATE:
             self.observe_usage(record.get("usage"))

@@ -33,6 +33,7 @@ to a contract field -- see the worker report).
 
 from __future__ import annotations
 
+import json
 import os
 import queue
 import re
@@ -91,10 +92,22 @@ def build_task_prompt(task: contracts.PiTask) -> str:
         "## Instructions",
         "1. Ground the page in the code: use the provided tools (list_files,",
         "   read_file, search_code, inspect_api, inspect_tests) as needed.",
-        "2. When the page is complete you MUST call the write_doc tool to save",
-        "   it to %s." % task.expected_output_path,
-        "3. Do not modify source code and do not run commands. Every factual",
-        "   claim must come from the evidence above or from files you read.",
+        "   Read only the files this page actually covers (start with the",
+        "   CANDIDATE FILES); do not read the entire package.",
+        "2. Explore with a hard budget: the evidence above already contains",
+        "   the API surface and test behavior you need. Verify only the facts",
+        "   you are about to state, one file at a time. After ~15-20 tool",
+        "   calls you MUST have written the page — more reading does not",
+        "   improve it. Do NOT exhaustively survey modules this page does",
+        "   not cover, and do NOT re-read a file range or re-run a search",
+        "   you already did (the result is deterministic). Once every",
+        "   required symbol is grounded in what you have read, STOP",
+        "   exploring and write the page immediately.",
+        "3. When the page is complete you MUST call the write_doc tool to",
+        "   save it to %s." % task.expected_output_path,
+        "4. Do not modify source code and do not run commands. Every",
+        "   factual claim must come from the evidence above or from files",
+        "   you read.",
     ]
     if not task.allow_example_exec:
         lines.append("4. Do not attempt to execute example code.")
@@ -242,6 +255,102 @@ class _RunState:
             errors.append(
                 "extension_error: %s"
                 % (rec.get("error") or rec.get("extensionPath") or "unknown"))
+
+
+class _BudgetGuard:
+    """Sends a one-shot ``abort`` once the agent exceeds its tool budget
+    or repeats the same tool call too many times.
+
+    * total budget: ``max_tool_calls <= 0`` means unlimited;
+    * repeat guard: ``max_repeat_calls <= 0`` disables it. Measured
+      proxy-model failure mode: the SAME read/search re-issued 10-339
+      times (identical arguments, identical result) while the page is
+      never written — an orbit, not exploration. The total budget
+      bounds the damage but wastes up to 250 calls on it; the repeat
+      guard aborts the loop at the first clear signal so the scheduler's
+      one fresh-context retry can start earlier.
+
+    The abort is best effort — if it cannot be sent (dead process), the
+    recorded error still explains the failure and the run deadline
+    remains the backstop.
+    """
+
+    def __init__(self, max_tool_calls: int, state: "_RunState",
+                 send, proc: "subprocess.Popen",
+                 max_repeat_calls: int = 6) -> None:
+        self._max = int(max_tool_calls)
+        self._max_repeat = int(max_repeat_calls)
+        self._state = state
+        self._send = send
+        self._proc = proc
+        self._fired = False
+        self._repeat_counts: Dict[str, int] = {}
+
+    def observe(self, record: Any) -> None:
+        if self._fired:
+            return
+        if (self._max > 0
+                and len(self._state.trace.tool_calls) >= self._max):
+            self._fire("tool-call budget of %d exceeded — agent aborted "
+                       "(it appears to be looping or over-exploring)"
+                       % self._max)
+            return
+        if self._max_repeat > 0:
+            key = self._repeat_key(record)
+            if key is not None:
+                count = self._repeat_counts.get(key, 0) + 1
+                self._repeat_counts[key] = count
+                if count >= self._max_repeat:
+                    self._fire(
+                        "repeated tool call aborted: the identical call "
+                        "(%s) was issued %d times — the agent is orbiting; "
+                        "write the page with what has been gathered"
+                        % (key[:120], count))
+
+    @staticmethod
+    def _repeat_key(record: Any) -> Optional[str]:
+        """Stable key for identical (tool, args) calls, or None."""
+        if not isinstance(record, dict) \
+                or record.get("type") != contracts.EV_TOOL_START:
+            return None
+        name = record.get("toolName")
+        args = record.get("args")
+        if not name or not isinstance(args, dict):
+            return None
+        try:
+            return "%s %s" % (name,
+                              json.dumps(args, sort_keys=True,
+                                         default=str)[:400])
+        except (TypeError, ValueError):
+            return None
+
+    def _fire(self, reason: str) -> None:
+        self._fired = True
+        self._state.result.errors.append(reason)
+        try:
+            self._send(self._proc, {
+                "id": "abort-%s" % uuid.uuid4().hex[:12],
+                "type": contracts.CMD_ABORT,
+            })
+        except Exception:  # noqa: BLE001 - error already recorded
+            pass
+
+
+def _timeout_diagnostics(state: "_RunState", stderr_text: str) -> str:
+    """One-line, log-safe evidence for a timed-out run."""
+    calls = state.trace.tool_calls
+    wrote = any(tc.name == "write_doc" and not tc.is_error for tc in calls)
+    parts = [
+        "%d tool call(s)" % len(calls),
+        "write_doc=%s" % ("yes" if wrote else "no"),
+        "total_tokens=%d" % state.usage.total,
+    ]
+    if state.result.errors:
+        parts.append("errors: " + "; ".join(state.result.errors)[-200:])
+    tail = (stderr_text or "").strip()
+    if tail:
+        parts.append("stderr tail: " + tail[-300:])
+    return "; ".join(parts)
 
 
 def _is_response(rec: Any, req_id: str, command: str) -> bool:
@@ -483,6 +592,16 @@ class PiRpcBackend(contracts.PiBackend):
             if disposition not in ("", "started", "queued"):
                 pass
             else:
+                # Tool-call budget guard: an agent that burns its entire
+                # deadline on tool calls (e.g. re-reading the same files
+                # after a context compaction) is never going to finish in
+                # time — abort as soon as the budget is exhausted so the
+                # failure is fast and the reason explicit.
+                max_calls = int(getattr(task, "max_tool_calls", 0) or 0)
+                budget = _BudgetGuard(
+                    max_calls, state, self._send, proc,
+                    max_repeat_calls=getattr(
+                        task, "max_repeat_calls", 6))
                 self._wait_for(
                     proc, pumps, state,
                     lambda r: (
@@ -493,7 +612,21 @@ class PiRpcBackend(contracts.PiBackend):
                     lambda msg: contracts.PiRunTimeoutError(
                         "pi did not reach agent_settled within %.1fs"
                         % float(task.timeout_s)),
+                    on_record=budget.observe,
                 )
+        except contracts.PiRunTimeoutError as exc:
+            # Enrich the timeout with what actually happened: how many
+            # tool calls were made, whether write_doc ever ran, provider
+            # errors observed so far, and the stderr tail. The scheduler
+            # surfaces this verbatim as the page failure reason.
+            self._shutdown(proc)
+            self._process = None
+            pumps.join(timeout=2.0)
+            tail = redact_secrets(pumps.err_buf.get())
+            result.stderr_tail = tail
+            raise contracts.PiRunTimeoutError(
+                "%s [%s]" % (exc, _timeout_diagnostics(state, tail))
+            ) from exc
         except BaseException:
             self._shutdown(proc)
             self._process = None
@@ -503,7 +636,7 @@ class PiRpcBackend(contracts.PiBackend):
         self._shutdown(proc)
         pumps.join(timeout=2.0)
         self._process = None
-        result.stderr_tail = redact_secrets(pumps.err_buf.get())  # type: ignore[attr-defined]
+        result.stderr_tail = redact_secrets(pumps.err_buf.get())
         result.tool_calls = state.trace.tool_calls
         result.usage = state.usage.to_pi_usage()
         result.source_paths_read = state.trace.source_paths
@@ -550,8 +683,13 @@ class PiRpcBackend(contracts.PiBackend):
         predicate: Callable[[Any], bool],
         deadline: float,
         timeout_error: Callable[[str], contracts.PiError],
+        on_record: Optional[Callable[[Any], None]] = None,
     ) -> Dict[str, Any]:
-        """Pump records until ``predicate`` matches, deadline, or EOF."""
+        """Pump records until ``predicate`` matches, deadline, or EOF.
+
+        ``on_record`` (optional) is invoked after each record is folded
+        into ``state`` — used for the tool-call budget guard.
+        """
         while True:
             remaining = deadline - time.monotonic()
             if remaining <= 0:
@@ -563,6 +701,8 @@ class PiRpcBackend(contracts.PiBackend):
             if record is None:
                 raise self._early_exit(proc, pumps, state)
             state.handle(record)
+            if on_record is not None:
+                on_record(record)
             if predicate(record):
                 return record
 

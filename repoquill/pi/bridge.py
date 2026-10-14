@@ -55,6 +55,16 @@ BRIDGE_PROTOCOL_VERSION = pi_contracts.BRIDGE_PROTOCOL_VERSION
 #: Tools the bridge will dispatch (the docs-only vetted allowlist).
 _DISPATCHABLE = tuple(pi_contracts.DOC_TOOL_ALLOWLIST)
 
+# Read-only, deterministic tools for which an identical re-call returns
+# an identical payload. The bridge answers exact repeats with a memo so
+# proxy-model repeat loops (see PiBridgeServer._run_tool) break instead
+# of burning the tool budget and the context window. write_doc is NOT
+# deduped (a model refining its draft may legitimately rewrite), nor
+# run_example (execution is not assumed idempotent).
+_DEDUPABLE_TOOLS = frozenset({
+    "list_files", "read_file", "search_code", "inspect_api", "inspect_tests",
+})
+
 _DEFAULT_REQUEST_TIMEOUT_S = 120.0
 _DEFAULT_RUN_EXAMPLE_TIMEOUT_S = 90.0
 _DEFAULT_MAX_RESPONSE_BYTES = 256 * 1024
@@ -168,6 +178,11 @@ class PiBridgeServer:
         self._socket_dir = socket_dir or tempfile.mkdtemp(
             prefix="repoquill-pi-bridge-")
         self._socket_path = os.path.join(self._socket_dir, "bridge.sock")
+
+        # Exact-repeat detection state (per page run: a new bridge
+        # server is built per task).
+        self._seen_calls: Dict[str, Tuple[int, str]] = {}
+        self._dedup_lock = threading.Lock()
 
         self._server: Optional[socket.socket] = None
         self._stop_event = threading.Event()
@@ -371,6 +386,50 @@ class PiBridgeServer:
 
     def _run_tool(self, tool: str, args: Dict[str, Any],
                   rid: str, out: "queue.Queue[Any]") -> None:
+        # Determinism exploit: re-issuing an identical read-only call
+        # returns the identical result, which is already in the model's
+        # conversation (with default compaction settings the earlier
+        # result is kept). Measured baseline runs show proxy models
+        # re-issuing the SAME read/search 10-190 times and burning the
+        # whole tool budget (and context) on it. Answer exact repeats
+        # with a short memo instead of the payload: no information is
+        # lost and the repeated-call loop is broken.
+        dedup_key = self._dedup_key(tool, args)
+        if dedup_key is not None:
+            with self._dedup_lock:
+                seen = self._seen_calls.get(dedup_key)
+            if seen is not None:
+                count, head = seen
+                with self._dedup_lock:
+                    self._seen_calls[dedup_key] = (count + 1, head)
+                if count >= 4:
+                    # The memo did not stop the loop: make it an ERROR
+                    # so the model cannot treat it as more (duplicate)
+                    # data, and tell it explicitly what to do instead.
+                    # The supervisor's repeat guard aborts the run if
+                    # the loop still continues.
+                    out.put(self._err(rid, (
+                        "ERROR: you have now called this exact tool "
+                        f"{count + 1} times with identical arguments. "
+                        "Re-calling is pointless - it is deterministic "
+                        "and returns the same result you already have. "
+                        "STOP exploring: verify the required symbols "
+                        "against what you have read and call write_doc "
+                        "now.")))
+                    return
+                out.put(self._ok(rid, {
+                    "deduplicated": True,
+                    "note": (
+                        "You have already made this exact tool call "
+                        f"{count} time(s) earlier in this run. It is "
+                        "deterministic: re-calling returns the same "
+                        "result, which is already in your conversation "
+                        "above. Continue using what you have - verify "
+                        "any remaining required symbols and then call "
+                        "write_doc. Do not repeat identical calls."),
+                    "previous_result_head": head,
+                }))
+                return
         try:
             result = self._tools.execute(tool, args)
         except Exception:  # noqa: BLE001 - envelope must always answer
@@ -380,10 +439,32 @@ class PiBridgeServer:
             if not result.ok:
                 out.put(self._err(rid, result.error or "tool failed"))
                 return
+            self._record_call(dedup_key, result.data)
             out.put(self._ok(rid, result.data))
             return
         # Tolerate any other registry that returns a simple mapping.
+        self._record_call(dedup_key, result)
         out.put(self._ok(rid, result))
+
+    @staticmethod
+    def _dedup_key(tool: str, args: Dict[str, Any]) -> Optional[str]:
+        """Key for exact-repeat detection, or None (never dedupe)."""
+        if tool not in _DEDUPABLE_TOOLS:
+            return None
+        try:
+            return json.dumps([tool, args], sort_keys=True, default=str)
+        except (TypeError, ValueError):
+            return None
+
+    def _record_call(self, key: Optional[str], data: Any) -> None:
+        if key is None:
+            return
+        try:
+            head = json.dumps(data, default=str)[:200]
+        except (TypeError, ValueError):
+            head = ""
+        with self._dedup_lock:
+            self._seen_calls[key] = (1, head)
 
     def _validate_request(self, tool: str, args: Dict[str, Any]) -> None:
         if tool in ("list_files", "search_code"):

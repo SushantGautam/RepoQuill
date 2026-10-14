@@ -154,8 +154,9 @@ def build_ephemeral_agent_dir(
     context_window: int = 32768,
     max_tokens: int = 8192,
     reasoning: bool = False,
+    compaction_keep_recent_tokens: int = 60000,
 ) -> str:
-    """Create a per-run Pi agent directory containing a ``models.json``.
+    """Create a per-run Pi agent directory (``models.json`` + ``settings.json``).
 
     If ``dest`` is given it is used (created if missing); otherwise a temp
     directory with prefix ``repoquill-pi-`` is created. The returned path is
@@ -166,6 +167,19 @@ def build_ephemeral_agent_dir(
     ``apiKey`` is always written as ``$<API_KEY_ENV>`` — never a literal
     secret. Whether the variable is currently set does not matter here; Pi
     resolves it at request time in the child process environment.
+
+    ``settings.json`` tunes Pi's automatic compaction. ``PI_CODING_AGENT_DIR``
+    points Pi at this directory, so the file applies exactly to this run
+    (no user-global or project `.pi` files are touched). With the default
+    ``keepRecentTokens`` of 20k, Pi summarises everything but the last 20k
+    tokens when the context nears the declared window — for docs runs that
+    means the files the agent just read are wiped, and the agent pages the
+    same source files again every compaction cycle (confirmed in the
+    SimpleAudit baseline: one 923-line file re-read 307 times across six
+    compaction cycles, 400 tool calls, page never written). Raising
+    ``keepRecentTokens`` to 60k keeps the recent source content alive
+    across compactions. Pass ``0`` to write no ``settings.json`` at all
+    (Pi defaults).
     """
     base_url, model_id, api_key_env = resolve_endpoint(llm_cfg)
     validate_api_key_env(api_key_env)
@@ -197,6 +211,14 @@ def build_ephemeral_agent_dir(
     with open(path, "w", encoding="utf-8") as fh:
         json.dump(models_json, fh, indent=2)
         fh.write("\n")
+
+    keep_recent = int(compaction_keep_recent_tokens)
+    if keep_recent > 0:
+        settings_path = os.path.join(dest, "settings.json")
+        with open(settings_path, "w", encoding="utf-8") as fh:
+            json.dump({"compaction": {"keepRecentTokens": keep_recent}},
+                      fh, indent=2)
+            fh.write("\n")
     return dest
 
 

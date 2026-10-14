@@ -219,6 +219,17 @@ class PiTask:
     #: Symbols the page must mention; independent verification checks
     #: coverage against exactly this list.
     coverage_checklist: List[str] = field(default_factory=list)
+    #: Tool-call budget: the supervisor aborts the run once the agent
+    #: has made this many tool calls without finishing. ``0`` means
+    #: unlimited (the overall ``timeout_s`` deadline still applies).
+    max_tool_calls: int = 0
+    #: Repeat-call guard: the supervisor aborts the run once the SAME
+    #: tool call (tool name + identical arguments) has been issued this
+    #: many times. Proxy models have been measured orbiting on identical
+    #: reads/searches (10-339 repeats) without converging; aborting the
+    #: loop early saves the rest of the budget for a fresh retry.
+    #: ``0`` disables the guard (budget + deadline still apply).
+    max_repeat_calls: int = 6
 
     @property
     def expected_output_path(self) -> str:
@@ -240,6 +251,9 @@ class PiRunResult:
     errors: List[str] = field(default_factory=list)
     aborted: bool = False
     source_paths_read: List[str] = field(default_factory=list)
+    #: Last ~2 KB of the Pi child's stderr (secrets redacted). Diagnostic
+    #: only — stderr is never parsed as protocol.
+    stderr_tail: str = ""
 
     @property
     def ok(self) -> bool:
@@ -274,6 +288,7 @@ class PiRunResult:
             "pi_version": self.pi_version,
             "model": self.model,
             "errors": self.errors,
+            "stderr_tail": self.stderr_tail,
         }
 
 

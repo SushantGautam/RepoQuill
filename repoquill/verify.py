@@ -21,11 +21,18 @@ import builtins
 import os
 import re
 from dataclasses import dataclass, field
-from typing import Dict, List, Set
+from typing import Dict, List, Optional, Set, Tuple
 
 #: Builtins referenced in prose (e.g. ``str``, ``None``, ``TypeError``)
 #: are not hallucinated package APIs.
 _BUILTIN_NAMES = set(dir(builtins))
+
+#: Backtick spans that are never API references: JSON/JS/Python literals
+#: and the conventional placeholder name. (Confirmed FP class: docs quote
+#: `null` in JSON examples and `_` as a throwaway.)
+_NON_SYMBOL_NAMES = frozenset({
+    "null", "true", "false", "none", "undefined", "nan", "inf", "_",
+})
 
 
 # ---------------------------------------------------------------------------
@@ -45,6 +52,28 @@ class SymbolIndex:
     sources: Set[str] = field(default_factory=set)
     string_literals: Set[str] = field(default_factory=set)
     function_params: Set[str] = field(default_factory=set)
+    #: Class-level attribute names (typed fields, pydantic/dataclass
+    #: fields, plain class assignments). Docs legitimately reference
+    #: these in backticks (e.g. `` `confidence_threshold` ``); flagging
+    #: them as invented symbols was a confirmed false-positive source.
+    attributes: Set[str] = field(default_factory=set)
+    #: Identifiers that appear in the package's own docstrings
+    #: (including doctests). Documentation written from those
+    #: docstrings legitimately quotes the same names (`` `temperature`
+    #: `` is documented in reframing's docstring; `` `acepted` `` is a
+    #: doctest example of a MIS-spelled key). Ground truth is source
+    #: text, not just the def/class/assign structure.
+    docstring_names: Set[str] = field(default_factory=set)
+    #: EVERY identifier-shaped token found anywhere in the package
+    #: source (code, docstrings, comments, string literals). A page is
+    #: verified against the repository's ground truth, not just the
+    #: def/class/assign skeleton: names documented by sibling modules
+    #: (`` SEVERITY_RESPONSE_SCHEMA `` lives in judges/compose.py while
+    #: the page covers model_auditor) and external-protocol names the
+    #: code talks about (OTLP `` AnyValue ``) must not be flagged as
+    #: invented. A genuinely hallucinated name exists nowhere in the
+    #: tree and is still flagged.
+    source_tokens: Set[str] = field(default_factory=set)
 
 
 def build_index(pkg_path: str) -> SymbolIndex:
@@ -64,13 +93,46 @@ def build_index(pkg_path: str) -> SymbolIndex:
                 mod = mod[:-9]
             idx.modules.add(mod)
             idx.modules.add(mod.split(".")[0])
+            with open(full, "r", encoding="utf-8", errors="replace") as fh:
+                text = fh.read()
+            # Whole-file ground-truth harvest (runs even on parse failure).
+            for tok in re.findall(r"[A-Za-z_][A-Za-z0-9_]{2,79}", text):
+                idx.source_tokens.add(tok)
             try:
-                with open(full, "r", encoding="utf-8", errors="replace") as fh:
-                    tree = ast.parse(fh.read())
+                tree = ast.parse(text)
             except SyntaxError:
                 continue
 
+            # Module-level assignments are referenceable globals even when
+            # the walk below would treat them as locals: ALL_CAPS globals
+            # (``SEVERITY_RESPONSE_SCHEMA: Dict[str, Any] = {...}``,
+            # ``FINDING_SEVERITY: Dict[str, str] = {...}``) are constants,
+            # and Capitalized ones (``Transform = Callable[...]``) are type
+            # aliases docs quote by name.
+            for stmt in tree.body:
+                targets = []
+                if isinstance(stmt, ast.Assign):
+                    targets = stmt.targets
+                elif isinstance(stmt, ast.AnnAssign) and isinstance(
+                        stmt.target, ast.Name):
+                    targets = [stmt.target]
+                for tgt in targets:
+                    if not isinstance(tgt, ast.Name):
+                        continue
+                    if tgt.id.isupper():
+                        idx.constants.add(tgt.id)
+                    idx.module_symbols.add(tgt.id)
+
             for node in ast.walk(tree):
+                if isinstance(node, ast.Constant) \
+                        and isinstance(node.value, str) \
+                        and len(node.value) > 30:
+                    # Docstrings (and other long strings, e.g. prompts
+                    # containing doctests): harvest identifier-shaped
+                    # tokens so pages quoting documented names pass.
+                    for tok in re.findall(r"[A-Za-z_][A-Za-z0-9_]{2,79}",
+                                          node.value):
+                        idx.docstring_names.add(tok)
                 if isinstance(node, ast.ClassDef):
                     idx.classes.add(node.name)
                     idx.module_symbols.add(node.name)
@@ -78,16 +140,51 @@ def build_index(pkg_path: str) -> SymbolIndex:
                     for item in node.body:
                         if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)):
                             idx.class_methods[node.name].add(item.name)
-                            for a in item.args.args:
-                                idx.function_params.add(a.arg)
+                            # Full signature: ``def __init__(self, *args,
+                            # correctness_judge="checklist", **kwargs)``
+                            # keeps its keyword-only names out of
+                            # ``args.args`` — they are API surface too.
+                            a = item.args
+                            for p in (list(a.posonlyargs) + list(a.args)
+                                      + list(a.kwonlyargs)):
+                                idx.function_params.add(p.arg)
+                            if a.vararg:
+                                idx.function_params.add(a.vararg.arg)
+                            if a.kwarg:
+                                idx.function_params.add(a.kwarg.arg)
+                        elif isinstance(item, ast.AnnAssign):
+                            # ``field: Type`` — dataclass / pydantic field
+                            if isinstance(item.target, ast.Name):
+                                idx.attributes.add(item.target.id)
+                        elif isinstance(item, ast.Assign):
+                            # class-level assignment (``default = 0.5``)
+                            for tgt in item.targets:
+                                if isinstance(tgt, ast.Name):
+                                    idx.attributes.add(tgt.id)
                 elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                     idx.functions.add(node.name)
                     idx.module_symbols.add(node.name)
-                    for a in node.args.args:
+                    # Full public signature: positional-only, positional,
+                    # keyword-only, *args and **kwargs are all names docs
+                    # legitimately reference (``f(*, min_chars=20)`` etc.).
+                    args = node.args
+                    for a in (list(args.posonlyargs) + list(args.args)
+                              + list(args.kwonlyargs)):
                         idx.function_params.add(a.arg)
+                    if args.vararg:
+                        idx.function_params.add(args.vararg.arg)
+                    if args.kwarg:
+                        idx.function_params.add(args.kwarg.arg)
                 elif isinstance(node, ast.Assign):
                     for tgt in node.targets:
                         if isinstance(tgt, ast.Name) and tgt.id.isupper():
+                            # ALL_CAPS names are constants by convention at
+                            # ANY scope: function-local response schemas
+                            # (``SEVERITY_RESPONSE_SCHEMA = {...}`` inside a
+                            # builder function) are real, referenceable API
+                            # surface that docs quote. Lowercase local
+                            # assignments are NOT allowed (too broad: they
+                            # would whitelist arbitrary invented names).
                             idx.constants.add(tgt.id)
                             idx.module_symbols.add(tgt.id)
                 elif isinstance(node, ast.Constant) and isinstance(node.value, str):
@@ -105,22 +202,51 @@ def extract_code_blocks(md: str) -> List[str]:
     return re.findall(r"```[a-zA-Z]*\n(.*?)```", md, re.DOTALL)
 
 
-def extract_imports(md: str) -> List[str]:
-    """Extract module paths and symbols from import statements in code blocks."""
-    found = []
+def extract_imports_typed(
+        md: str,
+) -> List[Tuple[str, str, "Optional[str]"]]:
+    """Extract imports from code blocks as ``(kind, name, parent)``.
+
+    * ``("module", dotted_path, None)`` for ``import x.y`` / the parent
+      module of ``from x.y import Z``;
+    * ``("symbol", Z, "x.y")`` for the imported name in
+      ``from x.y import Z``.
+
+    Handling parenthesized imports spanning multiple lines
+    (``from pkg import (\\n  A,\\n  B\\n)``): the open/close parens are
+    consumed, and only well-formed identifiers are recorded as symbols —
+    fence fragments like ``(A`` or ``B)`` must not be mistaken for
+    imported names (a confirmed false-positive source).
+    """
+    found: List[Tuple[str, str, "Optional[str]"]] = []
     for block in extract_code_blocks(md):
-        for line in block.splitlines():
-            line = line.strip()
-            m = re.match(r"^(?:from|import)\s+([\w.]+)", line)
+        lines = block.splitlines()
+        i = 0
+        while i < len(lines):
+            line = lines[i].strip()
+            m = re.match(r"^(from|import)\s+([\w.]+)\s*(.*)$", line)
             if m:
-                found.append(m.group(1))
-                if line.startswith("from"):
-                    rest = line.split("import", 1)[1].strip()
-                    for sym in rest.split(","):
+                kind, module, rest = m.groups()
+                found.append(("module", module, None))
+                if kind == "from":
+                    rest = rest.split("import", 1)[1] if "import" in rest else ""
+                    # Close a parenthesized import that spans lines.
+                    while (rest.count("(") > rest.count(")")
+                             and i + 1 < len(lines)):
+                        i += 1
+                        rest = rest + " " + lines[i].strip()
+                    for sym in rest.replace("(", " ").replace(")", " ") \
+                            .split(","):
                         sym = sym.strip().split(" as ")[0].strip()
-                        if sym and sym != "*":
-                            found.append(sym)
+                        if re.match(r"^[A-Za-z_][A-Za-z0-9_]*$", sym):
+                            found.append(("symbol", sym, module))
+            i += 1
     return found
+
+
+def extract_imports(md: str) -> List[str]:
+    """Flat list of module paths and imported symbols (back-compat)."""
+    return [name for _, name, _ in extract_imports_typed(md)]
 
 
 def extract_backtick_symbols(md: str) -> List[str]:
@@ -150,29 +276,71 @@ def check_page(page_md: str, idx: SymbolIndex, pkg_name: str) -> List[dict]:
         all_methods |= methods
 
     # 1. Imports
+    # Scoped by design: only imports that reference the DOCUMENTED package
+    # are verified against its symbol index. Stdlib/third-party imports
+    # (`import asyncio`, `import opentelemetry...`) cannot be checked from
+    # the package index and are out of scope — flagging them was a
+    # confirmed false-positive class (tracing page: `asyncio`, `base64`).
+    # A hallucinated import of the package itself
+    # (`from simpleaudit import Bogus`) is still flagged.
     bare_module_names = {m.split(".")[-1] for m in idx.modules}
-    for imp in extract_imports(page_md):
+    for kind, imp, parent in extract_imports_typed(page_md):
+        if kind == "symbol":
+            # `from <parent> import <imp>` — an imported NAME. Known
+            # package symbols pass; an unknown name imported from the
+            # documented package is a hallucinated import; one imported
+            # from an external module is out of scope.
+            if imp in idx.module_symbols or imp in idx.modules:
+                continue
+            top = (parent or "").split(".")[0]
+            if top != pkg_name and top not in idx.modules:
+                continue  # external parent: not verifiable here
+            findings.append({"symbol": imp, "kind": "import",
+                             "severity": "high"})
+            continue
+        # `import <imp>` — a module path. Stdlib/third-party imports
+        # (`import asyncio`, `import opentelemetry.proto...`) cannot be
+        # checked from the package index and are out of scope; a path
+        # into the documented package must exist.
         if imp in idx.modules or imp in idx.module_symbols:
             continue
         top = imp.split(".")[0]
-        if top == pkg_name or top in idx.modules:
-            # from pkg.sub import X — imp is either the module path
-            # itself (e.g. "pkg.sub" — its bare tail is a known module)
-            # or the imported symbol X (checked separately).
-            parts = imp.split(".")
-            if parts[-1] in bare_module_names:
-                continue  # valid submodule path
-            if len(parts) > 1 and parts[-1] not in idx.module_symbols:
-                findings.append({"symbol": imp, "kind": "import",
-                                 "severity": "medium"})
-        else:
-            findings.append({"symbol": imp, "kind": "import",
-                             "severity": "high"})
+        if top != pkg_name and top not in idx.modules:
+            continue  # external module: not verifiable here
+        parts = imp.split(".")
+        if parts[-1] in bare_module_names:
+            continue  # valid submodule path
+        findings.append({"symbol": imp, "kind": "import",
+                         "severity": "medium"})
 
     # 2. Backtick identifiers
     for sym in extract_backtick_symbols(page_md):
+        # Language/JSON literals and the conventional throwaway name are
+        # not API references: docs write `null` in JSON, `_` for
+        # placeholders. (Confirmed FP class: `null`, `_`.)
+        if sym.lower() in _NON_SYMBOL_NAMES:
+            continue
+        # Third-party libraries are out of scope, for the same reason
+        # external imports are: the symbol index only covers the
+        # documented package. A backtick name that resolves to an
+        # installed distribution (`` `matplotlib` `` in a plotting page)
+        # is a reference to that library, not an invented package symbol.
+        # Hallucinated CamelCase class names almost never match an
+        # importable top-level module, so this does not weaken the
+        # hallucination check in practice.
+        try:
+            import importlib.util
+            if importlib.util.find_spec(sym) is not None:
+                continue
+        except (ImportError, ValueError, ModuleNotFoundError):
+            pass
+        # Attributes and method names are real API surface too: docs
+        # reference fields (`` `name` ``) and methods in backticks just
+        # like functions and classes.
         if sym in idx.module_symbols or sym in idx.string_literals \
                 or sym in idx.function_params or sym in idx.constants \
+                or sym in idx.attributes or sym in all_methods \
+                or sym in idx.docstring_names or sym in idx.source_tokens \
                 or sym in idx.modules or sym in bare_module_names \
                 or sym in _BUILTIN_NAMES:
             continue

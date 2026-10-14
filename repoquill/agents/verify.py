@@ -81,6 +81,12 @@ def _build_summary(
     missing = coverage.missing
     if missing:
         parts.append("missing: " + ", ".join(missing))
+    if import_findings:
+        parts.append("imports: " + ", ".join(
+            f.get("detail", "") for f in import_findings[:5]))
+    if symbol_findings:
+        parts.append("symbols: " + ", ".join(
+            f.get("detail", "") for f in symbol_findings[:5]))
     return "; ".join(parts)
 
 

@@ -9,9 +9,10 @@ names and the public AST symbol index, with no domain-specific assumptions.
 """
 from __future__ import annotations
 
+import ast
 import os
 import re
-from typing import List
+from typing import List, Optional
 
 from repoquill.agents.contracts import EvidencePack, PageTask
 from repoquill.reference import extract_api_surface, get_file_tree
@@ -40,6 +41,10 @@ _SKIP_DIRS = frozenset({
 
 _MAX_SOURCE_FILES = 12
 _MAX_TEST_FILES = 8
+# A page cannot realistically be held accountable for every symbol of a
+# large candidate set; cap the checklist so coverage verification stays
+# meaningful (deterministic: first N in sorted order).
+_MAX_CHECKLIST = 60
 
 
 def _tokenize(*texts: str) -> List[str]:
@@ -81,8 +86,15 @@ def candidate_source_files(task: "PageTask", pkg_path: str) -> List[str]:
     hints = [h for h in (task.source_hints or []) if h]
     if hints:
         existing = []
+        pkg_name = os.path.basename(os.path.normpath(pkg_path))
         for hint in hints:
             hint_norm = hint.replace(os.sep, "/")
+            # Planners may emit package-relative ("judges/x.py") or
+            # repo-root-relative ("pkg/judges/x.py") paths; normalize
+            # to package-relative.
+            if (not os.path.isfile(os.path.join(pkg_path, hint_norm))
+                    and hint_norm.startswith(pkg_name + "/")):
+                hint_norm = hint_norm[len(pkg_name) + 1:]
             if os.path.isfile(os.path.join(pkg_path, hint_norm)):
                 if hint_norm not in existing:
                     existing.append(hint_norm)
@@ -144,20 +156,63 @@ def candidate_tests(task: "PageTask", root: str) -> List[str]:
     return found[:_MAX_TEST_FILES]
 
 
-def coverage_checklist(task: "PageTask", pkg_path: str) -> List[str]:
-    """Public package symbols (classes + top-level functions) as strings.
-
-    Uses the deterministic AST symbol index; private (underscore) names
-    are excluded. A parse failure degrades to an empty list.
-    """
+def _top_level_public_symbols(path: str) -> Optional[set]:
+    """Top-level public classes/functions/UPPERCASE constants of one
+    file, or None when the file cannot be parsed/read."""
     try:
-        idx = build_index(pkg_path)
-    except Exception:
-        return []
+        with open(path, "r", encoding="utf-8", errors="replace") as fh:
+            tree = ast.parse(fh.read())
+    except (OSError, SyntaxError, ValueError):
+        return None
     public = set()
-    public.update(n for n in idx.classes if not n.startswith("_"))
-    public.update(n for n in idx.functions if not n.startswith("_"))
-    return sorted(public)
+    for node in tree.body:
+        if isinstance(node, (ast.ClassDef, ast.FunctionDef,
+                             ast.AsyncFunctionDef)) \
+                and not node.name.startswith("_"):
+            public.add(node.name)
+        elif isinstance(node, ast.Assign):
+            for tgt in node.targets:
+                if isinstance(tgt, ast.Name) and tgt.id.isupper():
+                    public.add(tgt.id)
+    return public
+
+
+def coverage_checklist(task: "PageTask", pkg_path: str) -> List[str]:
+    """Public symbols a page is expected to document, as strings.
+
+    Scoped to the page's candidate source files (top-level classes,
+    functions and UPPERCASE constants defined in those files). Private
+    (underscore) names are excluded; parse failures are skipped.
+
+    Historically this returned every public symbol in the *package*,
+    which made a single page "required" to mention the entire API —
+    impossible for multi-module packages and a guarantee that
+    coverage verification would reject every focused page. When no
+    candidate files can be determined, the legacy package-wide list is
+    used. The result is capped at :data:`_MAX_CHECKLIST` (sorted,
+    deterministic).
+    """
+    files: List[str] = []
+    try:
+        files = candidate_source_files(task, pkg_path)
+    except Exception:
+        files = []
+
+    public = set()
+    if files:
+        for rel in files:
+            syms = _top_level_public_symbols(
+                os.path.join(pkg_path, rel.replace("/", os.sep)))
+            if syms is not None:
+                public.update(syms)
+    else:
+        try:
+            idx = build_index(pkg_path)
+        except Exception:
+            return []
+        public.update(n for n in idx.classes if not n.startswith("_"))
+        public.update(n for n in idx.functions if not n.startswith("_"))
+    return sorted(public)[:_MAX_CHECKLIST]
 
 
 def _readme_excerpt(root: str) -> str:
@@ -175,7 +230,10 @@ def build_evidence_pack(task: "PageTask", pkg_path: str, root: str) -> "Evidence
     """Assemble the deterministic seed evidence pack for one page."""
     file_tree = ""
     try:
-        file_tree = get_file_tree(pkg_path)
+        # Root-relative labels: the Pi/python-agent read tools resolve
+        # paths against the repository root, so the tree must show the
+        # same convention (nested dirs like judges/ stay unambiguous).
+        file_tree = get_file_tree(pkg_path, root)
     except OSError:
         file_tree = ""
 

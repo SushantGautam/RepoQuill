@@ -59,6 +59,25 @@ class AgenticConfig:
     # "unified" = one agent investigates + writes (default, low overhead);
     # "specialized" = separate investigation and writing passes.
     roles: str = "unified"
+    # Pi-run bounds (used by the `pi` engine; the python-agent loop
+    # ignores these and uses max_steps / max_llm_calls instead).
+    timeout_s: float = 900.0   # per-page Pi deadline (large repos + slow
+                               # remote endpoints routinely exceed 300s)
+    max_tool_calls: int = 250  # abort the agent after this many tool calls
+                               # (loop guard; over-exploring agents loop
+                               # far past the point of usefulness);
+                               # 0 disables the budget
+    context_window: int = 32768  # contextWindow declared in the ephemeral
+                               # Pi models.json; raise it to the endpoint's
+                               # real window to avoid premature compaction
+    compaction_keep_recent_tokens: int = 60000  # Pi compaction: recent
+                               # tokens kept verbatim when the context
+                               # compacts (Pi default 20000 is too small for
+                               # docs runs — it made agents re-read source
+                               # files after every compaction); 0 = Pi default
+    max_repeat_calls: int = 6    # abort the run once the SAME tool call
+                                 # (name + identical args) is issued this
+                                 # many times (orbit guard; 0 disables)
 
 
 @dataclass
@@ -208,6 +227,12 @@ def load_config(config_path: Optional[str] = None) -> RepoQuillConfig:
         max_file_chars=int(ag_raw.get("max_file_chars", 16000)),
         coverage_threshold=float(ag_raw.get("coverage_threshold", 0.6)),
         roles=str(ag_raw.get("roles", "unified")),
+        timeout_s=float(ag_raw.get("timeout_s", 900.0)),
+        max_tool_calls=int(ag_raw.get("max_tool_calls", 250)),
+        context_window=int(ag_raw.get("context_window", 32768)),
+        compaction_keep_recent_tokens=int(
+            ag_raw.get("compaction_keep_recent_tokens", 60000)),
+        max_repeat_calls=int(ag_raw.get("max_repeat_calls", 6)),
     )
     llm = LLMConfig(
         provider=llm_raw.get("provider", "openai"),

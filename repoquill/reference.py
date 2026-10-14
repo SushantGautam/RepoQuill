@@ -48,25 +48,47 @@ def get_source_files(pkg_path: str) -> dict:
     return files
 
 
-def get_file_tree(pkg_path: str) -> str:
+def get_file_tree(pkg_path: str, root: Optional[str] = None) -> str:
     """Return a human-readable tree of the package directory.
 
     Args:
         pkg_path: Absolute path to the package directory.
+        root: Optional repository root. When given (and the package is
+            under it), entries are labeled with their path relative to
+            *root* instead of bare basenames — so nested directories
+            keep their full, unambiguous location (e.g.
+            ``simpleaudit/judges/compose.py`` rather than a bare
+            ``judges/compose.py``).
 
     Returns:
         Multi-line string describing the directory structure.
     """
+    use_root = (
+        root is not None
+        and os.path.commonpath(
+            [os.path.abspath(root), os.path.abspath(pkg_path)]
+        ) == os.path.abspath(root)
+    )
     lines = []
     for dirpath, dirnames, filenames in os.walk(pkg_path):
         dirnames.sort()
         rel = os.path.relpath(dirpath, pkg_path)
-        depth = 0 if rel == "." else rel.count(os.sep)
+        depth = 0 if rel == "." else rel.count(os.sep) + 1
         indent = "  " * depth
-        lines.append(f"{indent}{os.path.basename(dirpath)}/")
+        if use_root:
+            dir_label = os.path.relpath(dirpath, root).replace(os.sep, "/")
+        else:
+            dir_label = os.path.basename(dirpath)
+        lines.append(f"{indent}{dir_label}/")
         for f in sorted(filenames):
             if f.endswith(".py"):
-                lines.append(f"{indent}  {f}")
+                full = os.path.join(dirpath, f)
+                if use_root:
+                    file_label = os.path.relpath(
+                        full, root).replace(os.sep, "/")
+                else:
+                    file_label = f
+                lines.append(f"{indent}  {file_label}")
     return "\n".join(lines)
 
 

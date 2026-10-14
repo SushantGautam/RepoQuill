@@ -208,3 +208,32 @@ def test_check_api_key_present(monkeypatch):
     monkeypatch.delenv("RQ_TEST_UNSET_KEY", raising=False)
     assert models.check_api_key_present("RQ_TEST_SET_KEY") is True
     assert models.check_api_key_present("RQ_TEST_UNSET_KEY") is False
+
+
+def test_settings_json_written_with_default_keep_recent(tmp_path):
+    """The ephemeral agent dir ships a compaction settings.json: Pi's
+    default keepRecentTokens (20k) wiped recently-read source files on
+    every compaction and made the agent re-read them (SimpleAudit
+    baseline: one file re-read 307x, page never finished)."""
+    cfg = _LLMCfg(model="m-1")
+    dest = models.build_ephemeral_agent_dir(cfg, dest=str(tmp_path / "a"))
+    settings = json.loads(
+        open(os.path.join(dest, "settings.json"), encoding="utf-8").read())
+    assert settings == {"compaction": {"keepRecentTokens": 60000}}
+
+
+def test_settings_json_custom_keep_recent(tmp_path):
+    cfg = _LLMCfg(model="m-1")
+    dest = models.build_ephemeral_agent_dir(
+        cfg, dest=str(tmp_path / "a"), compaction_keep_recent_tokens=90000)
+    settings = json.loads(
+        open(os.path.join(dest, "settings.json"), encoding="utf-8").read())
+    assert settings == {"compaction": {"keepRecentTokens": 90000}}
+
+
+def test_settings_json_absent_when_keep_recent_zero(tmp_path):
+    cfg = _LLMCfg(model="m-1")
+    dest = models.build_ephemeral_agent_dir(
+        cfg, dest=str(tmp_path / "a"), compaction_keep_recent_tokens=0)
+    assert os.path.exists(os.path.join(dest, "models.json"))
+    assert not os.path.exists(os.path.join(dest, "settings.json"))

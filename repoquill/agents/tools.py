@@ -185,34 +185,45 @@ class RepoQuillTools(ToolRegistry):
             rx = re.compile(pattern) if use_regex else None
         except re.error as e:
             raise ValueError(f"invalid regex: {e}")
+        # A file path searches just that file. (os.walk on a file yields
+        # nothing, which used to report "0 results" for symbols that were
+        # plainly in the file — the SimpleAudit baseline agent looped on
+        # the same search 339 times because of this.) A missing path is a
+        # real error, not a silent zero.
+        if os.path.isfile(base):
+            files = [base]
+        elif not os.path.isdir(base):
+            raise ValueError(f"no such file or directory: {sub or '.'}")
+        else:
+            files = []
+            for dirpath, dirnames, filenames in os.walk(base):
+                dirnames[:] = [d for d in dirnames if not _is_skipped_dir(d)]
+                for fn in sorted(filenames):
+                    if _is_text_file(fn):
+                        files.append(os.path.join(dirpath, fn))
         results: List[str] = []
         truncated = False
-        for dirpath, dirnames, filenames in os.walk(base):
-            dirnames[:] = [d for d in dirnames if not _is_skipped_dir(d)]
-            for fn in sorted(filenames):
-                if not _is_text_file(fn):
-                    continue
-                full = os.path.join(dirpath, fn)
-                rel = os.path.relpath(full, self.ctx.repo_root).replace(os.sep, "/")
-                try:
-                    with open(full, "r", encoding="utf-8", errors="replace") as fh:
-                        for lineno, line in enumerate(fh, start=1):
-                            if use_regex:
-                                hit = rx.search(line) is not None
-                            else:
-                                hit = pattern in line
-                            if hit:
-                                results.append(f"{rel}:{lineno}: {line.rstrip()}")
-                                if len(results) >= max_results:
-                                    truncated = True
-                                    break
-                except (OSError, UnicodeDecodeError):
-                    continue
-                if truncated:
-                    break
+        for full in files:
+            rel = os.path.relpath(full, self.ctx.repo_root).replace(os.sep, "/")
+            try:
+                with open(full, "r", encoding="utf-8", errors="replace") as fh:
+                    for lineno, line in enumerate(fh, start=1):
+                        if use_regex:
+                            hit = rx.search(line) is not None
+                        else:
+                            hit = pattern in line
+                        if hit:
+                            results.append(
+                                f"{rel}:{lineno}: {line.rstrip()}")
+                            if len(results) >= max_results:
+                                truncated = True
+                                break
+            except (OSError, UnicodeDecodeError):
+                continue
             if truncated:
                 break
-        return {"results": results, "count": len(results), "truncated": truncated}
+        return {"results": results, "count": len(results),
+                "truncated": truncated}
 
     def _tool_inspect_api(self, args: Dict[str, Any]) -> Dict[str, Any]:
         from repoquill.reference import extract_api_surface

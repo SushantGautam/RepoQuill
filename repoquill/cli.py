@@ -1614,10 +1614,18 @@ Rules:
 
     result = client.chat(
         [{"role": "user", "content": prompt}],
-        max_tokens=1024, temperature=0.1,
+        max_tokens=8192, temperature=0.1,
     )
     from repoquill.llm import strip_code_fences
-    data = json.loads(strip_code_fences(result))
+    try:
+        data = json.loads(strip_code_fences(result))
+    except (json.JSONDecodeError, ValueError) as e:
+        # Scaffolding is a convenience, not a requirement: a truncated or
+        # malformed LLM response must not crash the run. Downstream falls
+        # back to the LLM planning path / deterministic defaults.
+        print(f"  ! config scaffolding skipped (LLM response was not "
+              f"valid JSON: {e}); continuing with defaults")
+        return False
 
     # Merge into existing config
     updated = False

@@ -129,6 +129,32 @@ def test_search_code_bad_regex(repo):
     assert "invalid regex" in res.error
 
 
+def test_search_code_file_path_searches_that_file(repo):
+    """A file path must search just that file. (os.walk on a file yields
+    nothing, so a symbol plainly in the file reported 0 results — the
+    SimpleAudit baseline agent looped on the same search 339x on
+    ``simpleaudit/experiment.py`` because of this.)"""
+    res = repo["tools"].execute(
+        "search_code",
+        {"pattern": "make_widget", "path": "pkg/alpha.py"})
+    assert res.ok
+    assert res.data["count"] >= 1
+    assert all(r.startswith("pkg/alpha.py:") for r in res.data["results"])
+
+
+def test_search_code_file_path_excludes_other_files(repo):
+    res = repo["tools"].execute(
+        "search_code", {"pattern": "make_widget", "path": "pkg/alpha.py"})
+    assert all("pkg/__init__.py" not in r for r in res.data["results"])
+
+
+def test_search_code_missing_path_is_error(repo):
+    res = repo["tools"].execute(
+        "search_code", {"pattern": "x", "path": "pkg/nope.py"})
+    assert not res.ok
+    assert "no such file or directory" in res.error
+
+
 def test_inspect_api_surface(repo):
     res = repo["tools"].execute("inspect_api", {})
     assert res.ok

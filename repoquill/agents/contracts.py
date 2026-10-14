@@ -122,8 +122,11 @@ TOOL_SCHEMAS: List[Dict[str, Any]] = [
                     "path": {
                         "type": "string",
                         "description": (
-                            "Restrict the search to a subdirectory (relative). "
-                            "Defaults to the repo root."
+                            "Restrict the search to a subdirectory or a "
+                            "single file (relative to the repo root). A "
+                            "file path searches just that file. Defaults "
+                            "to the repo root. A path that does not exist "
+                            "is an error."
                         ),
                     },
                     "regex": {

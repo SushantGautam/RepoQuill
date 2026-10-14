@@ -63,3 +63,256 @@ def test_nonexistent_constant_flagged(idx, tmp_path):
     findings = check_page_symbols(page, idx)
     assert len(findings) == 1
     assert "MAX_RETRY_COUNT" in findings[0]["detail"]
+
+
+# --------------------------------------------------------------------------- #
+# Regression: pydantic-style fields, class attributes, and parenthesized
+# imports must not be flagged as invented symbols (confirmed false-positive
+# mode from the cross-repo evaluation).
+# --------------------------------------------------------------------------- #
+
+PYD = '''\
+from dataclasses import dataclass, field
+from typing import List
+
+
+@dataclass
+class JudgeMeta:
+    """Typed metadata (pydantic-style fields)."""
+
+    name: str
+    version: int = 1
+    tags: List[str] = field(default_factory=list)
+
+    DEFAULT_WEIGHT = 0.5
+
+    def summary(self):
+        return self.name
+'''
+
+
+@pytest.fixture
+def pyd_idx(tmp_path):
+    root = tmp_path / "metapkg"
+    root.mkdir()
+    (root / "__init__.py").write_text("", encoding="utf-8")
+    (root / "pyd.py").write_text(PYD, encoding="utf-8")
+    return build_index(str(root))
+
+
+def test_typed_fields_and_class_attributes_indexed(pyd_idx):
+    assert {"name", "version", "tags", "DEFAULT_WEIGHT"} <= pyd_idx.attributes
+
+
+def test_pydantic_style_page_no_false_positives(pyd_idx, tmp_path):
+    page = _page(
+        tmp_path,
+        "A `JudgeMeta` carries the `name`, `version` and `tags` fields, "
+        "with `DEFAULT_WEIGHT` as the default.\n\n"
+        "```python\n"
+        "from metapkg.pyd import (\n"
+        "    JudgeMeta,\n"
+        ")\n"
+        "\n"
+        "meta = JudgeMeta(name=\"safety\")\n"
+        "print(meta.summary())\n"
+        "```\n")
+    assert check_page_symbols(page, pyd_idx) == []
+
+
+def test_method_name_in_backticks_not_flagged(pyd_idx, tmp_path):
+    page = _page(tmp_path, "Call `summary` on the metadata object.\n")
+    assert check_page_symbols(page, pyd_idx) == []
+
+
+def test_paren_import_fence_artifacts_not_flagged(pyd_idx, tmp_path):
+    """Multi-line ``import (`` fences must not yield ``(JudgeMeta``-style
+    fake import symbols."""
+    page = _page(
+        tmp_path,
+        "```python\n"
+        "from metapkg.pyd import (\n"
+        "    JudgeMeta,\n"
+        ")\n"
+        "```\n")
+    assert check_page_symbols(page, pyd_idx) == []
+
+
+def test_invented_names_still_flagged_after_attribute_index(pyd_idx,
+                                                            tmp_path):
+    """The attribute/method allow-set must not swallow real hallucinations:
+    invented field-like and class-like names are still reported."""
+    page = _page(
+        tmp_path,
+        "Set the `confidence_bogus` field on the `InventedThing` model.\n")
+    findings = check_page_symbols(page, pyd_idx)
+    symbols = {f["detail"] for f in findings}
+    assert len(findings) == 2
+    assert any("confidence_bogus" in s for s in symbols)
+    assert any("InventedThing" in s for s in symbols)
+
+
+# --------------------------------------------------------------------------- #
+# Regression (SimpleAudit baseline run-3): module-level constants and type
+# aliases, keyword-only parameters, docstring-documented names, JSON
+# literals, external imports/libraries — all were flagged as invented
+# symbols although every one of them exists in the source (or is
+# legitimately out of the package's scope). The hallucination checks must
+# stay intact (see the final test).
+# --------------------------------------------------------------------------- #
+
+RUN3 = '''\
+from typing import Callable, Dict, Tuple
+
+# ALL_CAPS module constant via AnnAssign (was missed).
+SEVERITY_SCHEMA: Dict[str, str] = {"low": "1"}
+
+# Capitalized module-level type alias (was missed).
+Transform = Callable[[int], int]
+
+SUPPORTED_LANGUAGES: Tuple[str, ...] = ("English",)
+
+
+def find_span(
+    span: str,
+    texts,
+    *,
+    min_chars: int = 3,
+) -> int:
+    """Docs quote ``temperature`` here and a mis-spelled ``acepted`` key."""
+    if len(span) < min_chars:
+        return -1
+    return 0
+
+
+class Auditor:
+    def __init__(
+        self,
+        *args,
+        correctness_judge: str = "checklist",
+        **kwargs,
+    ) -> None:
+        # instance attribute assigned in __init__ (kwonly param above is
+        # the API surface docs reference).
+        self.correctness_judge = correctness_judge
+'''
+
+
+@pytest.fixture
+def run3_idx(tmp_path):
+    root = tmp_path / "auditpkg"
+    root.mkdir()
+    (root / "__init__.py").write_text("", encoding="utf-8")
+    (root / "engine.py").write_text(RUN3, encoding="utf-8")
+    return build_index(str(root))
+
+
+def test_run3_module_constants_type_alias_kwonly_docstrings_indexed(run3_idx):
+    assert "SEVERITY_SCHEMA" in run3_idx.constants
+    assert "SUPPORTED_LANGUAGES" in run3_idx.constants
+    assert "Transform" in run3_idx.module_symbols
+    assert "min_chars" in run3_idx.function_params
+    assert "correctness_judge" in run3_idx.function_params
+    assert {"temperature", "acepted"} <= run3_idx.docstring_names
+
+
+def test_run3_page_names_no_false_positives(run3_idx, tmp_path):
+    """The exact run-3 finding shapes must pass: module constants, the
+    type alias, kwonly params, docstring-documented names, JSON literals
+    and the placeholder name."""
+    page = _page(
+        tmp_path,
+        "Configure `SEVERITY_SCHEMA` and pick one of `SUPPORTED_LANGUAGES`.\n"
+        "Maps use the `Transform` type; pass `min_chars` and set "
+        "`correctness_judge` on the `Auditor`.\n\n"
+        "The sampler never sets `temperature`; JSON answers use `null`, "
+        "and `_` marks a placeholder. A mis-spelled `acepted` key raises.\n"
+    )
+    assert check_page_symbols(page, run3_idx) == []
+
+
+def test_run3_external_imports_and_libraries_out_of_scope(run3_idx, tmp_path):
+    """Stdlib/third-party imports and third-party library names in
+    backticks are out of the documented package's scope (tracing page:
+    `import asyncio`, `import base64`, plotting page: `matplotlib`)."""
+    import importlib.util
+    page = _page(
+        tmp_path,
+        "```python\n"
+        "import asyncio\n"
+        "import base64\n"
+        "```\n\n"
+        "Charts use `matplotlib` when available.\n"
+    )
+    if importlib.util.find_spec("matplotlib") is None:
+        # matplotlib is not installed in this environment: the page still
+        # must not flag the IMPORTS; only the backtick name is then a
+        # genuine unknown (expected 1 finding).
+        findings = check_page_symbols(page, run3_idx)
+        assert [f["detail"] for f in findings]
+        assert all("matplotlib" in f["detail"] for f in findings)
+    else:
+        assert check_page_symbols(page, run3_idx) == []
+
+
+def test_run3_real_hallucinations_still_flagged(run3_idx, tmp_path):
+    """Nothing above may weaken the core check: invented constant-, class-
+    and function-shaped names, and invented imports of the documented
+    package itself, are still reported."""
+    page = _page(
+        tmp_path,
+        "Set `BOLT_SEVERITY_SCHEMA` on the `InventedAuditor` via "
+        "`compute_severity()`.\n\n"
+        "```python\n"
+        "from auditpkg.engine import NotARealSymbol\n"
+        "```\n"
+    )
+    findings = {f["detail"] for f in check_page_symbols(page, run3_idx)}
+    assert any("BOLT_SEVERITY_SCHEMA" in d for d in findings)
+    assert any("InventedAuditor" in d for d in findings)
+    assert any("NotARealSymbol" in d for d in findings)
+
+
+# --------------------------------------------------------------------------- #
+# Regression: names that exist ANYWHERE in the package source tree (code,
+# docstrings, comments) are ground truth — sibling-module constants and
+# external-protocol names the code documents must not be flagged.
+# --------------------------------------------------------------------------- #
+
+TREE = '''\
+def run_checks(results):
+    # The schema dict lives in a sibling module (schemas.py).
+    from .schemas import SEVERITY_RESPONSE_SCHEMA
+    severity = results.get("severity")
+    if severity not in SEVERITY_RESPONSE_SCHEMA:
+        raise ValueError("bad severity: " + str(severity))
+    return severity
+'''
+
+
+@pytest.fixture
+def tree_idx(tmp_path):
+    root = tmp_path / "treepkg"
+    root.mkdir()
+    (root / "__init__.py").write_text(
+        'SEVERITY_RESPONSE_SCHEMA = {"low": 1}\n', encoding="utf-8")
+    (root / "engine.py").write_text(TREE, encoding="utf-8")
+    return build_index(str(root))
+
+
+def test_names_anywhere_in_source_tree_are_ground_truth(tree_idx, tmp_path):
+    page = _page(
+        tmp_path,
+        "Results use `SEVERITY_RESPONSE_SCHEMA` for grading, and the "
+        "engine reads the `severity` field.\n")
+    assert check_page_symbols(page, tree_idx) == []
+
+
+def test_names_nowhere_in_source_tree_still_flagged(tree_idx, tmp_path):
+    page = _page(
+        tmp_path,
+        "Grading uses the `BOLT_SEVERITY_RESPONSE_SCHEMA` table and the "
+        "unknown `severity`-like knob `calibration_floor`.\n")
+    findings = {f["detail"] for f in check_page_symbols(page, tree_idx)}
+    assert any("BOLT_SEVERITY_RESPONSE_SCHEMA" in d for d in findings)
+    assert any("calibration_floor" in d for d in findings)

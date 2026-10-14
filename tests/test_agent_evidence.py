@@ -116,11 +116,23 @@ def test_coverage_checklist_public_only(pkg_root):
     checklist = coverage_checklist(task, str(pkg_root / "pkg"))
     assert "Widget" in checklist
     assert "make_widget" in checklist
-    assert "total" in checklist
     assert "_private_helper" not in checklist
     assert "_internal" not in checklist
     assert not any(n.startswith("_") for n in checklist)
     assert checklist == sorted(checklist)
+
+
+def test_coverage_checklist_scoped_to_page_files(pkg_root):
+    """Regression: the checklist must be scoped to the page's candidate
+    files, not the whole package (a page covering alpha must not be
+    required to mention beta's symbols)."""
+    pkg_path = str(pkg_root / "pkg")
+    scoped = _task(slug="alpha-widget", source_hints=["alpha.py"])
+    assert "total" not in coverage_checklist(scoped, pkg_path)
+
+    beta = _task(slug="beta-total", source_hints=["beta.py"])
+    assert "total" in coverage_checklist(beta, pkg_path)
+    assert "Widget" not in coverage_checklist(beta, pkg_path)
 
 
 def test_task_checklist_overrides(pkg_root):

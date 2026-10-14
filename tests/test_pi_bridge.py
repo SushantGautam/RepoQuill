@@ -559,3 +559,73 @@ def test_real_pi_loads_extension_and_get_state(tmp_path):
     assert not any(b"extension_error" in ln for ln in lines)
     assert proc.returncode == 0, (
         proc.stderr.read().decode(errors="replace")[:2000])
+
+# --------------------------------------------------------------------------- #
+# Exact-repeat (dedupe) handling
+# --------------------------------------------------------------------------- #
+def test_identical_reread_is_answered_with_memo(bridge):
+    """The measured failure mode: proxy models re-issuing the SAME
+    read_file/search_code 10-190x and burning the tool budget. The
+    bridge must answer exact repeats with a short deterministic memo
+    (no information loss: the payload is already in the model's
+    conversation), and real calls must still return full data."""
+    args = {"path": "miniutil/textkit.py"}
+    with BridgeClient(bridge.socket_path) as client:
+        first = client.call("read_file", args, rid="a1")
+        second = client.call("read_file", args, rid="a2")
+        third = client.call("read_file", args, rid="a3")
+        varied = client.call("read_file", dict(args, start_line=2),
+                             rid="a4")
+        # search_code repeats are deduped too.
+        s1 = client.call("search_code", {"pattern": "split"}, rid="a5")
+        s2 = client.call("search_code", {"pattern": "split"}, rid="a6")
+    assert first["ok"] and not first["data"].get("deduplicated")
+    assert "content" in first["data"]
+    assert second["ok"] and second["data"]["deduplicated"] is True
+    assert "already made this exact tool call" in second["data"]["note"]
+    # The memo is short compared with the full read payload.
+    assert len(json.dumps(second["data"])) < len(json.dumps(first["data"]))
+    # Repeat counter increments; the head points at the original result.
+    assert "2 time(s)" in third["data"]["note"]
+    # The head is a JSON dump of the original payload, so it names the
+    # file (quotes escaped).
+    assert "miniutil/textkit.py" in second["data"]["previous_result_head"]
+    # Different args are a different call: full data again.
+    assert varied["ok"] and "content" in varied["data"]
+    assert not varied["data"].get("deduplicated")
+    # search_code: first real, second memo.
+    assert s1["ok"] and not s1["data"].get("deduplicated")
+    assert s2["data"]["deduplicated"] is True
+
+
+def test_write_doc_is_never_deduped(bridge, repo):
+    """Rewriting a draft page is legitimate work: write_doc calls must
+    always execute, however many times."""
+    payload = {"slug": "getting-started", "content": "# Draft v1\n"}
+    with BridgeClient(bridge.socket_path) as client:
+        r1 = client.call("write_doc", payload, rid="w1")
+        r2 = client.call("write_doc", payload, rid="w2")
+    assert r1["ok"] and r2["ok"]
+    assert not r1["data"].get("deduplicated")
+    assert not r2["data"].get("deduplicated")
+    staged = bridge._staging + "/getting-started.md"
+    assert os.path.exists(staged)
+
+
+def test_repeated_identical_call_becomes_error(bridge):
+    """After 5 identical calls the bridge stops answering with a memo
+    (the model keeps orbiting) and returns an ERROR telling it to stop
+    and write. The 2nd-4th calls still get the short memo."""
+    args = {"path": "miniutil/textkit.py"}
+    with BridgeClient(bridge.socket_path) as client:
+        r1 = client.call("read_file", args, rid="r1")
+        r2 = client.call("read_file", args, rid="r2")
+        r3 = client.call("read_file", args, rid="r3")
+        r4 = client.call("read_file", args, rid="r4")
+        r5 = client.call("read_file", args, rid="r5")
+    assert r1["ok"] and not r1["data"].get("deduplicated")
+    for r in (r2, r3, r4):
+        assert r["ok"] and r["data"]["deduplicated"] is True
+    assert r5["ok"] is False
+    assert "STOP exploring" in r5["error"]
+    assert "write_doc" in r5["error"]

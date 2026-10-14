@@ -160,7 +160,42 @@ def main():
                 for _ in sys.stdin:  # blocks until stdin is closed
                     pass
                 return 0
-            if mode == "malformed":
+            if mode == "loop":
+                # Simulate an over-exploring / looping agent: a long
+                # stream of tool calls, then waits for `abort` (or stdin
+                # close on deadline).
+                emit({"type": "agent_start"})
+                for i in range(200):
+                    tcid = "call_%d" % i
+                    emit({"type": "tool_execution_start",
+                          "toolCallId": tcid, "toolName": "search_code",
+                          "args": {"pattern": "p%d" % i}})
+                    emit({"type": "tool_execution_end",
+                          "toolCallId": tcid, "toolName": "search_code",
+                          "result": {"content": [{"type": "text",
+                                                  "text": "hit"}],
+                                      "details": {}},
+                          "isError": False, "durationMs": 1})
+            elif mode == "repeat-loop":
+                # The measured orbit: the SAME call (same tool + args)
+                # re-issued over and over without ever writing.
+                emit({"type": "agent_start"})
+                for i in range(12):
+                    tcid = "rcall_%d" % i
+                    emit({"type": "tool_execution_start",
+                          "toolCallId": tcid, "toolName": "read_file",
+                          "args": {"path": "miniutil/textkit.py"}})
+                    emit({"type": "tool_execution_end",
+                          "toolCallId": tcid, "toolName": "read_file",
+                          "result": {"content": [{"type": "text",
+                                                  "text": "same"}],
+                                      "details": {}},
+                          "isError": False, "durationMs": 1})
+                if os.environ.get("REPOQUILL_FAKE_SETTLE") == "1":
+                    # Natural completion (used to prove the guard is
+                    # OFF: all 12 identical calls are allowed).
+                    emit({"type": "agent_settled", "aborted": False})
+            elif mode == "malformed":
                 sys.stdout.write('{"type":"agent_start", oops\n')
                 sys.stdout.flush()
                 normal_sequence(stage_path)
@@ -173,6 +208,9 @@ def main():
         elif ctype == "abort":
             emit({"id": cid, "type": "response", "command": "abort",
                   "success": True})
+            if mode in ("loop", "repeat-loop"):
+                # A real pi aborts the in-flight run and settles.
+                emit({"type": "agent_settled", "aborted": True})
     return 0
 
 
@@ -196,8 +234,11 @@ def fake_pi(tmp_path_factory) -> str:
 
 def run_fake(fake_pi: str, tmp_path, *, mode: str = "normal",
              write_stage: bool = True, decoy: bool = False,
-             timeout_s: float = 30.0):
+             timeout_s: float = 30.0, max_tool_calls: int = 0,
+             max_repeat_calls: int = 6, settle: bool = False):
     env = dict(REPOQUILL_FAKE_MODE=mode)
+    if settle:
+        env["REPOQUILL_FAKE_SETTLE"] = "1"
     task = contracts.PiTask(
         slug="my-page",
         title="My Page",
@@ -209,6 +250,8 @@ def run_fake(fake_pi: str, tmp_path, *, mode: str = "normal",
         model="fake-model",
         timeout_s=timeout_s,
         system_prompt="docs-only",
+        max_tool_calls=max_tool_calls,
+        max_repeat_calls=max_repeat_calls,
     )
     (tmp_path / "staged").mkdir(exist_ok=True)
     if write_stage:
@@ -411,6 +454,67 @@ def test_run_hang_raises_timeout(fake_pi, tmp_path):
     with pytest.raises(contracts.PiRunTimeoutError):
         run_fake(fake_pi, tmp_path, mode="hang", timeout_s=2.0)
     assert time.monotonic() - started < 15
+
+
+def test_run_timeout_error_carries_activity_diagnostics(fake_pi, tmp_path):
+    """A deadline hit on a looping agent must say how far it got —
+    tool-call count, whether write_doc ever ran — not just 'timed out'."""
+    with pytest.raises(contracts.PiRunTimeoutError) as excinfo:
+        run_fake(fake_pi, tmp_path, mode="loop", write_stage=False,
+                 timeout_s=2.0)
+    msg = str(excinfo.value)
+    assert "agent_settled" in msg
+    assert "tool call(s)" in msg
+    assert "write_doc=no" in msg
+
+
+def test_run_repeat_call_guard_aborts_orbiting_agent(fake_pi, tmp_path):
+    """A measured proxy-model failure: the SAME tool call (identical
+    args) re-issued 10-339x without writing. The repeat guard must
+    abort at the threshold (6), with an actionable reason — not burn
+    the whole 250-call budget on the orbit."""
+    result = run_fake(fake_pi, tmp_path, mode="repeat-loop",
+                      write_stage=False, timeout_s=30.0)
+    assert result.completed is False
+    assert result.aborted is True
+    assert any("repeated tool call" in e for e in result.errors)
+    # The guard fires at the 6th identical call: the trace must contain
+    # at least those, and the reason names the orbiting tool.
+    assert len(result.tool_calls) >= 6
+    assert any("read_file" in e for e in result.errors)
+
+
+def test_run_repeat_guard_disabled_via_zero(fake_pi, tmp_path):
+    """max_repeat_calls=0 turns the orbit guard off: all 12 identical
+    calls are allowed and the run settles without a repeat error."""
+    result = run_fake(fake_pi, tmp_path, mode="repeat-loop",
+                      write_stage=False, timeout_s=30.0,
+                      max_repeat_calls=0, settle=True)
+    assert len(result.tool_calls) == 12
+    assert not any("repeated tool call" in e for e in result.errors)
+    assert result.aborted is False
+
+
+def test_run_tool_budget_aborts_looping_agent(fake_pi, tmp_path):
+    """Once the agent burns its tool-call budget the supervisor aborts;
+    the run settles as aborted and the reason is recorded on the result."""
+    started = time.monotonic()
+    result = run_fake(fake_pi, tmp_path, mode="loop", write_stage=False,
+                      timeout_s=30.0, max_tool_calls=5)
+    assert time.monotonic() - started < 20  # aborted, not deadline-bound
+    assert result.ok is False
+    assert result.completed is False
+    assert result.aborted is True
+    assert any("tool-call budget of 5" in e for e in result.errors)
+    assert len(result.tool_calls) >= 5
+
+
+def test_run_tool_budget_zero_disables_guard(fake_pi, tmp_path):
+    """max_tool_calls=0 (default) leaves the deadline as the only bound:
+    no budget error is recorded, the run simply times out."""
+    with pytest.raises(contracts.PiRunTimeoutError):
+        run_fake(fake_pi, tmp_path, mode="loop", write_stage=False,
+                 timeout_s=2.0, max_tool_calls=0)
 
 
 def test_run_malformed_line_is_tolerated(fake_pi, tmp_path):

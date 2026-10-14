@@ -102,6 +102,32 @@ def test_bad_page_fails(pkg):
     assert result.import_findings
 
 
+def test_summary_names_flagged_symbols(pkg):
+    """A verification failure must be actionable: the summary line
+    (which is what the scheduler surfaces as the page failure reason)
+    must name every flagged symbol/import, not just a bare count."""
+    page = (
+        "# Alpha\n\n"
+        "Alpha provides `Widget`, `ghost_helper` and `TotallyInvented`.\n"
+    )
+    ctx, task = pkg
+    result = verify_page("alpha", page, task, ctx, run_examples=False)
+    assert result.passed is False
+    assert result.symbol_findings
+    for f in result.symbol_findings:
+        assert f["detail"] in result.summary
+    assert "ghost_helper" in result.summary
+    assert "TotallyInvented" in result.summary
+
+
+def test_summary_names_flagged_imports(pkg):
+    ctx, task = pkg
+    result = verify_page("alpha", BAD_PAGE, task, ctx, run_examples=False)
+    assert result.passed is False
+    for f in result.import_findings:
+        assert f["detail"] in result.summary
+
+
 def test_coverage_below_threshold_fails(pkg):
     ctx, task = pkg
     result = verify_page(

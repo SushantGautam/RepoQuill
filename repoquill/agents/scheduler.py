@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import importlib
 import os
+import re
 import shutil
 import tempfile
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -172,8 +173,15 @@ def _symbols_in_files(files: List[str], pkg_path: str) -> List[str]:
     import ast
 
     syms = set()
+    pkg_name = os.path.basename(os.path.normpath(pkg_path))
     for f in files:
-        path = os.path.join(pkg_path, f)
+        # Planners may emit package-relative ("judges/x.py") or
+        # repo-root-relative ("pkg/judges/x.py") paths; normalize to
+        # package-relative.
+        f_norm = f.replace(os.sep, "/")
+        if f_norm.startswith(pkg_name + "/"):
+            f_norm = f_norm[len(pkg_name) + 1:]
+        path = os.path.join(pkg_path, *f_norm.split("/"))
         if not os.path.isfile(path):
             continue
         try:
@@ -369,16 +377,29 @@ def build_pi_system_prompt(
     )
 
 
-def _evidence_to_text(pack) -> str:
-    """Flatten an :class:`EvidencePack` into plain text for a PiTask."""
+def _evidence_to_text(pack, pkg_prefix: str = "") -> str:
+    """Flatten an :class:`EvidencePack` into plain text for a PiTask.
+
+    ``pkg_prefix`` is the package directory's path relative to the
+    repository root (e.g. ``"simpleaudit"``); candidate source files are
+    package-relative in the pack and are re-labeled repo-root-relative
+    here, because the agent's read tools resolve paths against the
+    repository root.
+    """
     if pack is None:
         return ""
-    parts: List[str] = []
+    parts: List[str] = [
+        "All file paths below are relative to the repository root"
+        + (f" (the package lives under '{pkg_prefix}/')"
+           if pkg_prefix else "")
+        + ".",
+    ]
     if pack.file_tree:
         parts.append("FILE TREE:\n" + pack.file_tree)
     if pack.candidate_files:
+        pre = f"{pkg_prefix}/" if pkg_prefix else ""
         parts.append("CANDIDATE FILES:\n"
-                     + "\n".join(f"- {f}" for f in pack.candidate_files))
+                     + "\n".join(f"- {pre}{f}" for f in pack.candidate_files))
     if pack.api_surface:
         parts.append("API SURFACE:\n" + pack.api_surface)
     if pack.candidate_tests:
@@ -415,6 +436,58 @@ def _start_bridge(server_cls, *, source_root: str, staging_dir: str,
     if callable(start):
         start()
     return server
+
+
+def _pi_activity_summary(result: Any) -> str:
+    """Compact, evidence-based activity summary for a Pi run result.
+
+    Answers the questions a reviewer needs after a FAILED page: how many
+    tool calls the agent made, whether it ever reached ``write_doc``,
+    peak token usage, and the redacted stderr tail (if any). Used to make
+    per-page failure reasons diagnostic instead of generic.
+    """
+    calls = result.tool_calls
+    wrote = any(tc.name == "write_doc" and not tc.is_error for tc in calls)
+    parts = [
+        "%d tool call(s), write_doc=%s"
+        % (len(calls), "yes" if wrote else "no"),
+        "total_tokens=%d" % result.usage.total_tokens,
+    ]
+    tail = (getattr(result, "stderr_tail", "") or "").strip()
+    if tail:
+        parts.append("stderr tail: " + tail[-300:])
+    return "; ".join(parts)
+
+
+#: Endpoint status codes that indicate a provider-side (not authoring)
+#: failure and are worth exactly one retry.
+_ENDPOINT_ERR_RE = re.compile(r"\b(?:429|5\d{2})\b")
+
+
+def _is_transient_endpoint_failure(error_text: str,
+                                   result: Any = None) -> bool:
+    """Decide whether a page failure is a transient ENDPOINT failure
+    where exactly one retry from a fresh context is cheap and sensible.
+
+    Two conditions (nothing else is retried):
+
+    * the error text carries an endpoint status (429/5xx);
+    * the model ended with ``stopReason=error`` while consuming nothing
+      (0 tool calls, 0 tokens): the endpoint refused the very first
+      model response. Measured case: a valid key received one transient
+      401 from a proxy, which Pi surfaced as a bare
+      ``message_end stopReason=error`` with no status code at all — the
+      status regex above cannot match it, but the zero-consumption
+      shape is unambiguous and the retry is nearly free because nothing
+      was consumed yet.
+    """
+    if _ENDPOINT_ERR_RE.search(error_text):
+        return True
+    if (result is not None and "stopReason=error" in error_text
+            and not result.tool_calls
+            and not result.usage.total_tokens):
+        return True
+    return False
 
 
 def _stop_bridge(server) -> None:
@@ -501,7 +574,25 @@ def run_pi_generation(
     agent_dir: Optional[str] = None
     staging_root: Optional[str] = None
     try:
-        agent_dir = pi_models.build_ephemeral_agent_dir(cfg.llm)
+        ag = cfg.llm.agentic
+        ag_raw = ((cfg.raw or {}).get("llm", {}) or {})
+        ag_raw = ag_raw.get("agentic", {}) or {}
+        # Declare the endpoint's real context window to Pi. The product
+        # default (32768) is conservative: over-declaring would surface
+        # hard 4xx context-limit errors on smaller endpoints, while
+        # under-declaring makes Pi compact early and the agent re-reads
+        # files it has already seen (observed in the SimpleAudit baseline:
+        # repeated greps of the same test files after ~32k tokens).
+        # getattr: some call sites/tests pass duck-typed agentic
+        # configs (SimpleNamespace) that predate these keys.
+        context_window = int(ag_raw.get(
+            "context_window", getattr(ag, "context_window", 32768)))
+        keep_recent = int(ag_raw.get(
+            "compaction_keep_recent_tokens",
+            getattr(ag, "compaction_keep_recent_tokens", 60000)))
+        agent_dir = pi_models.build_ephemeral_agent_dir(
+            cfg.llm, context_window=context_window,
+            compaction_keep_recent_tokens=keep_recent)
         model = pi_models.model_pattern(cfg.llm)
         # The ephemeral models.json provider is keyed by slug (host-derived),
         # NOT by the user's llm.provider name. Pi's --provider must match the
@@ -510,11 +601,30 @@ def run_pi_generation(
         pi_provider = model.split("/", 1)[0] if "/" in model else cfg.llm.provider
         staging_root = tempfile.mkdtemp(prefix="repoquill-pi-")
 
-        ag = cfg.llm.agentic
-        ag_raw = ((cfg.raw or {}).get("llm", {}) or {})
-        ag_raw = ag_raw.get("agentic", {}) or {}
         execute_examples = bool(ag_raw.get("execute_examples", False))
         max_workers = max(1, int(ag_raw.get("parallelism", 4)))
+        # Per-page Pi deadline: large repos + slow remote endpoints can
+        # exceed 300s, so the product default is 900s; configurable via
+        # llm.agentic.timeout_s.
+        pi_timeout_s = float(ag_raw.get(
+            "timeout_s", getattr(ag, "timeout_s", 900.0)))
+        # Tool-call budget (loop guard); 0 disables the budget.
+        max_tool_calls = int(ag_raw.get(
+            "max_tool_calls", getattr(ag, "max_tool_calls", 400)))
+        # Repeat-call guard (orbit guard); 0 disables it.
+        max_repeat_calls = int(ag_raw.get(
+            "max_repeat_calls", getattr(ag, "max_repeat_calls", 6)))
+        # Candidate source files in the evidence pack are
+        # package-relative; the agent's read tools are repo-root-relative.
+        try:
+            pkg_prefix = os.path.relpath(
+                os.path.abspath(cfg.pkg_path),
+                os.path.abspath(cfg.root),
+            ).replace(os.sep, "/")
+        except ValueError:  # different drives (Windows) — no prefix
+            pkg_prefix = ""
+        if pkg_prefix.startswith(".."):
+            pkg_prefix = ""
 
         ctx = build_tool_context(
             cfg,
@@ -553,6 +663,10 @@ def run_pi_generation(
               f"{max_workers} worker(s), 1 Pi process per page")
 
         # --- One Pi process per page ----------------------------------
+        # Endpoint-flakiness guard: when a page's Pi run fails with a
+        # transient endpoint error (see _is_transient_endpoint_failure),
+        # exactly one retry is made before the failure is recorded.
+
         def _one(page: Dict[str, Any]):
             slug = page["slug"]
             out_path = os.path.join(cfg.out_guides, f"{slug}.md")
@@ -568,50 +682,114 @@ def run_pi_generation(
                 slug=slug,
                 title=task.title,
                 description=task.description,
-                evidence=_evidence_to_text(evidence_by_slug.get(slug)),
+                evidence=_evidence_to_text(
+                    evidence_by_slug.get(slug), pkg_prefix=pkg_prefix),
                 source_root=cfg.root,
                 staged_docs_dir=staging_root,
                 provider=pi_provider,
                 model=model,
                 allow_example_exec=execute_examples,
+                timeout_s=pi_timeout_s,
                 system_prompt=prompt,
                 coverage_checklist=list(task.coverage_checklist),
+                max_tool_calls=max_tool_calls,
+                max_repeat_calls=max_repeat_calls,
             )
-            server = None
-            try:
-                server = _start_bridge(
-                    PiBridgeServer,
-                    source_root=cfg.root,
-                    staging_dir=staging_root,
-                    slug=slug,
-                    execute_examples=execute_examples,
-                )
-                # The Pi child must reach THIS page's bridge socket (per-
-                # instance env, not os.environ — parallel pages each have
-                # their own bridge).
-                bridge_env = {
-                    pi_contracts.BRIDGE_SOCKET_ENV: server.socket_path,
-                    "REPOQUILL_ALLOW_EXAMPLE_EXEC":
-                        "1" if execute_examples else "0",
-                }
-                backend = PiRpcBackend(pi_bin, extension_path,
-                                       agent_dir=agent_dir,
-                                       extra_env=bridge_env)
-                result = backend.run(pi_task)
-            except PiError as e:
-                return slug, False, str(e)
-            except Exception as e:  # noqa: BLE001 - isolate per page
-                return slug, False, f"pi run error: {e}"
-            finally:
-                if server is not None:
-                    _stop_bridge(server)
 
+            def _attempt():
+                """Spawn one Pi process for this page; (result, error)."""
+                server = None
+                try:
+                    server = _start_bridge(
+                        PiBridgeServer,
+                        source_root=cfg.root,
+                        staging_dir=staging_root,
+                        slug=slug,
+                        execute_examples=execute_examples,
+                    )
+                    # The Pi child must reach THIS page's bridge socket
+                    # (per-instance env, not os.environ — parallel pages
+                    # each have their own bridge).
+                    bridge_env = {
+                        pi_contracts.BRIDGE_SOCKET_ENV: server.socket_path,
+                        "REPOQUILL_ALLOW_EXAMPLE_EXEC":
+                            "1" if execute_examples else "0",
+                    }
+                    backend = PiRpcBackend(pi_bin, extension_path,
+                                           agent_dir=agent_dir,
+                                           extra_env=bridge_env)
+                    result = backend.run(pi_task)
+                except PiError as e:
+                    return None, str(e)
+                except Exception as e:  # noqa: BLE001 - isolate per page
+                    return None, f"pi run error: {e}"
+                finally:
+                    if server is not None:
+                        _stop_bridge(server)
+                return result, None
+
+            result, run_error = _attempt()
+            if run_error is not None:
+                # Match endpoint codes on the base error only: the
+                # bracketed activity diagnostics may contain numbers
+                # (token totals, call counts) that look like 5xx/429.
+                base_error = run_error.split(" [", 1)[0]
+                if _is_transient_endpoint_failure(base_error):
+                    print(f"    {slug}: endpoint error "
+                          f"({run_error[:120]}) — one retry")
+                    result, run_error = _attempt()
+            if run_error is not None:
+                return slug, False, run_error
             if not result.ok:
-                return slug, False, ("; ".join(result.errors)
-                                     or "pi run did not complete")
+                detail = ("; ".join(result.errors)
+                          or "pi run did not complete")
+                detail += " [%s]" % _pi_activity_summary(result)
+                # Search only the recorded errors for endpoint codes:
+                # activity counters (token counts, call counts) must not
+                # look like a 5xx/429 status.
+                if _is_transient_endpoint_failure("; ".join(result.errors),
+                                                  result):
+                    print(f"    {slug}: endpoint error ({detail[:120]}) "
+                          f"— one retry")
+                    result, run_error = _attempt()
+                    if run_error is not None:
+                        return slug, False, run_error
+                    if result.ok:
+                        # Recovered by the retry: continue as a success.
+                        pass
+                    else:
+                        return slug, False, (
+                            ("; ".join(result.errors)
+                             or "pi run did not complete")
+                            + " (after retry) [%s]"
+                              % _pi_activity_summary(
+                                  result))
+                elif any("tool-call budget" in e for e in result.errors):
+                    # Budget-exhausted failure: the agent over-explored
+                    # (e.g. re-reading the same files around compaction).
+                    # One retry from a fresh context — the task prompt's
+                    # exploration budget applies to the retry as well.
+                    print(f"    {slug}: tool-call budget exhausted "
+                          f"— one retry")
+                    result, run_error = _attempt()
+                    if run_error is not None:
+                        return slug, False, run_error
+                    if result.ok:
+                        # Recovered by the retry: continue as a success.
+                        pass
+                    else:
+                        return slug, False, (
+                            ("; ".join(result.errors)
+                             or "pi run did not complete")
+                            + " (after budget retry) [%s]"
+                              % _pi_activity_summary(result))
+                else:
+                    return slug, False, detail
             staged = result.output_path or staged_path
             if not os.path.isfile(staged):
-                return slug, False, "staged file missing after pi run"
+                return slug, False, (
+                    "staged file missing after pi run "
+                    "[%s]" % _pi_activity_summary(result))
 
             # Independent verification BEFORE anything is published.
             if verify_each:
