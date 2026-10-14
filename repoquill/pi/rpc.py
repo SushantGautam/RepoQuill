@@ -76,6 +76,18 @@ def build_task_prompt(task: contracts.PiTask) -> str:
         "## Evidence (precomputed from the source)",
         (task.evidence or "(none)").strip(),
         "",
+    ]
+    if task.coverage_checklist:
+        lines += [
+            "## Required coverage",
+            "This page MUST mention every one of the following symbols, "
+            "each grounded in the source (verify before writing):",
+            ", ".join(task.coverage_checklist),
+            "Independent verification will check that all of them are "
+            "present; the page is rejected if any are missing.",
+            "",
+        ]
+    lines += [
         "## Instructions",
         "1. Ground the page in the code: use the provided tools (list_files,",
         "   read_file, search_code, inspect_api, inspect_tests) as needed.",

@@ -575,6 +575,7 @@ def run_pi_generation(
                 model=model,
                 allow_example_exec=execute_examples,
                 system_prompt=prompt,
+                coverage_checklist=list(task.coverage_checklist),
             )
             server = None
             try:

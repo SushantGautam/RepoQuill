@@ -488,6 +488,18 @@ def test_build_task_prompt_contents(tmp_path):
     )
     assert "execute example" not in build_task_prompt(task2)
 
+    task3 = contracts.PiTask(
+        slug="s", title="T", description="d", evidence="e",
+        source_root=str(tmp_path), staged_docs_dir=str(tmp_path / "s"),
+        provider="p", model="m",
+        coverage_checklist=["slugify", "TextStats"],
+    )
+    p3 = build_task_prompt(task3)
+    assert "Required coverage" in p3
+    assert "slugify" in p3 and "TextStats" in p3
+    # An empty checklist must not add the section at all.
+    assert "Required coverage" not in build_task_prompt(task2)
+
 
 @pytest.mark.skipif(
     not os.path.exists(REAL_PI_BIN),

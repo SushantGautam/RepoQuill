@@ -216,6 +216,9 @@ class PiTask:
     allow_example_exec: bool = False   # gate for the run_example tool
     timeout_s: float = 300.0           # overall deadline for the run
     system_prompt: str = ""            # docs-only system prompt
+    #: Symbols the page must mention; independent verification checks
+    #: coverage against exactly this list.
+    coverage_checklist: List[str] = field(default_factory=list)
 
     @property
     def expected_output_path(self) -> str:
