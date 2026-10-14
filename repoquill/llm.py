@@ -41,6 +41,25 @@ litellm.drop_params = True
 _LOCAL_PROVIDERS = {"ollama", "lm_studio", "vllm", "local"}
 
 
+def _retry_wait(attempt: int, error: Exception) -> float:
+    """Backoff before retry ``attempt`` (0-based) after ``error``.
+
+    Base of 30s doubling per attempt: origin 502 windows (e.g. Cloudflare
+    "back off for at least 60 seconds") outlast a 1s/2s backoff and cause
+    spurious CI failures. If the provider sent a ``Retry-After`` header,
+    honor it when it is longer than the computed backoff.
+    """
+    wait = 30.0 * (2 ** attempt)
+    headers = getattr(getattr(error, "response", None), "headers", None) or {}
+    retry_after = headers.get("retry-after") if hasattr(headers, "get") else None
+    if retry_after:
+        try:
+            wait = max(wait, float(retry_after))
+        except ValueError:
+            pass
+    return wait
+
+
 class LLMClient:
     """Thin wrapper over LiteLLM with retry/backoff and optional RAG.
 
@@ -74,7 +93,7 @@ class LLMClient:
         messages: List[Dict[str, str]],
         max_tokens: Optional[int] = None,
         temperature: Optional[float] = None,
-        retries: int = 3,
+        retries: int = 5,
     ) -> str:
         """Send a chat completion request and return the assistant text.
 
@@ -136,8 +155,8 @@ class LLMClient:
             except Exception as e:  # noqa: BLE001
                 last_error = e
                 if attempt < retries - 1:
-                    wait = 2 ** attempt
-                    print(f"  retry {attempt + 1}/{retries} in {wait}s ({e})")
+                    wait = _retry_wait(attempt, e)
+                    print(f"  retry {attempt + 1}/{retries} in {wait:.0f}s ({e})")
                     time.sleep(wait)
         raise RuntimeError(
             f"LLM request failed after {retries} attempts: {last_error}"
@@ -164,6 +183,7 @@ class LLMClient:
         client = OpenAI(
             api_key=api_key,
             base_url=cfg.base_url,
+            timeout=120.0,
             default_headers={
                 "User-Agent": "repoquill/0.1.0 (+https://github.com/SushantGautam/RepoQuill)"
             },
@@ -181,8 +201,8 @@ class LLMClient:
             except Exception as e:  # noqa: BLE001
                 last_error = e
                 if attempt < retries - 1:
-                    wait = 2 ** attempt
-                    print(f"  retry {attempt + 1}/{retries} in {wait}s ({e})")
+                    wait = _retry_wait(attempt, e)
+                    print(f"  retry {attempt + 1}/{retries} in {wait:.0f}s ({e})")
                     time.sleep(wait)
         raise RuntimeError(
             f"LLM request failed after {retries} attempts: {last_error}"
