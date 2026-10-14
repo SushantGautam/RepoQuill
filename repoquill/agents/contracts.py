@@ -484,6 +484,11 @@ class EvidencePack:
     api_surface: str = ""
     coverage_checklist: List[str] = field(default_factory=list)
     readme_excerpt: str = ""
+    #: AST outline (symbols + line numbers) of the page's candidate
+    #: source files, pre-injected into the task prompt so the author
+    #: knows each file's shape before deep reads (outline-first: it
+    #: replaces whole-file paging to locate a symbol).
+    symbol_outlines: str = ""
 
 
 # ---------------------------------------------------------------------------

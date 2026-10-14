@@ -617,3 +617,108 @@ def test_real_binary_probe_get_state(tmp_path):
     assert probe.pi_version == "1.2.0"
     assert probe.state.get("isStreaming") is False
     assert probe.state.get("sessionId")
+
+
+# --------------------------------------------------------------------------- #
+# Progress-gated deadline (P1.3)
+# --------------------------------------------------------------------------- #
+def _progress_guard_state(write_doc: bool = False):
+    from repoquill.pi.rpc import _RunState
+    result = contracts.PiRunResult(slug="p", completed=False,
+                                   output_path=None)
+    state = _RunState(result)
+    if write_doc:
+        state.trace.handle({"type": contracts.EV_TOOL_START,
+                            "toolCallId": "wd1", "toolName": "write_doc",
+                            "args": {"slug": "p"}})
+    return state
+
+
+def test_progress_guard_nudges_at_half_budget(tmp_path):
+    """~50% of the wall time spent with no write_doc: one prompt nudge
+    telling the agent to stop exploring and write the page."""
+    from repoquill.pi.rpc import _ProgressGuard
+    state = _progress_guard_state()
+    sends = []
+    started = time.monotonic() - 5.1  # 51% of a 10 s deadline elapsed
+    guard = _ProgressGuard(started, 10.0, 0, state,
+                           lambda proc, cmd: sends.append(cmd),
+                           proc=None)
+    guard.observe({})
+    guard.observe({})  # one-shot
+    assert len(sends) == 1
+    assert sends[0]["type"] == "prompt"
+    assert "Progress check" in sends[0]["message"]
+    assert "write_doc" in sends[0]["message"]
+
+
+def test_progress_guard_final_nudge_at_eighty_percent(tmp_path):
+    """~80% spent: the final nudge declares exploration DISABLED and
+    fires once."""
+    from repoquill.pi.rpc import _ProgressGuard
+    state = _progress_guard_state()
+    sends = []
+    started = time.monotonic() - 8.1  # 81%
+    guard = _ProgressGuard(started, 10.0, 0, state,
+                           lambda proc, cmd: sends.append(cmd),
+                           proc=None)
+    guard.observe({})
+    guard.observe({})
+    assert len(sends) == 1
+    assert "80%" in sends[0]["message"]
+    assert "DISABLED" in sends[0]["message"]
+
+
+def test_progress_guard_silent_before_half(tmp_path):
+    from repoquill.pi.rpc import _ProgressGuard
+    state = _progress_guard_state()
+    sends = []
+    guard = _ProgressGuard(time.monotonic() - 2.0, 10.0, 0, state,
+                           lambda proc, cmd: sends.append(cmd),
+                           proc=None)
+    guard.observe({})
+    assert sends == []
+
+
+def test_progress_guard_silent_after_write_doc(tmp_path):
+    """A page already written: nothing to save, no nudge."""
+    from repoquill.pi.rpc import _ProgressGuard
+    state = _progress_guard_state(write_doc=True)
+    sends = []
+    guard = _ProgressGuard(time.monotonic() - 9.0, 10.0, 0, state,
+                           lambda proc, cmd: sends.append(cmd),
+                           proc=None)
+    guard.observe({})
+    assert sends == []
+
+
+def test_progress_guard_escalates_from_tool_budget_fraction(tmp_path):
+    """The tool-call budget counts too: 5/10 calls nudges at 50%,
+    8/10 escalates to the write-only nudge."""
+    from repoquill.pi.rpc import _ProgressGuard
+    state = _progress_guard_state()
+    sends = []
+    guard = _ProgressGuard(time.monotonic(), 1000.0, 10, state,
+                           lambda proc, cmd: sends.append(cmd),
+                           proc=None)
+    for i in range(8):
+        state.trace.handle({"type": contracts.EV_TOOL_START,
+                            "toolCallId": f"c{i}", "toolName": "read_file",
+                            "args": {"path": "a.py"}})
+        guard.observe({})
+    assert [s["message"] for s in sends] and len(sends) == 2
+    assert "Progress check" in sends[0]["message"]
+    assert "80%" in sends[1]["message"]
+
+
+def test_progress_guard_no_bounds_no_nudge(tmp_path):
+    """No timeout_s and no tool budget: the deadline is the only bound
+    and the guard stays out of the way."""
+    from repoquill.pi.rpc import _ProgressGuard
+    state = _progress_guard_state()
+    sends = []
+    guard = _ProgressGuard(time.monotonic() - 9999.0, 0.0, 0, state,
+                           lambda proc, cmd: sends.append(cmd),
+                           proc=None)
+    guard.observe({})
+    assert sends == []

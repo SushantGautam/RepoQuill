@@ -268,3 +268,121 @@ def test_schemas_include_terminal_tool(repo):
 def test_write_doc_rejects_empty_content(repo):
     res = repo["tools"].execute("write_doc", {"slug": "x"})
     assert not res.ok
+
+
+# --------------------------------------------------------------------------- #
+# Over-exploration loop fixes (SimpleAudit baseline: P1.2 / P1.5)
+# --------------------------------------------------------------------------- #
+def test_search_code_reports_total_matches(repo, tmp_path):
+    """A search that hits max_results must still report the COMPLETE
+    match count + matching files, so a model wanting 'all matches'
+    stops escalating max_results (measured: same search re-issued
+    193x walking max_results 3 -> 500)."""
+    root = tmp_path / "big"
+    pkg = root / "pkg"
+    pkg.mkdir(parents=True)
+    docs = root / "docs"
+    docs.mkdir()
+    (pkg / "__init__.py").write_text("")
+    (pkg / "many.py").write_text(
+        "".join(f"def f_{i}():\n    return {i}\n\n" for i in range(40)),
+        encoding="utf-8")
+    from repoquill.agents.tools import RepoQuillTools
+    from repoquill.agents.contracts import ToolContext
+    ctx = ToolContext(repo_root=str(root), pkg_path=str(pkg),
+                      docs_dir=str(docs), execute_examples=False)
+    tools = RepoQuillTools(ctx)
+    res = tools.execute("search_code",
+                        {"pattern": "def f_", "max_results": 5})
+    assert res.ok
+    assert res.data["count"] == 5
+    assert res.data["truncated"] is True
+    assert res.data["total_matches"] == 40
+    assert res.data["files"] == ["pkg/many.py"]
+    assert "40 total matches" in res.data["note"]
+    # A search that fits: total == count, no note.
+    res2 = tools.execute("search_code", {"pattern": "def f_4"})
+    assert res2.ok
+    assert res2.data["total_matches"] == 1
+    assert res2.data["truncated"] is False
+    assert "note" not in res2.data
+
+
+def test_search_code_missing_path_still_a_real_error(repo):
+    res = repo["tools"].execute("search_code",
+                                {"pattern": "x", "path": "pkg/nope.py"})
+    assert not res.ok
+    assert "no such file or directory" in res.error
+
+
+def _long_file_repo(tmp_path, n_lines=600):
+    root = tmp_path / "root"
+    pkg = root / "pkg"
+    pkg.mkdir(parents=True)
+    docs = root / "docs"
+    docs.mkdir()
+    (pkg / "__init__.py").write_text("")
+    (pkg / "long.py").write_text(
+        "".join(f"line_{i} = {i}\n" for i in range(n_lines)),
+        encoding="utf-8")
+    from repoquill.agents.tools import RepoQuillTools
+    from repoquill.agents.contracts import ToolContext
+    ctx = ToolContext(repo_root=str(root), pkg_path=str(pkg),
+                      docs_dir=str(docs), execute_examples=False)
+    return RepoQuillTools(ctx), root
+
+
+def test_read_file_defaults_to_bounded_window(tmp_path):
+    """A no-window read of a long file returns a bounded first window
+    plus a continuation pointer — not the whole file (the measured
+    compaction-amnesia driver: 102 full reads of ~40k chars)."""
+    tools, root = _long_file_repo(tmp_path, 600)
+    res = tools.execute("read_file", {"path": "pkg/long.py"})
+    assert res.ok
+    assert res.data["total_lines"] == 600
+    assert res.data["start_line"] == 1
+    assert res.data["end_line"] == 200
+    assert res.data["end_of_file"] is False
+    assert "line_0 =" in res.data["content"]
+    assert "line_599" not in res.data["content"]
+    assert "start_line=201" in res.data["note"]
+    # An explicit full-file request is honored (the model chose it).
+    res2 = tools.execute("read_file",
+                         {"path": "pkg/long.py", "start_line": 1,
+                          "end_line": 600})
+    assert res2.ok
+    assert res2.data["end_line"] == 600
+    assert "line_599" in res2.data["content"]
+    assert res2.data["end_of_file"] is True
+    assert "note" not in res2.data
+
+
+def test_read_file_end_of_file_semantics(repo):
+    """A window reaching the last line says end_of_file, so an EOF
+    ladder (end_line 584 -> 1e300) terminates on the first answer."""
+    res = repo["tools"].execute(
+        "read_file", {"path": "pkg/alpha.py", "start_line": 5,
+                      "end_line": 10 ** 6})
+    assert res.ok
+    assert res.data["end_of_file"] is True
+    assert res.data["end_line"] == res.data["total_lines"]
+    # A middle window does not claim EOF.
+    res2 = repo["tools"].execute(
+        "read_file", {"path": "pkg/alpha.py", "start_line": 1,
+                      "end_line": 3})
+    assert res2.ok
+    assert res2.data["end_of_file"] is False
+
+
+def test_read_file_past_end_of_file_is_explicit(tmp_path):
+    """start_line beyond the last line is an explicit empty answer,
+    not a silent clamp (the measured EOF-ladder re-read)."""
+    tools, _ = _long_file_repo(tmp_path, 10)
+    res = tools.execute("read_file",
+                        {"path": "pkg/long.py", "start_line": 11,
+                         "end_line": 20})
+    assert res.ok
+    assert res.data["content"] == ""
+    assert res.data["end_of_file"] is True
+    assert "past the end of the file" in res.data["note"]
+    assert "10" in res.data["note"]

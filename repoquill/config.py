@@ -63,9 +63,15 @@ class AgenticConfig:
     # ignores these and uses max_steps / max_llm_calls instead).
     timeout_s: float = 900.0   # per-page Pi deadline (large repos + slow
                                # remote endpoints routinely exceed 300s)
-    max_tool_calls: int = 250  # abort the agent after this many tool calls
+    max_tool_calls: int = 80   # per-ATTEMPT tool-call budget: abort the
+                               # agent after this many tool calls
                                # (loop guard; over-exploring agents loop
-                               # far past the point of usefulness);
+                               # far past the point of usefulness).
+                               # Kept deliberately small so a failing
+                               # attempt dies by ~call 80, leaving time
+                               # and budget for the fresh-context retry
+                               # (which gets pre-loaded source excerpts
+                               # and needs far fewer calls).
                                # 0 disables the budget
     context_window: int = 32768  # contextWindow declared in the ephemeral
                                # Pi models.json; raise it to the endpoint's
@@ -228,7 +234,7 @@ def load_config(config_path: Optional[str] = None) -> RepoQuillConfig:
         coverage_threshold=float(ag_raw.get("coverage_threshold", 0.6)),
         roles=str(ag_raw.get("roles", "unified")),
         timeout_s=float(ag_raw.get("timeout_s", 900.0)),
-        max_tool_calls=int(ag_raw.get("max_tool_calls", 250)),
+        max_tool_calls=int(ag_raw.get("max_tool_calls", 80)),
         context_window=int(ag_raw.get("context_window", 32768)),
         compaction_keep_recent_tokens=int(
             ag_raw.get("compaction_keep_recent_tokens", 60000)),

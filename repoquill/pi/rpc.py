@@ -336,6 +336,97 @@ class _BudgetGuard:
             pass
 
 
+class _ProgressGuard:
+    """Progress-gated deadline for one Pi run.
+
+    Measured failure class (no loop, just slow over-exploration): a
+    page consumed 241 tool calls / 179k tokens / the full 900 s
+    deadline and never reached ``write_doc`` — by the time the deadline
+    hit, there was no time left to write anything.
+
+    This guard tracks elapsed wall time and the tool-call budget as a
+    fraction. When ~50% is spent with no successful ``write_doc`` yet,
+    it sends a one-shot prompt nudge telling the agent to stop
+    exploring and write the page now; at ~80% it sends the final
+    write-only nudge. Nudges are user messages on the RPC stream
+    (delivered between the agent's turns); the bridge's own write-only
+    enforcement (same fractions, independent clock) is the hard
+    backstop — by 80%, read/search calls are refused at the source.
+    """
+
+    NUDGE_50 = 0.5
+    NUDGE_80 = 0.8
+
+    def __init__(self, started: float, timeout_s: float,
+                 max_tool_calls: int, state: "_RunState",
+                 send, proc: "subprocess.Popen") -> None:
+        self._started = float(started)
+        self._timeout_s = float(timeout_s)
+        self._max_calls = int(max_tool_calls)
+        self._state = state
+        self._send = send
+        self._proc = proc
+        self._fired_50 = False
+        self._fired_80 = False
+
+    def observe(self, record: Any) -> None:
+        if self._fired_80 or self._wrote_doc():
+            return
+        frac = self._fraction()
+        if frac is None:
+            return
+        if frac >= self.NUDGE_80:
+            self._nudge(
+                "80% of this page's time and tool budget is gone and "
+                "the page has not been written. Read, search and "
+                "inspect tools are now DISABLED for the remainder of "
+                "this run — the only viable action is write_doc. "
+                "Write the page NOW with the information you already "
+                "have; do not attempt any further exploration.",
+                level=80)
+        elif frac >= self.NUDGE_50:
+            self._nudge(
+                "Progress check: more than half of this page's wall-"
+                "time/tool budget has elapsed and write_doc has not "
+                "been called yet. Stop exploring now — verify at most "
+                "the one or two facts you are about to assert, then "
+                "call write_doc. A solid page with what you have "
+                "beats no page.",
+                level=50)
+
+    def _wrote_doc(self) -> bool:
+        return any(tc.name == "write_doc" and not tc.is_error
+                   for tc in self._state.trace.tool_calls)
+
+    def _fraction(self) -> Optional[float]:
+        fracs: List[float] = []
+        if self._timeout_s > 0:
+            fracs.append((time.monotonic() - self._started) / self._timeout_s)
+        if self._max_calls > 0:
+            fracs.append(len(self._state.trace.tool_calls) / self._max_calls)
+        if not fracs:
+            return None
+        return max(fracs)
+
+    def _nudge(self, message: str, level: int) -> None:
+        if level == 50 and self._fired_50:
+            return
+        if level == 80 and self._fired_80:
+            return
+        try:
+            self._send(self._proc, {
+                "id": "nudge-%s" % uuid.uuid4().hex[:12],
+                "type": contracts.CMD_PROMPT,
+                "message": message,
+            })
+        except Exception:  # noqa: BLE001 - nudge is best effort
+            pass
+        if level == 50:
+            self._fired_50 = True
+        else:
+            self._fired_80 = True
+
+
 def _timeout_diagnostics(state: "_RunState", stderr_text: str) -> str:
     """One-line, log-safe evidence for a timed-out run."""
     calls = state.trace.tool_calls
@@ -602,6 +693,17 @@ class PiRpcBackend(contracts.PiBackend):
                     max_calls, state, self._send, proc,
                     max_repeat_calls=getattr(
                         task, "max_repeat_calls", 6))
+                # Progress-gated deadline: at ~50% of the run's time/
+                # budget with no write_doc, nudge "write now"; at ~80%
+                # nudge write-only (the bridge enforces it for real).
+                progress = _ProgressGuard(
+                    started, float(task.timeout_s), max_calls, state,
+                    self._send, proc)
+
+                def _observe(record):
+                    budget.observe(record)
+                    progress.observe(record)
+
                 self._wait_for(
                     proc, pumps, state,
                     lambda r: (
@@ -612,7 +714,7 @@ class PiRpcBackend(contracts.PiBackend):
                     lambda msg: contracts.PiRunTimeoutError(
                         "pi did not reach agent_settled within %.1fs"
                         % float(task.timeout_s)),
-                    on_record=budget.observe,
+                    on_record=_observe,
                 )
         except contracts.PiRunTimeoutError as exc:
             # Enrich the timeout with what actually happened: how many

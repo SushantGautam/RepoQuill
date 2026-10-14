@@ -23,6 +23,7 @@ __all__ = [
     "candidate_source_files",
     "candidate_tests",
     "coverage_checklist",
+    "symbol_outlines",
 ]
 
 # Words that carry no topical signal when tokenizing a slug or title.
@@ -215,6 +216,78 @@ def coverage_checklist(task: "PageTask", pkg_path: str) -> List[str]:
     return sorted(public)[:_MAX_CHECKLIST]
 
 
+#: Caps for the pre-injected symbol outlines: a page's planned sources
+#: only, and a small character budget so the outline stays a shape
+#: hint, not a second source dump.
+_MAX_OUTLINE_FILES = 8
+_MAX_OUTLINE_CHARS = 6000
+
+
+def symbol_outlines(task: "PageTask", pkg_path: str) -> str:
+    """AST symbol outline of the page's candidate source files.
+
+    Lists top-level classes/functions (and class methods) with line
+    numbers, one compact block per file. Injected into the task prompt
+    so the author knows each planned file's SHAPE before deep reads —
+    the measured loops were agents paging whole files to locate a
+    single symbol, then re-reading slivers around it. Read-only and
+    deterministic; parse/read failures skip the file.
+    """
+    try:
+        files = candidate_source_files(task, pkg_path)
+    except Exception:
+        files = []
+    blocks: List[str] = []
+    total = 0
+    for rel in files[:_MAX_OUTLINE_FILES]:
+        full = os.path.join(pkg_path, rel.replace("/", os.sep))
+        try:
+            with open(full, "r", encoding="utf-8", errors="replace") as fh:
+                tree = ast.parse(fh.read())
+        except (OSError, SyntaxError, ValueError):
+            continue
+        lines: List[str] = []
+        for node in tree.body:
+            if isinstance(node, ast.ClassDef):
+                lines.append(f"{node.lineno}: class {node.name}")
+                for member in node.body:
+                    if isinstance(member, (ast.FunctionDef,
+                                           ast.AsyncFunctionDef)):
+                        prefix = "async " if (
+                            isinstance(member, ast.AsyncFunctionDef)) else ""
+                        lines.append(
+                            f"{member.lineno}:     {prefix}def "
+                            f"{member.name}{_signature(member)}")
+            elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                prefix = ("async " if isinstance(node, ast.AsyncFunctionDef)
+                          else "")
+                lines.append(
+                    f"{node.lineno}: {prefix}def {node.name}{_signature(node)}")
+        if not lines:
+            continue
+        block = f"{rel}:\n" + "\n".join(lines)
+        if total + len(block) > _MAX_OUTLINE_CHARS and blocks:
+            break
+        blocks.append(block)
+        total += len(block)
+    return "\n\n".join(blocks)
+
+
+def _signature(fn: "ast.FunctionDef") -> str:
+    """Compact ``(..., ...)`` parameter hint for an outline entry."""
+    a = fn.args
+    names: List[str] = []
+    for arg in [*a.posonlyargs, *a.args]:
+        names.append(arg.arg)
+    if a.vararg:
+        names.append("*" + a.vararg.arg)
+    for arg in a.kwonlyargs:
+        names.append(arg.arg)
+    if a.kwarg:
+        names.append("**" + a.kwarg.arg)
+    return "(" + ", ".join(names) + ")"
+
+
 def _readme_excerpt(root: str) -> str:
     readme = os.path.join(root, "README.md")
     if not os.path.isfile(readme):
@@ -247,6 +320,12 @@ def build_evidence_pack(task: "PageTask", pkg_path: str, root: str) -> "Evidence
     if not checklist:
         checklist = coverage_checklist(task, pkg_path)
 
+    outlines = ""
+    try:
+        outlines = symbol_outlines(task, pkg_path)
+    except Exception:
+        outlines = ""
+
     return EvidencePack(
         file_tree=file_tree,
         candidate_files=candidate_source_files(task, pkg_path),
@@ -254,4 +333,5 @@ def build_evidence_pack(task: "PageTask", pkg_path: str, root: str) -> "Evidence
         api_surface=api_surface,
         coverage_checklist=checklist,
         readme_excerpt=_readme_excerpt(root),
+        symbol_outlines=outlines,
     )

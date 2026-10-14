@@ -245,8 +245,9 @@ def test_pi_timeout_s_defaults_to_900(tmp_path, monkeypatch):
 
 
 def test_pi_max_tool_calls_default_and_override(tmp_path, monkeypatch):
-    """llm.agentic.max_tool_calls (loop guard) is plumbed to the PiTask;
-    default 250, 0 disables the budget."""
+    """llm.agentic.max_tool_calls (per-attempt loop guard) is plumbed
+    to the PiTask; default 80 (a failing attempt dies early so the
+    upgraded retry has room), 0 disables the budget."""
     fake = FakeSequenceBackend([{"ok": True}])
     fake.install(monkeypatch)
     cfg = load_config(str(_make_repo(tmp_path)))
@@ -257,7 +258,7 @@ def test_pi_max_tool_calls_default_and_override(tmp_path, monkeypatch):
         old_hashes={}, new_hashes={"datefmt/parser.py": "x"},
         force_slugs={"alpha"}, verify_each=False,
     )
-    assert fake.last_task.max_tool_calls == 250
+    assert fake.last_task.max_tool_calls == 80
 
     fake2 = FakeSequenceBackend([{"ok": True}])
     fake2.install(monkeypatch)

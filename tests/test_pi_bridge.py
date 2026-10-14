@@ -566,23 +566,25 @@ def test_real_pi_loads_extension_and_get_state(tmp_path):
 def test_identical_reread_is_answered_with_memo(bridge):
     """The measured failure mode: proxy models re-issuing the SAME
     read_file/search_code 10-190x and burning the tool budget. The
-    bridge must answer exact repeats with a short deterministic memo
-    (no information loss: the payload is already in the model's
-    conversation), and real calls must still return full data."""
+    bridge must answer repeats with a short deterministic memo (no
+    information loss: the payload is already in the model's
+    conversation), and genuinely different calls must still return
+    full data."""
     args = {"path": "miniutil/textkit.py"}
     with BridgeClient(bridge.socket_path) as client:
         first = client.call("read_file", args, rid="a1")
         second = client.call("read_file", args, rid="a2")
         third = client.call("read_file", args, rid="a3")
-        varied = client.call("read_file", dict(args, start_line=2),
-                             rid="a4")
+        # A genuinely different read (another file) is a new call.
+        varied = client.call("read_file",
+                             {"path": "miniutil/calc.py"}, rid="a4")
         # search_code repeats are deduped too.
         s1 = client.call("search_code", {"pattern": "split"}, rid="a5")
         s2 = client.call("search_code", {"pattern": "split"}, rid="a6")
     assert first["ok"] and not first["data"].get("deduplicated")
     assert "content" in first["data"]
     assert second["ok"] and second["data"]["deduplicated"] is True
-    assert "already made this exact tool call" in second["data"]["note"]
+    assert "already made this tool call" in second["data"]["note"]
     # The memo is short compared with the full read payload.
     assert len(json.dumps(second["data"])) < len(json.dumps(first["data"]))
     # Repeat counter increments; the head points at the original result.
@@ -596,6 +598,39 @@ def test_identical_reread_is_answered_with_memo(bridge):
     # search_code: first real, second memo.
     assert s1["ok"] and not s1["data"].get("deduplicated")
     assert s2["data"]["deduplicated"] is True
+
+
+def test_near_duplicate_calls_are_deduped(bridge):
+    """Cosmetic arg variation is NOT a new call (the measured loops):
+    search_code re-issued with only max_results changed, and read_file
+    with the line window shifted, both key to the same call and get
+    the memo. A read paging into a different 200-line band is a new
+    call."""
+    with BridgeClient(bridge.socket_path) as client:
+        # max_results walk: same pattern, bigger cap -> memo.
+        s1 = client.call("search_code",
+                         {"pattern": "slugify", "max_results": 3},
+                         rid="n1")
+        s2 = client.call("search_code",
+                         {"pattern": "slugify", "max_results": 500},
+                         rid="n2")
+        # EOF-ladder window shift: same file, start 2 vs start 1 ->
+        # memo (same 200-line band).
+        r1 = client.call("read_file",
+                         {"path": "miniutil/textkit.py", "start_line": 1},
+                         rid="n3")
+        r2 = client.call("read_file",
+                         {"path": "miniutil/textkit.py", "start_line": 2},
+                         rid="n4")
+        # A different band of the same file is a legitimately new read.
+        r3 = client.call("read_file",
+                         {"path": "miniutil/textkit.py", "start_line": 300},
+                         rid="n5")
+    assert s1["ok"] and not s1["data"].get("deduplicated")
+    assert s2["ok"] and s2["data"]["deduplicated"] is True
+    assert r1["ok"] and not r1["data"].get("deduplicated")
+    assert r2["ok"] and r2["data"]["deduplicated"] is True
+    assert r3["ok"] and not r3["data"].get("deduplicated")
 
 
 def test_write_doc_is_never_deduped(bridge, repo):
@@ -629,3 +664,82 @@ def test_repeated_identical_call_becomes_error(bridge):
     assert r5["ok"] is False
     assert "STOP exploring" in r5["error"]
     assert "write_doc" in r5["error"]
+
+
+def test_near_duplicates_escalate_to_error(bridge):
+    """The escalation works on NEAR-duplicates too: after the memos
+    fail to stop a window-shift orbit, the 5th call is an explicit
+    stop error (not more data)."""
+    base = {"path": "miniutil/textkit.py"}
+    with BridgeClient(bridge.socket_path) as client:
+        r1 = client.call("read_file", base, rid="e1")
+        r2 = client.call("read_file", dict(base, start_line=2), rid="e2")
+        r3 = client.call("read_file", dict(base, end_line=50), rid="e3")
+        r4 = client.call("read_file", dict(base, start_line=3), rid="e4")
+        r5 = client.call("read_file", dict(base, end_line=60), rid="e5")
+    assert r1["ok"] and not r1["data"].get("deduplicated")
+    for r in (r2, r3, r4):
+        assert r["ok"] and r["data"]["deduplicated"] is True
+    assert r5["ok"] is False
+    assert "STOP exploring" in r5["error"]
+    assert "write_doc" in r5["error"]
+
+
+def test_write_only_mode_after_half_the_tool_budget(tmp_path, repo):
+    """Once ~50% of the page's tool budget is consumed, read/search
+    calls are refused with a write_doc-now instruction, while
+    write_doc itself stays viable. (The 'consumed everything, no
+    page' class: converting it into a forced page.)"""
+    server = _start_bridge(tmp_path, repo, max_tool_calls=4)
+    server.start()
+    try:
+        with BridgeClient(server.socket_path) as client:
+            # Calls 1-2: normal reads.
+            assert client.call("read_file",
+                               {"path": "miniutil/textkit.py"},
+                               rid="w1")["ok"] is True
+            assert client.call("list_files", {}, rid="w2")["ok"] is True
+            # Call 3 reaches the 50% threshold (2/4): write-only.
+            refused = client.call("search_code", {"pattern": "x"}, rid="w3")
+            assert refused["ok"] is False
+            assert "WRITE-ONLY MODE" in refused["error"]
+            assert "write_doc" in refused["error"]
+            refused2 = client.call("read_file",
+                                   {"path": "miniutil/calc.py"}, rid="w4")
+            assert refused2["ok"] is False
+            assert "WRITE-ONLY MODE" in refused2["error"]
+            # write_doc remains viable in write-only mode.
+            ok = client.call("write_doc",
+                             {"slug": SLUG, "content": "# forced page\n"},
+                             rid="w5")
+            assert ok["ok"] is True, ok
+    finally:
+        server.stop()
+    assert (tmp_path / "staging" / f"{SLUG}.md").exists()
+
+
+def test_write_only_mode_near_the_deadline(tmp_path, repo, monkeypatch):
+    """At ~80% of the wall-clock deadline the bridge refuses reads
+    even if the tool budget was untouched (slow over-exploration)."""
+    monkeypatch.setattr(
+        "repoquill.pi.bridge.time.monotonic",
+        lambda: 1000.0)  # deterministic clock, far into the deadline
+    server = _start_bridge(tmp_path, repo, timeout_s=1000.0)
+    server.start()
+    # start() stamps _started_at = 1000.0; advance 85% of 1000s.
+    monkeypatch.setattr(
+        "repoquill.pi.bridge.time.monotonic", lambda: 1850.0)
+    try:
+        with BridgeClient(server.socket_path) as client:
+            refused = client.call("read_file",
+                                  {"path": "miniutil/textkit.py"}, rid="d1")
+            assert refused["ok"] is False
+            assert "WRITE-ONLY MODE" in refused["error"]
+            assert "wall time" in refused["error"]
+            # write_doc still works.
+            ok = client.call("write_doc",
+                             {"slug": SLUG, "content": "# late page\n"},
+                             rid="d2")
+            assert ok["ok"] is True
+    finally:
+        server.stop()

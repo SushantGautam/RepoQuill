@@ -42,6 +42,7 @@ import shutil
 import socket
 import tempfile
 import threading
+import time
 import types
 from typing import Any, Dict, Optional, Tuple
 
@@ -64,6 +65,32 @@ _DISPATCHABLE = tuple(pi_contracts.DOC_TOOL_ALLOWLIST)
 _DEDUPABLE_TOOLS = frozenset({
     "list_files", "read_file", "search_code", "inspect_api", "inspect_tests",
 })
+
+#: Per-tool args that are COSMETIC for dedup: re-calling with only these
+#: changed returns the same information the model already has. Measured
+#: loops: search_code re-issued 193x varying only max_results 3 -> 500,
+#: read_file re-issued 190x with the line window shifted by one line
+#: (the "EOF ladder"). Normalizing them out makes the loop breaker catch
+#: near-duplicates, not just byte-identical repeats.
+_DEDUP_IGNORED_ARGS = {
+    "search_code": frozenset({"max_results"}),
+    "inspect_tests": frozenset({"max_chars"}),
+    "inspect_api": frozenset(),
+    "list_files": frozenset(),
+}
+
+#: read_file window shifts smaller than this (lines) are cosmetic for
+#: dedup: start lines in the same band key the same call. Legitimately
+#: paging a long file (window advances by a full band) still works.
+_READ_DEDUP_BAND = 200
+
+#: Once this fraction of the page's tool budget is consumed (or this
+#: fraction of its wall-clock deadline), the bridge enters write-only
+#: mode: read/search calls are refused with a "write_doc now" error.
+#: Converting "consumed everything, no page" into a forced page is the
+#: point (measured: 241 calls / 179k tokens / 900s, no write_doc).
+_WRITE_ONLY_BUDGET_FRACTION = 0.50
+_WRITE_ONLY_DEADLINE_FRACTION = 0.80
 
 _DEFAULT_REQUEST_TIMEOUT_S = 120.0
 _DEFAULT_RUN_EXAMPLE_TIMEOUT_S = 90.0
@@ -127,6 +154,12 @@ class PiBridgeServer:
         max_response_bytes: Response size cap (default 256 KB).
         socket_dir: Directory for the socket file; a private temp dir is
             created (and removed on :meth:`stop`) when omitted.
+        max_tool_calls: The page's tool-call budget (mirrors the PiTask
+            budget the supervisor enforces). When > 0, read/search tools
+            are refused once ~50% of it is consumed (write-only mode).
+        timeout_s: The page's wall-clock deadline. When > 0, read/search
+            tools are refused once ~80% of it has elapsed (write-only
+            mode) — the hard backstop behind the RPC progress nudge.
     """
 
     def __init__(
@@ -142,6 +175,8 @@ class PiBridgeServer:
         max_response_bytes: int = _DEFAULT_MAX_RESPONSE_BYTES,
         socket_dir: Optional[str] = None,
         pkg_path: Optional[str] = None,
+        max_tool_calls: int = 0,
+        timeout_s: float = 0.0,
     ) -> None:
         if not slug or "/" in slug or "\\" in slug or ".." in slug:
             raise ValueError(f"invalid task slug: {slug!r}")
@@ -164,6 +199,9 @@ class PiBridgeServer:
             tools = RepoQuillTools(build_tool_context(
                 cfg, execute_examples=bool(allow_example_exec)))
         self._tools = tools
+        self._max_tool_calls = int(max_tool_calls)
+        self._timeout_s = float(timeout_s)
+        self._started_at = 0.0
         self._repo_root = os.path.realpath(
             source_root or tools.ctx.repo_root)  # type: ignore[attr-defined]
         self._staging = os.path.realpath(
@@ -179,9 +217,11 @@ class PiBridgeServer:
             prefix="repoquill-pi-bridge-")
         self._socket_path = os.path.join(self._socket_dir, "bridge.sock")
 
-        # Exact-repeat detection state (per page run: a new bridge
-        # server is built per task).
+        # Repeat-detection state (per page run: a new bridge server is
+        # built per task). Keys are normalized (cosmetic arg variation
+        # ignored) so near-duplicate loops are caught too.
         self._seen_calls: Dict[str, Tuple[int, str]] = {}
+        self._tool_calls_made = 0
         self._dedup_lock = threading.Lock()
 
         self._server: Optional[socket.socket] = None
@@ -201,6 +241,7 @@ class PiBridgeServer:
         return self._socket_path
 
     def start(self) -> "PiBridgeServer":
+        self._started_at = time.monotonic()
         os.makedirs(self._socket_dir, mode=0o700, exist_ok=True)
         if os.path.exists(self._socket_path):
             os.unlink(self._socket_path)
@@ -365,6 +406,12 @@ class PiBridgeServer:
         except _BridgePolicyError as e:
             return done(self._err(rid, str(e)))
 
+        # Every accepted tool invocation consumes one unit of the page's
+        # budget (the model spent a turn on it, memo or not) — counted
+        # so write-only mode lines up with the supervisor's budget.
+        with self._dedup_lock:
+            self._tool_calls_made += 1
+
         result_q: "queue.Queue[Any]" = queue.Queue()
         runner = threading.Thread(
             target=self._run_tool, args=(tool, args, rid, result_q),
@@ -386,14 +433,33 @@ class PiBridgeServer:
 
     def _run_tool(self, tool: str, args: Dict[str, Any],
                   rid: str, out: "queue.Queue[Any]") -> None:
-        # Determinism exploit: re-issuing an identical read-only call
-        # returns the identical result, which is already in the model's
-        # conversation (with default compaction settings the earlier
-        # result is kept). Measured baseline runs show proxy models
-        # re-issuing the SAME read/search 10-190 times and burning the
-        # whole tool budget (and context) on it. Answer exact repeats
-        # with a short memo instead of the payload: no information is
-        # lost and the repeated-call loop is broken.
+        # Write-only mode (progress gate): the page's exploration budget
+        # is effectively spent without a page being written, so refuse
+        # further read/search calls with an explicit instruction. This
+        # is the hard enforcement behind the RPC-level progress nudge —
+        # whatever the model does next, only write_doc remains viable.
+        # (The current call is already counted in _tool_calls_made by
+        # _handle_line; the gate keys on the calls made BEFORE it.)
+        if tool in _DEDUPABLE_TOOLS:
+            with self._dedup_lock:
+                prior = self._tool_calls_made - 1
+            reason = self._write_only_reason(prior)
+            if reason is not None:
+                out.put(self._err(rid, (
+                    "WRITE-ONLY MODE: " + reason + " Further read and "
+                    "search calls are now refused. You already have the "
+                    "source information you will use — STOP exploring "
+                    "and call write_doc now.")))
+                return
+        # Determinism exploit: re-issuing a read-only call with
+        # equivalent arguments returns the same result, which is
+        # already in the model's conversation. Measured baseline runs
+        # show proxy models re-issuing the same read/search 10-190 times
+        # (byte-identical OR with only cosmetic arg variation —
+        # max_results walks, line-window shifts) and burning the whole
+        # tool budget on it. Answer near-duplicates with a short memo,
+        # escalating to an explicit stop error: no information is lost
+        # and the loop is broken.
         dedup_key = self._dedup_key(tool, args)
         if dedup_key is not None:
             with self._dedup_lock:
@@ -409,24 +475,28 @@ class PiBridgeServer:
                     # The supervisor's repeat guard aborts the run if
                     # the loop still continues.
                     out.put(self._err(rid, (
-                        "ERROR: you have now called this exact tool "
-                        f"{count + 1} times with identical arguments. "
+                        "ERROR: you have now called this tool "
+                        f"{count + 1} times with equivalent arguments. "
                         "Re-calling is pointless - it is deterministic "
-                        "and returns the same result you already have. "
-                        "STOP exploring: verify the required symbols "
-                        "against what you have read and call write_doc "
-                        "now.")))
+                        "and returns the same result you already have "
+                        "(changing max_results or the line window does "
+                        "not change that). STOP exploring: verify the "
+                        "required symbols against what you have read "
+                        "and call write_doc now.")))
                     return
                 out.put(self._ok(rid, {
                     "deduplicated": True,
                     "note": (
-                        "You have already made this exact tool call "
-                        f"{count} time(s) earlier in this run. It is "
-                        "deterministic: re-calling returns the same "
-                        "result, which is already in your conversation "
-                        "above. Continue using what you have - verify "
-                        "any remaining required symbols and then call "
-                        "write_doc. Do not repeat identical calls."),
+                        "You have already made this tool call "
+                        f"{count} time(s) earlier in this run (same "
+                        "effective arguments: cosmetic changes such as "
+                        "max_results or the read line window do not "
+                        "count as new calls). It is deterministic: "
+                        "re-calling returns the same result, which is "
+                        "already in your conversation above. Continue "
+                        "using what you have - verify any remaining "
+                        "required symbols and then call write_doc. Do "
+                        "not repeat it."),
                     "previous_result_head": head,
                 }))
                 return
@@ -448,13 +518,64 @@ class PiBridgeServer:
 
     @staticmethod
     def _dedup_key(tool: str, args: Dict[str, Any]) -> Optional[str]:
-        """Key for exact-repeat detection, or None (never dedupe)."""
+        """Key for repeat detection, or None (never dedupe).
+
+        Cosmetic arg variation is normalized away:
+        * ``search_code.max_results`` / ``inspect_tests.max_chars``
+          (a re-scan with a bigger cap returns a superset of what the
+          model already has — and the result carries total_matches);
+        * ``read_file`` line windows that start within the same
+          200-line band (the measured "EOF ladder": start 583, 584,
+          585... of the same file). Paging across bands still counts as
+          a new call.
+        """
         if tool not in _DEDUPABLE_TOOLS:
             return None
         try:
-            return json.dumps([tool, args], sort_keys=True, default=str)
+            if tool == "read_file":
+                norm = dict(args)
+                start = norm.get("start_line") or 1
+                try:
+                    band = int(start) // _READ_DEDUP_BAND
+                except (TypeError, ValueError):
+                    band = 0
+                norm.pop("end_line", None)
+                norm["start_line"] = band
+            else:
+                ignored = _DEDUP_IGNORED_ARGS.get(tool)
+                norm = {k: v for k, v in args.items()
+                        if not (ignored and k in ignored)}
+            return json.dumps([tool, norm], sort_keys=True, default=str)
         except (TypeError, ValueError):
             return None
+
+    def _write_only_reason(self, prior_calls: int) -> Optional[str]:
+        """Why read/search tools are currently refused, or None.
+
+        *prior_calls* is the number of tool calls made BEFORE the one
+        being checked. Write-only mode activates when the page's
+        exploration budget is effectively spent without a page being
+        written: >=50% of its tool-call budget already consumed, or
+        >=80% of its wall-clock deadline elapsed. From then on only
+        write_doc (and run_example) remain viable — the "consumed
+        everything, no page" class of failure is converted into a
+        forced page instead of a 900s timeout.
+        """
+        if self._max_tool_calls > 0:
+            threshold = max(1, int(self._max_tool_calls
+                                   * _WRITE_ONLY_BUDGET_FRACTION))
+            if prior_calls >= threshold:
+                return (f"you have used {prior_calls} of "
+                        f"{self._max_tool_calls} tool calls; the "
+                        "exploration budget is spent.")
+        if self._timeout_s > 0 and self._started_at > 0:
+            elapsed = time.monotonic() - self._started_at
+            threshold_s = self._timeout_s * _WRITE_ONLY_DEADLINE_FRACTION
+            if elapsed >= threshold_s:
+                return (f"{elapsed:.0f}s of {self._timeout_s:.0f}s "
+                        "wall time have elapsed; the page's deadline is "
+                        "close.")
+        return None
 
     def _record_call(self, key: Optional[str], data: Any) -> None:
         if key is None:

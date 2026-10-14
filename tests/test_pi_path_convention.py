@@ -99,3 +99,25 @@ def test_evidence_text_without_prefix_is_safe(tmp_path):
     text = _evidence_to_text(pack, pkg_prefix="")
     assert "- textkit.py" in text
     assert "relative to the repository root" in text
+
+
+def test_evidence_text_includes_symbol_outlines(tmp_path):
+    root, pkg = _nested_pkg(tmp_path)
+    pack = EvidencePack(
+        file_tree="simpleaudit/\n",
+        candidate_files=["judges/compose.py"],
+        candidate_tests=[],
+        api_surface="",
+        coverage_checklist=[],
+        readme_excerpt="",
+        symbol_outlines="simpleaudit/judges/compose.py:\n10: def compose():",
+    )
+    text = _evidence_to_text(pack, pkg_prefix="simpleaudit")
+    assert "SYMBOL OUTLINES" in text
+    assert "10: def compose():" in text
+    # Packs without outlines (older shape) must not add the section.
+    text2 = _evidence_to_text(
+        EvidencePack(file_tree="x", candidate_files=[], candidate_tests=[],
+                     api_surface="", coverage_checklist=[], readme_excerpt=""),
+        pkg_prefix="")
+    assert "SYMBOL OUTLINES" not in text2

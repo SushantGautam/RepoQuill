@@ -140,3 +140,44 @@ def test_task_checklist_overrides(pkg_root):
     task = _task(coverage_checklist=["Widget"])
     pack = build_evidence_pack(task, pkg_path, str(pkg_root))
     assert pack.coverage_checklist == ["Widget"]
+
+
+# --------------------------------------------------------------------------- #
+# Symbol outlines (outline-first: shape before deep reads)
+# --------------------------------------------------------------------------- #
+def test_symbol_outlines_lists_symbols_with_line_numbers(pkg_root):
+    from repoquill.agents.evidence import symbol_outlines
+    pkg_path = str(pkg_root / "pkg")
+    task = _task(source_hints=["alpha.py"])
+    outlines = symbol_outlines(task, pkg_path)
+    assert "alpha.py:" in outlines
+    assert "class Widget" in outlines
+    assert "def spin" in outlines
+    assert "def make_widget(size)" in outlines
+    # Line numbers are real: 'class Widget' is on line 2 of ALPHA_PY.
+    assert "2: class Widget" in outlines
+    # A file with no top-level defs/classes produces no block.
+    empty = _task(source_hints=["beta.py"])
+    assert "def total" in symbol_outlines(empty, pkg_path)
+
+
+def test_symbol_outlines_skip_unparseable_files(tmp_path):
+    from repoquill.agents.evidence import symbol_outlines
+    pkg = tmp_path / "pkg"
+    pkg.mkdir()
+    (pkg / "__init__.py").write_text("")
+    (pkg / "broken.py").write_text("class Broken(:\n")
+    (pkg / "good.py").write_text("def ok():\n    return 1\n")
+    task = _task(source_hints=["broken.py", "good.py"])
+    outlines = symbol_outlines(task, str(pkg))
+    assert "good.py:" in outlines
+    assert "def ok()" in outlines
+    assert "broken.py" not in outlines
+
+
+def test_evidence_pack_carries_symbol_outlines(pkg_root):
+    pkg_path = str(pkg_root / "pkg")
+    task = _task(source_hints=["alpha.py"])
+    pack = build_evidence_pack(task, pkg_path, str(pkg_root))
+    assert pack.symbol_outlines
+    assert "class Widget" in pack.symbol_outlines

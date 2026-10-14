@@ -68,6 +68,12 @@ _TEXT_EXTS = frozenset({
 _MAX_LIST_FILES = 500
 _STDOUT_LIMIT = 4000
 _STDERR_LIMIT = 4000
+#: read_file default window (lines) when the caller gives no line
+#: bounds. Whole-file reads are the single largest context cost for
+#: doc agents and the root of compaction-amnesia re-read loops; a
+#: bounded default with explicit total_lines/end_of_file semantics lets
+#: the model page deliberately instead of dumping megabytes.
+_DEFAULT_READ_LINES = 200
 
 
 def _is_skipped_dir(name: str) -> bool:
@@ -155,23 +161,43 @@ class RepoQuillTools(ToolRegistry):
         total = len(lines)
         s = max(1, int(start)) if start else 1
         e = min(total, int(end)) if end else total
-        if s > total:
-            s = total
-        selected = lines[s - 1:e]
+        # Bounded default window: with NO explicit bounds, a long file is
+        # not dumped in full — the model gets the first window plus a
+        # pointer, so reading stays deliberate (measured failure: agents
+        # paging a 3.8M-char file line-window by line-window).
+        window_capped = (
+            not start and not end and total > _DEFAULT_READ_LINES)
+        if window_capped:
+            e = _DEFAULT_READ_LINES
+        past_end = s > total
+        selected: List[str] = [] if past_end else lines[s - 1:e]
         chunk = "\n".join(selected)
         truncated_chars = False
         limit = self.ctx.max_file_chars
         if len(chunk) > limit:
             chunk = chunk[:limit] + "\n... (truncated)"
             truncated_chars = True
-        return {
+        data: Dict[str, Any] = {
             "path": os.path.relpath(full, self.ctx.repo_root).replace(os.sep, "/"),
             "start_line": s,
             "end_line": e,
             "total_lines": total,
             "content": chunk,
             "truncated": truncated_chars,
+            "end_of_file": (e >= total) if not past_end else True,
         }
+        if past_end:
+            data["note"] = (
+                f"start_line {s} is past the end of the file (it has "
+                f"{total} lines) — there is nothing below line {total}; "
+                "do not request further windows of this file.")
+        elif window_capped:
+            data["note"] = (
+                f"Default window: lines 1-{e} of {total}. Continue with "
+                f"read_file(path, start_line={e + 1}) only if the rest is "
+                "needed for this page — prefer reading just the ranges "
+                "around the symbols you will document.")
+        return data
 
     def _tool_search_code(self, args: Dict[str, Any]) -> Dict[str, Any]:
         pattern = args.get("pattern")
@@ -201,10 +227,18 @@ class RepoQuillTools(ToolRegistry):
                 for fn in sorted(filenames):
                     if _is_text_file(fn):
                         files.append(os.path.join(dirpath, fn))
+        # The scan never stops at max_results: it keeps COUNTING so the
+        # response carries total_matches. Measured failure: a model that
+        # saw only "count=3, truncated=true" re-issued the same search
+        # with max_results 3 -> 500 (193x) doubting it had the hits.
+        # "Showing 3 of 3 total matches" makes the escalation pointless.
         results: List[str] = []
+        matched_files: List[str] = []
+        total_matches = 0
         truncated = False
         for full in files:
             rel = os.path.relpath(full, self.ctx.repo_root).replace(os.sep, "/")
+            file_hits = 0
             try:
                 with open(full, "r", encoding="utf-8", errors="replace") as fh:
                     for lineno, line in enumerate(fh, start=1):
@@ -212,18 +246,34 @@ class RepoQuillTools(ToolRegistry):
                             hit = rx.search(line) is not None
                         else:
                             hit = pattern in line
-                        if hit:
+                        if not hit:
+                            continue
+                        total_matches += 1
+                        file_hits += 1
+                        if not truncated:
                             results.append(
                                 f"{rel}:{lineno}: {line.rstrip()}")
                             if len(results) >= max_results:
                                 truncated = True
-                                break
             except (OSError, UnicodeDecodeError):
                 continue
-            if truncated:
-                break
-        return {"results": results, "count": len(results),
-                "truncated": truncated}
+            if file_hits:
+                matched_files.append(rel)
+        data: Dict[str, Any] = {
+            "results": results,
+            "count": len(results),
+            "truncated": truncated,
+            "total_matches": total_matches,
+            "files": matched_files,
+        }
+        if truncated:
+            data["note"] = (
+                f"Showing the first {len(results)} of {total_matches} "
+                f"total matches ({len(matched_files)} file(s)). The "
+                "matches above are real and total_matches is the "
+                "complete count — re-running with a larger max_results "
+                "repeats the same scan.")
+        return data
 
     def _tool_inspect_api(self, args: Dict[str, Any]) -> Dict[str, Any]:
         from repoquill.reference import extract_api_surface

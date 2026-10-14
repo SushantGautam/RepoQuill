@@ -350,18 +350,31 @@ def build_pi_system_prompt(
     description: str,
     staged_path: str,
     allow_example_exec: bool = False,
+    siblings: Optional[List[tuple]] = None,
 ) -> str:
     """Docs-only authoring system prompt for one Pi page task.
 
-    The prompt references the vetted tool set and the single staged output
-    path the page must end up at. Kept module-level (no closure) so it can
-    be unit-tested directly.
+    The prompt references the vetted tool set, the single staged output
+    path the page must end up at, and (when *siblings* is given) the
+    other pages of the site so cross-links are concrete. Kept
+    module-level (no closure) so it can be unit-tested directly.
+
+    *siblings*: iterable of ``(slug, title)`` for the OTHER pages of
+    this documentation site (used for the mandatory "Where to go next"
+    section; site links use the ``guides/<slug>.md`` convention).
     """
     tools = ("list_files, read_file, search_code, inspect_api, "
              "inspect_tests, write_doc")
     if allow_example_exec:
         tools += ", run_example"
     desc = f" Description: {description}." if description else ""
+    siblings_note = ""
+    if siblings:
+        listing = "; ".join(
+            f"'{s}' ({t})" for s, t in siblings if s)
+        siblings_note = (
+            "\n- SIBLING PAGES of this site (cross-link with relative "
+            f"links of the form `guides/<slug>.md`): {listing}.\n")
     return (
         "You are a documentation author working on exactly one page of a "
         "documentation site.\n\n"
@@ -371,7 +384,33 @@ def build_pi_system_prompt(
         f"{staged_path}\n"
         f"- Ground every claim in the repository using: {tools}. Never "
         "invent APIs, arguments, or behavior.\n"
-        "- Source files are read-only; writing anywhere else is forbidden.\n"
+        "- VERIFY every API reference against the source before you "
+        "assert it: for each symbol you reference, confirm the exact "
+        "parameter names, the exact method signature, and the exact "
+        "attribute names (via inspect_api / inspect_tests and the "
+        "files you read). Do not paraphrase or guess from a similar "
+        "API; do not attribute a parameter or attribute to a method "
+        "that does not take it; and if you cannot confirm a claim "
+        "from source, do not state it.\n"
+        "- Every fenced code example must be RUNNABLE AS DISPLAYED: "
+        "construct or define every variable it uses (no elided "
+        "objects), wrap async calls appropriately (e.g. "
+        "asyncio.run(...)), and never rely on state that was not "
+        "shown in the example.\n"
+        "- If the package supports offline or fake usage (fakes, fake "
+        "clients, deterministic no-network paths — check tests/ and "
+        "examples/ for them), include a short 'Offline usage (no API "
+        "key)' section showing the no-key path.\n"
+        "- Do not duplicate another page's primary topic: if a symbol "
+        "is covered by a sibling page, link to that page instead of "
+        "re-explaining it, and link out to related pages where "
+        "natural.\n"
+        "- The page MUST end with a 'Where to go next' section of "
+        "real hyperlinks to the sibling pages relevant to a reader "
+        "who just finished this page.\n"
+        + siblings_note
+        + "- Source files are read-only; writing anywhere else is "
+        "forbidden.\n"
         "- When finished, the page must exist at that exact path as "
         "Markdown."
     )
@@ -402,6 +441,12 @@ def _evidence_to_text(pack, pkg_prefix: str = "") -> str:
                      + "\n".join(f"- {pre}{f}" for f in pack.candidate_files))
     if pack.api_surface:
         parts.append("API SURFACE:\n" + pack.api_surface)
+    if getattr(pack, "symbol_outlines", ""):
+        parts.append(
+            "SYMBOL OUTLINES (line numbers of the page's planned "
+            "source files — you know each file's shape now; read only "
+            "the ranges around the symbols you will document, not "
+            "whole files):\n" + pack.symbol_outlines)
     if pack.candidate_tests:
         parts.append("CANDIDATE TESTS:\n"
                      + "\n".join(f"- {t}" for t in pack.candidate_tests))
@@ -411,19 +456,24 @@ def _evidence_to_text(pack, pkg_prefix: str = "") -> str:
 
 
 def _start_bridge(server_cls, *, source_root: str, staging_dir: str,
-                  slug: str, execute_examples: bool):
+                  slug: str, execute_examples: bool,
+                  max_tool_calls: int = 0, timeout_s: float = 0.0):
     """Construct (and start, if it exposes ``start``) one PiBridgeServer
     scoped to a single task.
 
-    The bridge module is a parallel workstream landing at the same time;
-    this adapter accepts the documented shape
-    ``(source_root, staged_docs_dir, slug, execute_examples)`` with
-    keyword or positional arguments.
+    ``max_tool_calls`` / ``timeout_s`` are the page's budget and
+    deadline; the bridge uses them to enforce write-only mode (read/
+    search calls refused once the exploration budget is spent) — the
+    hard backstop behind the RPC progress nudge. Older bridge shapes
+    without these kwargs are still supported (write-only enforcement
+    simply absent).
     """
     try:
         server = server_cls(source_root=source_root,
                             staging_docs_dir=staging_dir, slug=slug,
-                            allow_example_exec=execute_examples)
+                            allow_example_exec=execute_examples,
+                            max_tool_calls=max_tool_calls,
+                            timeout_s=timeout_s)
     except TypeError:
         try:
             server = server_cls(source_root=source_root,
@@ -488,6 +538,84 @@ def _is_transient_endpoint_failure(error_text: str,
             and not result.usage.total_tokens):
         return True
     return False
+
+
+def _is_deadline_exhaustion(error_text: str) -> bool:
+    """True when a run died on its deadline WITHOUT writing the page
+    (the ``scenarios`` class: 241 calls / 179k tokens / 900s, no
+    write_doc). Matches only the mid-run deadline error (the
+    "did not reach agent_settled" message), not the startup timeout
+    ("timed out waiting for the Pi RPC stream"), which says nothing
+    about authoring progress.
+    """
+    return "did not reach agent_settled" in (error_text or "")
+
+
+#: Per-file / total caps for the retry's pre-loaded source excerpts:
+#: enough to write the page from, small enough to stay in the prompt.
+_RETRY_EXCERPT_FILES = 6
+_RETRY_EXCERPT_PER_FILE_CHARS = 6000
+_RETRY_EXCERPT_TOTAL_CHARS = 20000
+
+
+def _source_excerpts_text(
+    task: "PageTask",
+    pack: Optional[Any],
+    pkg_prefix: str,
+    root: str,
+    pkg_path: str,
+) -> str:
+    """Concise source excerpts for the page's planned source files.
+
+    Pre-loaded into the RETRY attempt's task prompt after a
+    budget/timeout failure so the retry needs far fewer tool calls
+    (measured: quickstart succeeded on its retry at 18/24 calls; with
+    the excerpts pre-loaded the target is <10). Generic: the planned
+    files come from the evidence pack's candidate files (falling back
+    to the page's own source hints), and only the head of each file is
+    taken — the retry is expected to read more only if genuinely
+    missing.
+    """
+    files: List[str] = []
+    if pack is not None and getattr(pack, "candidate_files", None):
+        pre = f"{pkg_prefix}/" if pkg_prefix else ""
+        files = [f"{pre}{f}" for f in pack.candidate_files]
+    if not files:
+        pkg_name = os.path.basename(os.path.normpath(pkg_path))
+        pre = f"{pkg_prefix}/" if pkg_prefix else ""
+        for hint in task.source_hints:
+            norm = str(hint).replace(os.sep, "/")
+            if norm.startswith(pkg_name + "/"):
+                norm = norm[len(pkg_name) + 1:]
+            files.append(f"{pre}{norm}")
+    blocks: List[str] = []
+    total = 0
+    for rel in files[:_RETRY_EXCERPT_FILES]:
+        full = os.path.join(root, *rel.split("/"))
+        if not os.path.isfile(full):
+            continue
+        try:
+            with open(full, "r", encoding="utf-8", errors="replace") as fh:
+                text = fh.read()
+        except OSError:
+            continue
+        if len(text) > _RETRY_EXCERPT_PER_FILE_CHARS:
+            text = text[:_RETRY_EXCERPT_PER_FILE_CHARS] + \
+                "\n# ... (excerpt ends; read_file this path for more)"
+        blocks.append(f"### {rel}\n```\n{text}\n```")
+        total += len(text)
+        if total >= _RETRY_EXCERPT_TOTAL_CHARS:
+            break
+    if not blocks:
+        return ""
+    return (
+        "SOURCE EXCERPTS — PRE-LOADED FOR THIS RETRY ATTEMPT:\n"
+        "The source of the page's planned files is included below so "
+        "you do NOT have to re-read it. Verify from these excerpts; "
+        "only read_file / search_code what they do not cover. Your "
+        "goal is to call write_doc within the next few tool calls.\n\n"
+        + "\n\n".join(blocks)
+    )
 
 
 def _stop_bridge(server) -> None:
@@ -608,9 +736,13 @@ def run_pi_generation(
         # llm.agentic.timeout_s.
         pi_timeout_s = float(ag_raw.get(
             "timeout_s", getattr(ag, "timeout_s", 900.0)))
-        # Tool-call budget (loop guard); 0 disables the budget.
+        # Per-attempt tool-call budget (loop guard); 0 disables. The
+        # product default (80) is small on purpose: a failing attempt
+        # should die by ~call 80 so the fresh-context retry (with
+        # pre-loaded source excerpts) has time and budget to write the
+        # page instead of orbiting 250 calls a second time.
         max_tool_calls = int(ag_raw.get(
-            "max_tool_calls", getattr(ag, "max_tool_calls", 400)))
+            "max_tool_calls", getattr(ag, "max_tool_calls", 80)))
         # Repeat-call guard (orbit guard); 0 disables it.
         max_repeat_calls = int(ag_raw.get(
             "max_repeat_calls", getattr(ag, "max_repeat_calls", 6)))
@@ -677,27 +809,42 @@ def run_pi_generation(
                 description=task.description,
                 staged_path=staged_path,
                 allow_example_exec=execute_examples,
+                siblings=[(p["slug"], p.get("title", p["slug"]))
+                          for p in pages if p["slug"] != slug],
             )
-            pi_task = PiTask(
-                slug=slug,
-                title=task.title,
-                description=task.description,
-                evidence=_evidence_to_text(
-                    evidence_by_slug.get(slug), pkg_prefix=pkg_prefix),
-                source_root=cfg.root,
-                staged_docs_dir=staging_root,
-                provider=pi_provider,
-                model=model,
-                allow_example_exec=execute_examples,
-                timeout_s=pi_timeout_s,
-                system_prompt=prompt,
-                coverage_checklist=list(task.coverage_checklist),
-                max_tool_calls=max_tool_calls,
-                max_repeat_calls=max_repeat_calls,
-            )
+            pack = evidence_by_slug.get(slug)
+            evidence_text = _evidence_to_text(pack, pkg_prefix=pkg_prefix)
 
-            def _attempt():
-                """Spawn one Pi process for this page; (result, error)."""
+            def _attempt(retry: bool = False):
+                """Spawn one Pi process for this page; (result, error).
+
+                ``retry=True`` builds the UPGRADED retry task: the same
+                evidence plus pre-loaded source excerpts, so a retry
+                after a budget/timeout failure needs far fewer tool
+                calls than the attempt it replaces.
+                """
+                evidence = evidence_text
+                if retry:
+                    excerpts = _source_excerpts_text(
+                        task, pack, pkg_prefix, cfg.root, cfg.pkg_path)
+                    if excerpts:
+                        evidence = (evidence_text + "\n\n" + excerpts)
+                pi_task = PiTask(
+                    slug=slug,
+                    title=task.title,
+                    description=task.description,
+                    evidence=evidence,
+                    source_root=cfg.root,
+                    staged_docs_dir=staging_root,
+                    provider=pi_provider,
+                    model=model,
+                    allow_example_exec=execute_examples,
+                    timeout_s=pi_timeout_s,
+                    system_prompt=prompt,
+                    coverage_checklist=list(task.coverage_checklist),
+                    max_tool_calls=max_tool_calls,
+                    max_repeat_calls=max_repeat_calls,
+                )
                 server = None
                 try:
                     server = _start_bridge(
@@ -706,6 +853,8 @@ def run_pi_generation(
                         staging_dir=staging_root,
                         slug=slug,
                         execute_examples=execute_examples,
+                        max_tool_calls=max_tool_calls,
+                        timeout_s=pi_timeout_s,
                     )
                     # The Pi child must reach THIS page's bridge socket
                     # (per-instance env, not os.environ — parallel pages
@@ -738,6 +887,14 @@ def run_pi_generation(
                     print(f"    {slug}: endpoint error "
                           f"({run_error[:120]}) — one retry")
                     result, run_error = _attempt()
+                elif _is_deadline_exhaustion(base_error):
+                    # Deadline hit with real consumption and no page:
+                    # retry from a fresh context with the source
+                    # excerpts pre-loaded (target: <10 tool calls).
+                    print(f"    {slug}: deadline hit without a page "
+                          f"({run_error[:120]}) — one retry with "
+                          f"pre-loaded source excerpts")
+                    result, run_error = _attempt(retry=True)
             if run_error is not None:
                 return slug, False, run_error
             if not result.ok:
@@ -767,11 +924,14 @@ def run_pi_generation(
                 elif any("tool-call budget" in e for e in result.errors):
                     # Budget-exhausted failure: the agent over-explored
                     # (e.g. re-reading the same files around compaction).
-                    # One retry from a fresh context — the task prompt's
-                    # exploration budget applies to the retry as well.
+                    # One retry from a fresh context, UPGRADED: the
+                    # source excerpts are pre-loaded into the retry's
+                    # task prompt so it needs far fewer tool calls
+                    # (measured: retries win easily — quickstart
+                    # succeeded on retry at 18/24 calls).
                     print(f"    {slug}: tool-call budget exhausted "
-                          f"— one retry")
-                    result, run_error = _attempt()
+                          f"— one retry with pre-loaded source excerpts")
+                    result, run_error = _attempt(retry=True)
                     if run_error is not None:
                         return slug, False, run_error
                     if result.ok:
