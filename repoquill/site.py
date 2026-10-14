@@ -179,12 +179,18 @@ def build_index_md(cfg, pages: List[dict], reference_modules: List[str]) -> None
         "## Quick Start",
         "",
     ]
-    if quick.get("install"):
-        lines += ["```bash", quick["install"], "```", ""]
-    if quick.get("example"):
-        lines += ["```python", quick["example"].rstrip(), "```", ""]
-    if quick.get("cli"):
-        lines += ["```bash", quick["cli"].rstrip(), "```", ""]
+    if isinstance(quick, str):
+        # Free-form quick start (plain YAML string) — render as a python
+        # block when non-empty.
+        if quick.strip():
+            lines += ["```python", quick.strip(), "```", ""]
+    else:
+        if quick.get("install"):
+            lines += ["```bash", quick["install"], "```", ""]
+        if quick.get("example"):
+            lines += ["```python", quick["example"].rstrip(), "```", ""]
+        if quick.get("cli"):
+            lines += ["```bash", quick["cli"].rstrip(), "```", ""]
 
     lines += ["## Guides", ""]
     for section_name, slugs in _narrative_sections(cfg):
@@ -533,7 +539,12 @@ def build_nav(cfg, pages: List[dict], reference_modules: List[str]) -> List:
         # case), use the pages directly to avoid a redundant label.
         if len(ref_nav) == 1 and isinstance(ref_nav[0], list):
             name, pages = ref_nav[0]
-            ref_nav = pages if name == "API Reference" else [name, pages]
+            # Only the fallback "API Reference" section name is redundant
+            # at this level — flatten it to the pages. A custom section
+            # name (e.g. "API") must stay a single [title, pages] entry;
+            # turning it into [name, pages] would corrupt the nav tree.
+            if name == "API Reference":
+                ref_nav = pages
         nav.append(["API Reference", ref_nav])
 
     return nav

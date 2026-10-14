@@ -17,10 +17,15 @@ knowledge. The symbol index is derived from the AST of the actual source.
 from __future__ import annotations
 
 import ast
+import builtins
 import os
 import re
 from dataclasses import dataclass, field
 from typing import Dict, List, Set
+
+#: Builtins referenced in prose (e.g. ``str``, ``None``, ``TypeError``)
+#: are not hallucinated package APIs.
+_BUILTIN_NAMES = set(dir(builtins))
 
 
 # ---------------------------------------------------------------------------
@@ -168,7 +173,8 @@ def check_page(page_md: str, idx: SymbolIndex, pkg_name: str) -> List[dict]:
     for sym in extract_backtick_symbols(page_md):
         if sym in idx.module_symbols or sym in idx.string_literals \
                 or sym in idx.function_params or sym in idx.constants \
-                or sym in idx.modules or sym in bare_module_names:
+                or sym in idx.modules or sym in bare_module_names \
+                or sym in _BUILTIN_NAMES:
             continue
         if sym.isupper():
             findings.append({"symbol": sym, "kind": "constant",

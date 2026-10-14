@@ -29,6 +29,7 @@ import re
 import shutil
 import subprocess
 import sys
+from datetime import datetime, timezone
 
 from repoquill.config import load_config
 from repoquill.llm import LLMClient
@@ -49,6 +50,23 @@ from repoquill.site import (
     build_skill_md,
     cross_link_guides,
 )
+
+
+def _write_run_report(cfg, report: dict) -> None:
+    """Persist a structured run report next to the generated docs.
+
+    Written to ``<site_src>/.repoquill-report.json`` so CI and scheduled
+    reconciliation jobs can audit what changed, what was rebuilt, what
+    the gate found, and which repairs ran. Best-effort: a report write
+    failure must never fail the generation itself.
+    """
+    try:
+        path = os.path.join(cfg.site_src, ".repoquill-report.json")
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(report, f, indent=2, default=str)
+        print(f"  run report: {os.path.relpath(path)}")
+    except OSError as e:
+        print(f"  run report: could not write ({e})")
 
 
 def _surface_to_json(surface) -> dict:
@@ -1703,6 +1721,9 @@ def _cmd_generate(args) -> int:
     old_hashes = old_plan.get("file_hashes", {}) if old_plan else {}
 
     failed_slugs: set = set()
+    generated: list = []
+    impact_summary: dict = {}
+    repair_results: list = []
     if args.no_llm:
         print("[3/6] Narrative pages — SKIPPED (--no-llm)")
         pages = old_plan.get("pages", []) if old_plan else []
@@ -1773,6 +1794,13 @@ def _cmd_generate(args) -> int:
                         diff, deps, [p["slug"] for p in pages])
                     if affected:
                         force_slugs = set(affected)
+                        impact_summary = {
+                            "changed_symbols":
+                                sorted(diff.changed_symbols())[:100],
+                            "forced_slugs": sorted(force_slugs),
+                            "reasons": {s: affected[s][:5]
+                                        for s in sorted(affected)[:20]},
+                        }
                         print(f"[3b] Cross-file API impact: "
                               f"{len(affected)} page(s) affected")
                         for s in sorted(affected)[:10]:
@@ -1844,6 +1872,7 @@ def _cmd_generate(args) -> int:
             from repoquill.agents import repair_pages
             print("  repair: bounded docs-only repair (opt-in)...")
             rresults = repair_pages(cfg.out_guides, cfg.pkg_path, client=client)
+            repair_results = [rr.as_dict() for rr in rresults]
             for rr in rresults:
                 print(f"    {os.path.basename(rr.page_path)}: {rr.status} "
                       f"(attempts={rr.attempts}, llm_calls={rr.llm_calls})")
@@ -1910,6 +1939,20 @@ def _cmd_generate(args) -> int:
                   f"{', '.join(sorted(failed_slugs))}")
             print("  State was NOT advanced for these pages; they will be "
                   "retried on the next run.")
+
+    # Structured run report (P2-11): machine-readable audit of this run,
+    # written before site assembly so even a crashed build leaves a trail.
+    _write_run_report(cfg, {
+        "project": cfg.project_name,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "no_llm": bool(args.no_llm),
+        "pages_total": len(pages),
+        "pages_rebuilt": sorted(set(generated)),
+        "pages_failed": sorted(failed_slugs),
+        "impact": impact_summary,
+        "gate": gate.as_dict(),
+        "repairs": repair_results,
+    })
 
     print()
     print("[5/6] Cross-linking guide pages...")
