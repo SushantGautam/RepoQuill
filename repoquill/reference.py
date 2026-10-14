@@ -280,33 +280,90 @@ def _render_member_md(name, obj, depth=3, module_members=None):
     return lines
 
 
+# Sphinx cross-reference role, e.g. :class:`X` or :meth:`~module.Y`.
+_SPHINX_ROLE_RE = re.compile(r":([a-zA-Z][a-zA-Z0-9_-]*):`([^`]+?)`")
+# RST inline literal, e.g. ``X``.
+_RST_LITERAL_RE = re.compile(r"``([^`]+?)``")
+# Inline triple-backtick "code", e.g. ```json ... ``` (a docstring that shows
+# a code fence inline). Kept on one line so real multi-line fences are untouched.
+_TRIPLE_INLINE_RE = re.compile(r"```([^`\n]+?)```")
+# numpydoc / RST section underline: a line made only of dashes or equals.
+_UNDERLINE_RE = re.compile(r"^\s*[-=]{2,}\s*$")
+# numpydoc section headers (rendered as bold sub-headings).
+_SECTION_HEADERS = {
+    "args", "arguments", "parameters", "params", "param", "returns", "return",
+    "yields", "raises", "raise", "examples", "example", "attributes",
+    "note", "notes", "see also", "references", "todo", "warning", "warnings",
+    "other parameters", "keyword arguments",
+}
+# A bare Python varargs/kwargs name on its own line (a numpydoc parameter),
+# e.g. ``**kwargs:`` / ``*args`` — must not be turned into italic/bold.
+_VARARG_NAME_RE = re.compile(r"^(\*{1,2}[a-z_][a-z0-9_]*)\s*(:?)$")
+
+
+def _rst_to_markdown(doc):
+    """Normalize Sphinx/RST + numpydoc docstring conventions to clean Markdown.
+
+    Target corpora write docstrings in numpydoc/Sphinx style, which would
+    otherwise render as literal text in plain Markdown (``:class:`X` ``,
+    `` ``literal`` ``, and section underlines). This converts:
+
+    * Sphinx cross-reference roles (``:class:`X` ``, ``:meth:`~mod.Y` ``) into
+      inline code spans, where a leading ``~`` keeps only the last dotted
+      component (Sphinx short-name convention);
+    * RST double-backtick inline literals (```` ``X`` ````) into single-backtick
+      code spans;
+    * numpydoc/RST section underlines (lines of only ``-`` or ``=``) are dropped.
+
+    Idempotent and safe on already-Markdown text. The corpus uses no RST
+    directives, so none are handled.
+    """
+    if not doc:
+        return doc
+
+    def _role(match):
+        target = match.group(2)
+        short = target.startswith("~")
+        target = target.lstrip("~")
+        if short and "." in target:
+            target = target.rsplit(".", 1)[-1]
+        return "`" + target + "`"
+
+    text = _SPHINX_ROLE_RE.sub(_role, doc)
+    text = _TRIPLE_INLINE_RE.sub("`\\1`", text)
+    text = _RST_LITERAL_RE.sub("`\\1`", text)
+    text = "\n".join(
+        line for line in text.splitlines() if not _UNDERLINE_RE.match(line)
+    )
+    return text
+
+
 def _format_docstring(doc):
-    """Format a docstring for markdown, handling numpydoc sections."""
+    """Format a docstring as clean Markdown (numpydoc + Sphinx/RST aware)."""
     import textwrap
     if not doc:
         return []
-    text = textwrap.dedent(doc)
+    text = textwrap.dedent(_rst_to_markdown(doc))
     lines = text.splitlines()
-    section_headers = {
-        "args", "arguments", "parameters", "returns", "yields", "raises",
-        "examples", "example", "attributes", "note", "notes", "see also",
-        "references", "todo", "warning", "warnings",
-    }
     out = []
-    for i, line in enumerate(lines):
+    for line in lines:
         stripped = line.strip()
-        if stripped.endswith(":") and stripped[:-1].strip().lower() in section_headers:
+        if not stripped:
+            out.append(line)
+            continue
+        header = stripped.rstrip(":").strip().lower()
+        if header in _SECTION_HEADERS:
             if out and out[-1].strip():
                 out.append("")
-            out.append(stripped)
+            out.append("**" + stripped.rstrip(":").strip() + "**")
             continue
-        if stripped.lower() in section_headers and i + 1 < len(lines) \
-                and set(lines[i + 1].strip()) <= {"-"} and lines[i + 1].strip():
-            if out and out[-1].strip():
-                out.append("")
-            out.append(stripped + ":")
-            continue
-        if stripped.startswith("**") and stripped.endswith("**"):
+        vm = _VARARG_NAME_RE.match(stripped)
+        if vm:
+            # ``**kwargs:`` / ``*args`` -> code span (a literal Python name).
+            line = line.replace(
+                stripped, "`" + vm.group(1) + "`" + vm.group(2), 1)
+        elif stripped.startswith("**") and stripped.endswith("**") \
+                and len(stripped) > 4:
             inner = stripped[2:-2].strip()
             if ":" in inner:
                 colon = inner.find(":")
@@ -315,9 +372,6 @@ def _format_docstring(doc):
                 line = line.replace(stripped, f"*{param}*: {rest}", 1)
             else:
                 line = line.replace(stripped, f"*{inner}*", 1)
-        elif stripped.startswith("**") and not stripped.endswith("**"):
-            param = stripped[2:].strip()
-            line = line.replace(stripped, f"*{param}*", 1)
         out.append(line)
     return out
 
@@ -541,8 +595,109 @@ def _extract_all_names(all_attr):
     return names
 
 
+def _ast_function_signature(node, as_method: bool = False) -> str:
+    """Return ``(...)-> ...`` for a function/method node, with type hints.
+
+    Uses ``ast.unparse`` on annotations (no import needed) so signatures
+    match the annotated source. Python 3.9+ only. When ``as_method`` is set
+    a leading ``self``/``cls`` argument is dropped.
+    """
+    args = []
+    positional = list(node.args.posonlyargs) + list(node.args.args)
+    if as_method and positional and positional[0].arg in ("self", "cls"):
+        positional = positional[1:]
+    defaults = list(node.args.defaults)
+    first_default = len(positional) - len(defaults)
+    for i, a in enumerate(positional):
+        s = a.arg
+        if a.annotation is not None:
+            try:
+                s += ": " + ast.unparse(a.annotation)
+            except Exception:  # noqa: BLE001 - keep name on unparse failure
+                pass
+        if i >= first_default and (i - first_default) < len(defaults):
+            try:
+                s += " = " + ast.unparse(defaults[i - first_default])
+            except Exception:  # noqa: BLE001
+                pass
+        args.append(s)
+    if node.args.vararg is not None:
+        s = "*" + node.args.vararg.arg
+        if node.args.vararg.annotation is not None:
+            try:
+                s += ": " + ast.unparse(node.args.vararg.annotation)
+            except Exception:  # noqa: BLE001
+                pass
+        args.append(s)
+    for i, a in enumerate(node.args.kwonlyargs):
+        s = a.arg
+        if a.annotation is not None:
+            try:
+                s += ": " + ast.unparse(a.annotation)
+            except Exception:  # noqa: BLE001
+                pass
+        if i < len(node.args.kw_defaults) and node.args.kw_defaults[i] is not None:
+            try:
+                s += " = " + ast.unparse(node.args.kw_defaults[i])
+            except Exception:  # noqa: BLE001
+                pass
+        args.append(s)
+    if node.args.kwarg is not None:
+        s = "**" + node.args.kwarg.arg
+        if node.args.kwarg.annotation is not None:
+            try:
+                s += ": " + ast.unparse(node.args.kwarg.annotation)
+            except Exception:  # noqa: BLE001
+                pass
+        args.append(s)
+    sig = "(" + ", ".join(args) + ")"
+    if node.returns is not None:
+        try:
+            sig += " -> " + ast.unparse(node.returns)
+        except Exception:  # noqa: BLE001
+            pass
+    return sig
+
+
+def _ast_class_members(cls_node):
+    """Return ``(methods, attributes)`` for a ClassDef node (pure AST).
+
+    ``methods`` is a list of ``(signature, first_doc_line)`` and
+    ``attributes`` a list of ``(name, first_doc_line)``. Docstring first
+    lines are RST-normalized so they render cleanly.
+    """
+    methods = []
+    attrs = []
+    for item in cls_node.body:
+        if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            if item.name.startswith("_"):
+                continue
+            prefix = "async " if isinstance(item, ast.AsyncFunctionDef) else ""
+            ds = _rst_to_markdown(ast.get_docstring(item) or "")
+            first_lines = [l for l in ds.splitlines() if l.strip()]
+            first = first_lines[0].strip() if first_lines else ""
+            methods.append((
+                prefix + item.name + _ast_function_signature(item, as_method=True),
+                first))
+        elif isinstance(item, ast.Assign):
+            for t in item.targets:
+                if isinstance(t, ast.Name) and not t.id.startswith("_"):
+                    attrs.append((t.id, ""))
+        elif isinstance(item, ast.AnnAssign):
+            if isinstance(item.target, ast.Name) \
+                    and not item.target.id.startswith("_"):
+                attrs.append((item.target.id, ""))
+    return methods, attrs
+
+
 def _render_module_via_ast(module_name, py_path, module_descriptions=None):
-    """Render a module page using Python's ast module (fallback)."""
+    """Render a module page using Python's ast module (pure AST, no import).
+
+    This is the primary, deterministic reference renderer: it parses the
+    source without importing it (no third-party deps required, no execution
+    of untrusted code) and renders classes (with methods + attributes),
+    functions, and constants, cleaning Sphinx/RST docstrings to Markdown.
+    """
     import ast
 
     with open(py_path) as f:
@@ -563,7 +718,8 @@ def _render_module_via_ast(module_name, py_path, module_descriptions=None):
     if mod_doc:
         doc_body = mod_doc.strip()
         if not (desc and doc_body.splitlines()[0].strip() == desc):
-            lines += [doc_body, ""]
+            lines += _format_docstring(doc_body)
+            lines.append("")
 
     classes = []
     functions = []
@@ -573,22 +729,14 @@ def _render_module_via_ast(module_name, py_path, module_descriptions=None):
         if isinstance(node, ast.ClassDef):
             if not node.name.startswith("_"):
                 doc = ast.get_docstring(node) or ""
-                classes.append((node.name, doc))
+                methods, attrs = _ast_class_members(node)
+                classes.append((node.name, doc, methods, attrs))
         elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             if not node.name.startswith("_"):
                 doc = ast.get_docstring(node) or ""
-                args = []
-                for a in node.args.args:
-                    args.append(a.arg)
-                if node.args.vararg:
-                    args.append("*" + node.args.vararg.arg)
-                for a in node.args.kwonlyargs:
-                    args.append(a.arg)
-                if node.args.kwarg:
-                    args.append("**" + node.args.kwarg.arg)
-                sig = f"({', '.join(args)})"
+                sig = _ast_function_signature(node)
                 prefix = "async " if isinstance(node, ast.AsyncFunctionDef) else ""
-                functions.append((node.name, f"{prefix}def {node.name}{sig}", doc))
+                functions.append((node.name, prefix + sig, doc))
         elif isinstance(node, ast.Assign):
             for target in node.targets:
                 if isinstance(target, ast.Name) and not target.id.startswith("_"):
@@ -599,20 +747,33 @@ def _render_module_via_ast(module_name, py_path, module_descriptions=None):
 
     if classes:
         lines += ["### Classes", ""]
-        for name, doc in classes:
-            lines += [f"#### {name}", ""]
+        for name, doc, methods, attrs in classes:
+            lines += [f"#### `{name}`", ""]
             if doc:
-                lines += [doc.strip(), ""]
+                lines += _format_docstring(doc)
+                lines.append("")
             else:
                 lines += ["_No docstring._", ""]
+            if methods:
+                lines += ["**Methods:**", ""]
+                for msig, mfirst in methods:
+                    lines.append(f"- `{msig}` — {mfirst}"
+                                 if mfirst else f"- `{msig}`")
+                lines.append("")
+            if attrs:
+                lines += ["**Attributes:**", ""]
+                for aname, afirst in attrs:
+                    lines.append(f"- `{aname}` — {afirst}"
+                                 if afirst else f"- `{aname}`")
+                lines.append("")
 
     if functions:
         lines += ["### Functions", ""]
         for name, sig, doc in functions:
-            lines += [f"#### {name}", ""]
-            lines += [f"```python", sig, "```", ""]
+            lines += [f"#### `{name}{sig}`", ""]
             if doc:
-                lines += [doc.strip(), ""]
+                lines += _format_docstring(doc)
+                lines.append("")
             else:
                 lines += ["_No docstring._", ""]
 
@@ -670,7 +831,8 @@ def render_module_reference(module_name: str, search_path: str,
     if mod_doc:
         doc_body = mod_doc.strip()
         if not (desc and doc_body.splitlines()[0].strip() == desc):
-            lines += [doc_body, ""]
+            lines += _format_docstring(doc_body)
+            lines.append("")
 
     try:
         all_members = dict(mod.members)
@@ -1369,8 +1531,11 @@ def _extract_description_from_source(path: str) -> str:
 def build_api_reference(cfg) -> List[str]:
     """Generate ``reference/*.md`` for every importable module.
 
-    Walks the package, writes one mkdocstrings directive page per module,
-    and cleans up stale reference pages.
+    Walks the package and renders one self-contained Markdown page per
+    module using the deterministic AST-based renderer (classes with methods
+    and attributes, functions, constants; Sphinx/RST docstrings cleaned to
+    Markdown). No module is imported, so no third-party dependency of the
+    documented package is required. Stale reference pages are removed.
 
     Args:
         cfg: A :class:`repoquill.config.RepoQuillConfig`.
@@ -1429,11 +1594,20 @@ def build_api_reference(cfg) -> List[str]:
             # Docstring fallback: resolve module name to file and read its
             # docstring (first line, truncated to 120 chars).
             desc = _module_docstring_fallback(pkg_path, pkg_name, mod)
-        lines = [f"## {mod}", ""]
-        if desc:
-            lines += [desc, ""]
-        lines += ["::: " + mod, ""]
-        content = "\n".join(lines)
+        # Resolve the module to its source file and render it with the
+        # deterministic AST-based renderer — no import, no third-party deps,
+        # and Sphinx/RST docstrings cleaned to Markdown.
+        if mod == pkg_name:
+            py_path = os.path.join(pkg_path, "__init__.py")
+        else:
+            rel = mod[len(pkg_name) + 1:]
+            py_path = os.path.join(pkg_path, *rel.split(".")) + ".py"
+        if os.path.isfile(py_path):
+            content = _render_module_via_ast(
+                mod, py_path, {mod: desc} if desc else None)
+        else:
+            content = (f"## {mod}\n\n"
+                       f"> Could not locate source file for this module.\n")
         slug = mod.replace(".", "_")
         with open(os.path.join(ref_dir, f"{slug}.md"), "w") as f:
             f.write(content)
