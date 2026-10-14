@@ -235,7 +235,6 @@ def test_run3_external_imports_and_libraries_out_of_scope(run3_idx, tmp_path):
     """Stdlib/third-party imports and third-party library names in
     backticks are out of the documented package's scope (tracing page:
     `import asyncio`, `import base64`, plotting page: `matplotlib`)."""
-    import importlib.util
     page = _page(
         tmp_path,
         "```python\n"
@@ -244,15 +243,11 @@ def test_run3_external_imports_and_libraries_out_of_scope(run3_idx, tmp_path):
         "```\n\n"
         "Charts use `matplotlib` when available.\n"
     )
-    if importlib.util.find_spec("matplotlib") is None:
-        # matplotlib is not installed in this environment: the page still
-        # must not flag the IMPORTS; only the backtick name is then a
-        # genuine unknown (expected 1 finding).
-        findings = check_page_symbols(page, run3_idx)
-        assert [f["detail"] for f in findings]
-        assert all("matplotlib" in f["detail"] for f in findings)
-    else:
-        assert check_page_symbols(page, run3_idx) == []
+    # Stdlib imports (asyncio, base64) are out of the documented package's
+    # scope, and `matplotlib` is a standard third-party library (in the
+    # ecosystem-tooling allowlist), so none of these are invented package
+    # APIs regardless of whether matplotlib happens to be installed here.
+    assert check_page_symbols(page, run3_idx) == []
 
 
 def test_run3_real_hallucinations_still_flagged(run3_idx, tmp_path):
@@ -316,3 +311,82 @@ def test_names_nowhere_in_source_tree_still_flagged(tree_idx, tmp_path):
     findings = {f["detail"] for f in check_page_symbols(page, tree_idx)}
     assert any("BOLT_SEVERITY_RESPONSE_SCHEMA" in d for d in findings)
     assert any("calibration_floor" in d for d in findings)
+
+
+# ---------------------------------------------------------------------------
+# Out-of-scope names: a language keyword, standard ecosystem tooling, a real
+# test-suite helper, and a declared dependency are NOT hallucinated package
+# APIs. These were confirmed false-positive classes from the SimpleAudit Pi
+# evaluation (a page quoting `in`, an offline example using `FakeClient`, and
+# an installation page referencing the `grpcio` / `ruff` deps). The core
+# hallucination check must still catch names that exist nowhere in the repo,
+# its tests, or its declared stack.
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def idx_with_tests(tmp_path):
+    """A package with a sibling test suite + declared dependencies."""
+    root = tmp_path / "fakepkg"
+    root.mkdir()
+    (root / "__init__.py").write_text(INIT, encoding="utf-8")
+    (root / "core.py").write_text(CORE, encoding="utf-8")
+    tests = tmp_path / "tests"
+    tests.mkdir()
+    (tests / "fakes.py").write_text(
+        "class FakeClient:\n"
+        "    def __call__(self, *a, **k):\n"
+        "        pass\n"
+        "class ScriptedClient:\n"
+        "    pass\n"
+        "def make_auditor(target, judge):\n"
+        "    return None\n"
+        "def fixed_target(text):\n"
+        "    return FakeClient()\n",
+        encoding="utf-8")
+    (tmp_path / "pyproject.toml").write_text(
+        '[project]\nname = "fakepkg"\nversion = "0.0.0"\n'
+        'dependencies = ["mycustomdep>=1.0", "grpcio>=1.60"]\n'
+        "[project.optional-dependencies]\n"
+        'tracing = ["otherdep>=2"]\n',
+        encoding="utf-8")
+    return build_index(str(root))
+
+
+def test_python_keyword_in_backticks_not_flagged(idx, tmp_path):
+    page = _page(tmp_path,
+                 "Iterate with `for`, test membership with `in`, and `await` "
+                 "inside an `async` function.\n")
+    assert check_page_symbols(page, idx) == []
+
+
+def test_standard_tooling_names_not_flagged(idx, tmp_path):
+    page = _page(tmp_path,
+                 "Lint with `ruff`, install with `uv` or `pip`, test with "
+                 "`pytest`.\n")
+    assert check_page_symbols(page, idx) == []
+
+
+def test_real_test_helpers_not_flagged(idx_with_tests, tmp_path):
+    page = _page(tmp_path,
+                 "Offline audits use `FakeClient`, `ScriptedClient` and the "
+                 "`make_auditor` / `fixed_target` test helpers.\n")
+    assert check_page_symbols(page, idx_with_tests) == []
+
+
+def test_declared_dependencies_and_extras_not_flagged(idx_with_tests, tmp_path):
+    page = _page(tmp_path,
+                 "Install the `tracing` extra to enable `mycustomdep` and "
+                 "`otherdep`; `grpcio` is required for the gRPC receiver.\n")
+    assert check_page_symbols(page, idx_with_tests) == []
+
+
+def test_invented_name_outside_repo_tests_and_deps_still_flagged(
+        idx_with_tests, tmp_path):
+    page = _page(tmp_path,
+                 "Configure the `BogusHelper` client and the "
+                 "`calibration_floor` knob with `InventedGadget`.\n")
+    findings = {f["detail"] for f in check_page_symbols(page, idx_with_tests)}
+    assert any("BogusHelper" in d for d in findings)
+    assert any("calibration_floor" in d for d in findings)
+    assert any("InventedGadget" in d for d in findings)

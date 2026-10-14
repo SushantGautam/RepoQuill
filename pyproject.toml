@@ -7,7 +7,7 @@ name = "repoquill"
 version = "0.1.9"
 description = "Generic two-layer developer-docs generator: deterministic API reference (Griffe) + LLM narrative guides (LiteLLM) + MkDocs Material site."
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.11"
 license = { text = "MIT" }
 authors = [{ name = "Sushant Gautam" }]
 keywords = ["documentation", "mkdocs", "griffe", "llm", "litellm", "api-reference"]

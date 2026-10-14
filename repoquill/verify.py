@@ -18,8 +18,11 @@ from __future__ import annotations
 
 import ast
 import builtins
+import configparser
+import keyword
 import os
 import re
+import tomllib
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Set, Tuple
 
@@ -27,11 +30,39 @@ from typing import Dict, List, Optional, Set, Tuple
 #: are not hallucinated package APIs.
 _BUILTIN_NAMES = set(dir(builtins))
 
+#: Python keywords (and soft keywords) referenced in prose or inline code
+#: (`` `in` ``, `` `for` ``, `` `async` ``) are language constructs, never
+#: package symbols. A bare `in` in a docs code span was a confirmed
+#: false-positive source on pages that quote runnable examples.
+_KEYWORD_NAMES = frozenset(keyword.kwlist) | frozenset(
+    getattr(keyword, "softkwlist", ()))
+
 #: Backtick spans that are never API references: JSON/JS/Python literals
 #: and the conventional placeholder name. (Confirmed FP class: docs quote
 #: `null` in JSON examples and `_` as a throwaway.)
 _NON_SYMBOL_NAMES = frozenset({
     "null", "true", "false", "none", "undefined", "nan", "inf", "_",
+})
+
+#: Ubiquitous Python-ecosystem tooling that legitimately appears in
+#: installation / developer-guide pages (``pip install …`` , dev tooling,
+#: CI). These are references to external tools, not the documented
+#: package's API. A hallucinated *package* function colliding with a
+#: standard tool name is implausible, so this is a safe backstop; declared
+#: dependencies (see ``SymbolIndex.declared_dependencies``) are the primary,
+#: repo-tied mechanism. Compared case-insensitively.
+_TOOLING_NAMES = frozenset({
+    "pip", "pipenv", "uv", "poetry", "hatch", "tox", "virtualenv",
+    "conda", "ruff", "black", "isort", "flake8", "mypy", "pyright",
+    "pre-commit", "pytest", "pytest-cov", "coverage", "setuptools",
+    "wheel", "build", "twine", "jupyter", "jupyterlab", "notebook",
+    "ipython", "grpcio", "grpcio-tools", "grpc", "pydantic", "pydantic-core",
+    "httpx", "requests", "aiohttp", "fastapi", "flask", "numpy", "pandas",
+    "scipy", "scikit-learn", "matplotlib", "seaborn", "plotly",
+    "openai", "anthropic", "tenacity", "structlog", "rich", "typer",
+    "click", "pyyaml", "yaml", "pydantic-settings", "orjson", "uvicorn",
+    "starlette", "sqlalchemy", "pydantic-extra-types", "langchain",
+    "langchain-core", "langchain-community",
 })
 
 
@@ -74,6 +105,193 @@ class SymbolIndex:
     #: invented. A genuinely hallucinated name exists nowhere in the
     #: tree and is still flagged.
     source_tokens: Set[str] = field(default_factory=set)
+    #: Top-level classes/functions/module-level constants defined in the
+    #: repository's test suite (``tests/``, ``test_*.py``, ``*_test.py``).
+    #: The engine discovers and inspects tests as evidence
+    #: (``include_tests: true``) and the authoring prompt encourages
+    #: offline / fake-client examples drawn from those helpers
+    #: (``FakeClient``, ``make_auditor``, …). A name that resolves to a
+    #: real test symbol is in-repo ground truth, not a fabricated package
+    #: API — flagging it was a confirmed false-positive class.
+    test_symbols: Set[str] = field(default_factory=set)
+    #: Names declared as project dependencies (``pyproject.toml``
+    #: ``dependencies`` / ``optional-dependencies`` / ``dependency-groups``,
+    #: ``setup.py``/``setup.cfg`` ``install_requires`` / ``extras_require``),
+    #: stored lowercased. Docs legitimately reference a declared dependency
+    #: in backticks (``grpcio`` in the ``[tracing]`` extra, ``ruff`` as the
+    #: project linter); it is a third-party reference, not an invented
+    #: package symbol.
+    declared_dependencies: Set[str] = field(default_factory=set)
+
+
+def _index_test_symbols(idx: "SymbolIndex", pkg_path: str) -> None:
+    """Index top-level test-suite symbols (classes/funcs/ALL_CAPS globals).
+
+    The package lives at ``<root>/<pkg>``; its tests are the sibling
+    ``tests/`` package and co-located ``test_*.py`` / ``*_test.py`` files.
+    Only top-level names are indexed (the "test helper API surface" docs
+    reference), and common environment/venv directories are skipped so a
+    large checkout is walked cheaply. Failures are non-fatal: a repo with
+    no tests simply yields an empty set.
+    """
+    pkg_abs = os.path.abspath(pkg_path)
+    root = os.path.dirname(pkg_abs)
+    skip_dirs = {
+        ".git", ".venv", "venv", "node_modules", "site-packages", ".tox",
+        ".mypy_cache", ".pytest_cache", "build", "dist", "__pycache__",
+        "site", "docs", ".repoquill", "generated",
+    }
+
+    def _is_test_file(name: str) -> bool:
+        return (name.startswith("test_") or name.endswith("_test.py")
+                or name == "conftest.py")
+
+    seen_files: Set[str] = set()
+
+    def _scan_file(full: str) -> None:
+        full = os.path.abspath(full)
+        if full in seen_files:
+            return
+        seen_files.add(full)
+        try:
+            with open(full, "r", encoding="utf-8", errors="replace") as fh:
+                tree = ast.parse(fh.read())
+        except (SyntaxError, OSError):
+            return
+        for stmt in tree.body:
+            if isinstance(stmt, (ast.FunctionDef, ast.AsyncFunctionDef,
+                                 ast.ClassDef)):
+                idx.test_symbols.add(stmt.name)
+            elif isinstance(stmt, ast.Assign):
+                for tgt in stmt.targets:
+                    if isinstance(tgt, ast.Name) and tgt.id.isupper():
+                        idx.test_symbols.add(tgt.id)
+            elif isinstance(stmt, ast.AnnAssign) \
+                    and isinstance(stmt.target, ast.Name) \
+                    and stmt.target.id.isupper():
+                idx.test_symbols.add(stmt.target.id)
+
+    def _scan_dir(base: str) -> None:
+        # Everything under a ``tests/`` (or ``<pkg>/tests``) directory is a
+        # test file by location — including helpers like ``fakes.py`` /
+        # ``helpers.py`` that don't follow the ``test_*`` naming convention.
+        base = os.path.abspath(base)
+        if not os.path.isdir(base):
+            return
+        for dirpath, dirnames, filenames in os.walk(base):
+            dirnames[:] = [d for d in dirnames if d not in skip_dirs]
+            for f in filenames:
+                if f.endswith(".py"):
+                    _scan_file(os.path.join(dirpath, f))
+
+    def _scan_colocated(base: str) -> None:
+        base = os.path.abspath(base)
+        if not os.path.isdir(base):
+            return
+        for f in os.listdir(base):
+            if f.endswith(".py") and _is_test_file(f):
+                _scan_file(os.path.join(base, f))
+
+    # Sibling ``tests/`` package, co-located test files at the root and in
+    # the package, and a ``<pkg>/tests`` directory.
+    _scan_dir(os.path.join(root, "tests"))
+    _scan_dir(os.path.join(pkg_abs, "tests"))
+    _scan_colocated(root)
+    _scan_colocated(pkg_abs)
+
+
+def _pep508_name(req: object) -> Optional[str]:
+    """Normalized PEP 508 ``name`` from a requirement string (or None)."""
+    s = str(req).strip().strip("'\"")
+    m = re.match(r"^[A-Za-z0-9][A-Za-z0-9._-]*", s)
+    return m.group(0).lower() if m else None
+
+
+def _declared_dependency_names_pyproject(text: str) -> Set[str]:
+    """Declared dependency names from ``pyproject.toml`` (``tomllib``).
+
+    Covers ``[project] dependencies``, every ``[project.optional-dependencies]``
+    group, ``[dependency-groups]``, and ``[tool.*] dev-dependencies``.
+    """
+    data = tomllib.loads(text)
+    out: Set[str] = set()
+    proj = data.get("project", {}) or {}
+    reqs = list(proj.get("dependencies") or [])
+    # Optional-dependency group *names* (e.g. ``[project.optional-dependencies]
+    # tracing = [...]``) are extra names docs legitimately reference
+    # ("install the ``tracing`` extra"); index the key and its requirements.
+    extras = proj.get("optional-dependencies") or {}
+    for key, group in extras.items():
+        if isinstance(key, str) and re.match(r"^[A-Za-z0-9._-]+$", key):
+            out.add(key.lower())
+        reqs += list(group or [])
+    groups = data.get("dependency-groups") or {}
+    for key, group in groups.items():
+        if isinstance(key, str) and re.match(r"^[A-Za-z0-9._-]+$", key):
+            out.add(key.lower())
+        if isinstance(group, dict):
+            reqs += list(group.get("dependencies") or [])
+        elif isinstance(group, list):
+            reqs += list(group)
+    for tool in (data.get("tool") or {}).values():
+        if isinstance(tool, dict):
+            reqs += list(tool.get("dev-dependencies") or [])
+    for r in reqs:
+        name = _pep508_name(r)
+        if name:
+            out.add(name)
+    return out
+
+
+def _declared_dependency_names_setup_cfg(text: str) -> Set[str]:
+    """Declared dependency names from ``setup.cfg`` (``configparser``)."""
+    cp = configparser.ConfigParser()
+    cp.read_string(text)
+    reqs: List[str] = []
+    if cp.has_section("options"):
+        reqs += (cp["options"].get("install_requires")
+                 or "").replace(",", " ").split()
+    if cp.has_section("options.extras_require"):
+        for values in cp["options.extras_require"].values():
+            reqs += (values or "").replace(",", " ").split()
+    out: Set[str] = set()
+    for r in reqs:
+        name = _pep508_name(r)
+        if name:
+            out.add(name)
+    return out
+
+
+def _index_declared_dependencies(idx: "SymbolIndex", pkg_path: str) -> None:
+    """Index the project's declared dependency names (repo root metadata).
+
+    ``pyproject.toml`` (``tomllib``) and ``setup.cfg`` (``configparser``) are
+    the two standard, safely-parseable metadata files. ``setup.py`` is
+    deliberately neither executed nor regex-scanned; a repo with only
+    ``setup.py`` degrades gracefully (the standard-tooling backstop and test
+    index still apply).
+    """
+    pkg_abs = os.path.abspath(pkg_path)
+    root = os.path.dirname(pkg_abs)
+    for path in (os.path.join(root, "pyproject.toml"),
+                 os.path.join(pkg_abs, "pyproject.toml")):
+        if os.path.isfile(path):
+            try:
+                with open(path, "r", encoding="utf-8",
+                          errors="replace") as fh:
+                    idx.declared_dependencies |= \
+                        _declared_dependency_names_pyproject(fh.read())
+            except (OSError, tomllib.TOMLDecodeError):
+                pass
+    for path in (os.path.join(root, "setup.cfg"),):
+        if os.path.isfile(path):
+            try:
+                with open(path, "r", encoding="utf-8",
+                          errors="replace") as fh:
+                    idx.declared_dependencies |= \
+                        _declared_dependency_names_setup_cfg(fh.read())
+            except (OSError, configparser.Error):
+                pass
 
 
 def build_index(pkg_path: str) -> SymbolIndex:
@@ -191,6 +409,15 @@ def build_index(pkg_path: str) -> SymbolIndex:
                     v = node.value
                     if 3 <= len(v) <= 80 and re.match(r"^[A-Za-z0-9_./-]+$", v):
                         idx.string_literals.add(v)
+
+    # Ground truth beyond the package: the repository's own test suite
+    # (``include_tests: true`` — the agent inspects tests as evidence and the
+    # prompt encourages offline/fake-client examples from those helpers) and
+    # the project's declared dependencies (third-party tools the docs
+    # legitimately reference). Both narrow the hallucination check to names
+    # that exist *nowhere* in the repo, its tests, or its declared stack.
+    _index_test_symbols(idx, pkg_path)
+    _index_declared_dependencies(idx, pkg_path)
     return idx
 
 
@@ -337,12 +564,23 @@ def check_page(page_md: str, idx: SymbolIndex, pkg_name: str) -> List[dict]:
         # Attributes and method names are real API surface too: docs
         # reference fields (`` `name` ``) and methods in backticks just
         # like functions and classes.
-        if sym in idx.module_symbols or sym in idx.string_literals \
-                or sym in idx.function_params or sym in idx.constants \
-                or sym in idx.attributes or sym in all_methods \
-                or sym in idx.docstring_names or sym in idx.source_tokens \
-                or sym in idx.modules or sym in bare_module_names \
-                or sym in _BUILTIN_NAMES:
+        # Real ground truth — skip. This is deliberately broad: the
+        # hallucination check targets names that exist NOWHERE in the repo,
+        # its tests, or its declared dependency stack. A backticked name that
+        # is a language keyword/builtin, a package symbol, a real test helper
+        # (``include_tests: true``), a declared dependency (``grpcio``,
+        # ``ruff``), or standard ecosystem tooling is not an invented package
+        # API.
+        if (sym in idx.module_symbols or sym in idx.string_literals
+                or sym in idx.function_params or sym in idx.constants
+                or sym in idx.attributes or sym in all_methods
+                or sym in idx.docstring_names or sym in idx.source_tokens
+                or sym in idx.modules or sym in bare_module_names
+                or sym in _BUILTIN_NAMES
+                or sym in _KEYWORD_NAMES
+                or sym in idx.test_symbols
+                or sym.lower() in idx.declared_dependencies
+                or sym.lower() in _TOOLING_NAMES):
             continue
         if sym.isupper():
             findings.append({"symbol": sym, "kind": "constant",
