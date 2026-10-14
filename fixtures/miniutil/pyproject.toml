@@ -1,0 +1,6 @@
+[project]
+name = "miniutil"
+version = "0.1.0"
+description = "A tiny text + math toolkit"
+requires-python = ">=3.9"
+dependencies = []

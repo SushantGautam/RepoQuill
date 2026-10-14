@@ -21,6 +21,44 @@ from typing import Any, Dict, List, Optional
 
 
 @dataclass
+class AgenticConfig:
+    """Settings for the agentic documentation engine (opt-in).
+
+    When :attr:`enabled` is true (or the ``--agentic`` CLI flag is passed),
+    narrative pages are authored by a bounded, tool-calling mini coding
+    agent that explores the repository, inspects the API and tests, runs
+    eligible examples, and writes the page — instead of the legacy
+    single-shot prompt. The deterministic API reference, the independent
+    verification gate, and the legacy path are all retained; agentic mode
+    only changes *how* the narrative pages are produced.
+
+    The agentic engine reuses the enclosing :class:`LLMConfig` provider
+    (provider / model / base_url / api_key_env) unless overridden here, so
+    any LiteLLM / OpenAI-compatible endpoint (including Qwen) works.
+    """
+
+    enabled: bool = False
+    # Optional provider overrides (inherit the llm: block when unset).
+    model: Optional[str] = None
+    base_url: Optional[str] = None
+    api_key_env: Optional[str] = None
+    # Loop bounds (per page) — bounded, never unbounded.
+    max_steps: int = 12            # max tool-execution steps per page
+    max_llm_calls: int = 16        # max LLM calls per page
+    max_parallel_pages: int = 3    # pages authored concurrently
+    max_page_chars: int = 60000    # reject candidate pages larger than this
+    # Tool policy.
+    execute_examples: bool = True  # allow the run_example tool
+    example_timeout: float = 30.0  # wall-clock seconds per executed example
+    max_file_chars: int = 16000    # per read_file truncation
+    # Independent verification.
+    coverage_threshold: float = 0.6  # semantic coverage ratio to pass
+    # "unified" = one agent investigates + writes (default, low overhead);
+    # "specialized" = separate investigation and writing passes.
+    roles: str = "unified"
+
+
+@dataclass
 class LLMConfig:
     """LLM provider settings (LiteLLM-backed)."""
 
@@ -30,6 +68,8 @@ class LLMConfig:
     base_url: Optional[str] = None
     rag: Dict[str, Any] = field(default_factory=dict)
     max_concurrent: int = 1  # Max parallel LLM calls (1 = sequential)
+    # Agentic documentation engine (opt-in; defaults to the legacy path).
+    agentic: "AgenticConfig" = field(default_factory=AgenticConfig)
 
     # --- Narrative generation knobs (Layer 2) ---
     # Sampling
@@ -144,6 +184,22 @@ def load_config(config_path: Optional[str] = None) -> RepoQuillConfig:
 
     # --- LLM block ---
     llm_raw = cfg_dict.get("llm", {}) or {}
+    ag_raw = llm_raw.get("agentic", {}) or {}
+    agentic = AgenticConfig(
+        enabled=bool(ag_raw.get("enabled", False)),
+        model=ag_raw.get("model"),
+        base_url=ag_raw.get("base_url"),
+        api_key_env=ag_raw.get("api_key_env"),
+        max_steps=int(ag_raw.get("max_steps", 12)),
+        max_llm_calls=int(ag_raw.get("max_llm_calls", 16)),
+        max_parallel_pages=int(ag_raw.get("max_parallel_pages", 3)),
+        max_page_chars=int(ag_raw.get("max_page_chars", 60000)),
+        execute_examples=bool(ag_raw.get("execute_examples", True)),
+        example_timeout=float(ag_raw.get("example_timeout", 30.0)),
+        max_file_chars=int(ag_raw.get("max_file_chars", 16000)),
+        coverage_threshold=float(ag_raw.get("coverage_threshold", 0.6)),
+        roles=str(ag_raw.get("roles", "unified")),
+    )
     llm = LLMConfig(
         provider=llm_raw.get("provider", "openai"),
         model=llm_raw.get("model", "gpt-4o"),
@@ -166,6 +222,7 @@ def load_config(config_path: Optional[str] = None) -> RepoQuillConfig:
         grounding_pass=bool(llm_raw.get("grounding_pass", False)),
         validate_examples=bool(llm_raw.get("validate_examples", False)),
         repair=bool(llm_raw.get("repair", False)),
+        agentic=agentic,
     )
 
     # --- Build block ---

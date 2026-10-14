@@ -28,17 +28,61 @@ RAG (optional):
 
 from __future__ import annotations
 
+import json
 import os
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import litellm
+
+from repoquill.agents.contracts import ChatResult, ToolCall
 
 # Drop unsupported params (e.g. temperature for o-series models)
 litellm.drop_params = True
 
 # Providers that run locally and never need an API key.
 _LOCAL_PROVIDERS = {"ollama", "lm_studio", "vllm", "local"}
+
+
+def _parse_chat_message(message) -> Tuple[Optional[str], List[ToolCall]]:
+    """Extract ``(content, tool_calls)`` from a provider chat message.
+
+    Works for both the OpenAI SDK message objects and LiteLLM's message
+    wrapper (both expose ``.content`` and ``.tool_calls`` with a
+    ``.function.name`` / ``.function.arguments`` shape).
+    """
+    content = getattr(message, "content", None)
+    tool_calls: List[ToolCall] = []
+    for tc in (getattr(message, "tool_calls", None) or []):
+        fn = getattr(tc, "function", None)
+        name = getattr(fn, "name", "") if fn else ""
+        raw_args = getattr(fn, "arguments", "") if fn else ""
+        try:
+            args = json.loads(raw_args) if raw_args else {}
+            if not isinstance(args, dict):
+                args = {"_raw": args}
+        except (json.JSONDecodeError, ValueError):
+            args = {"_raw": raw_args}
+        tool_calls.append(ToolCall(
+            id=(getattr(tc, "id", "") or ""),
+            name=name,
+            arguments=args,
+        ))
+    return content, tool_calls
+
+
+def _usage_to_dict(response) -> Optional[Dict[str, Any]]:
+    usage = getattr(response, "usage", None)
+    if usage is None:
+        return None
+    if isinstance(usage, dict):
+        return usage
+    out: Dict[str, Any] = {}
+    for key in ("prompt_tokens", "completion_tokens", "total_tokens"):
+        val = getattr(usage, key, None)
+        if val is not None:
+            out[key] = val
+    return out or None
 
 
 def _retry_wait(attempt: int, error: Exception) -> float:
@@ -160,6 +204,142 @@ class LLMClient:
                     time.sleep(wait)
         raise RuntimeError(
             f"LLM request failed after {retries} attempts: {last_error}"
+        ) from last_error
+
+    def chat_with_tools(
+        self,
+        messages: List[Dict[str, Any]],
+        tools: List[Dict[str, Any]],
+        tool_choice: Optional[Any] = None,
+        max_tokens: Optional[int] = None,
+        temperature: Optional[float] = None,
+        retries: int = 5,
+    ) -> ChatResult:
+        """A tool-calling chat completion (OpenAI function-calling style).
+
+        This is the workhorse of the agentic documentation engine: the model
+        may either return a final text answer or request one or more tool
+        calls, which the caller executes and feeds back as ``tool``-role
+        messages.
+
+        Both the standard LiteLLM provider path and the custom ``base_url``
+        OpenAI-compatible path (e.g. Qwen) are supported, and both honor the
+        same production retry/backoff policy (:func:`_retry_wait`, honoring
+        ``Retry-After``).
+
+        Args:
+            messages: OpenAI-style message list (may include ``tool``-role
+                messages with ``tool_call_id``).
+            tools: OpenAI function-calling schemas (as in
+                :data:`repoquill.agents.contracts.TOOL_SCHEMAS`).
+            tool_choice: Optional tool-choice hint (``"auto"``, ``"none"``
+                or a named tool). ``None`` means the provider default.
+            max_tokens: Max tokens for the response.
+            temperature: Sampling temperature.
+            retries: Number of attempts with exponential backoff.
+
+        Returns:
+            A :class:`repoquill.agents.contracts.ChatResult`.
+
+        Raises:
+            RuntimeError: If all retries are exhausted (e.g. a sustained
+                endpoint outage). Callers must treat this as a failed,
+                non-publishable page.
+        """
+        cfg = self.llm_cfg
+        if cfg.base_url:
+            return self._chat_with_tools_openai_direct(
+                messages=messages, tools=tools, tool_choice=tool_choice,
+                api_key=self._resolve_api_key(), max_tokens=max_tokens,
+                temperature=temperature, retries=retries)
+
+        import litellm
+        kwargs: Dict[str, Any] = {
+            "model": self._litellm_model(),
+            "messages": messages,
+            "max_tokens": max_tokens,
+            "temperature": temperature,
+            "tools": tools,
+        }
+        if tool_choice is not None:
+            kwargs["tool_choice"] = tool_choice
+
+        last_error: Optional[Exception] = None
+        for attempt in range(retries):
+            try:
+                response = litellm.completion(**kwargs)
+                content, tool_calls = _parse_chat_message(
+                    response.choices[0].message)
+                return ChatResult(
+                    content=content, tool_calls=tool_calls,
+                    usage=_usage_to_dict(response),
+                    model=getattr(response, "model", None))
+            except Exception as e:  # noqa: BLE001
+                last_error = e
+                if attempt < retries - 1:
+                    wait = _retry_wait(attempt, e)
+                    print(f"  retry {attempt + 1}/{retries} in {wait:.0f}s ({e})")
+                    time.sleep(wait)
+        raise RuntimeError(
+            f"LLM tool-calling request failed after {retries} attempts: "
+            f"{last_error}"
+        ) from last_error
+
+    def _chat_with_tools_openai_direct(
+        self,
+        *,
+        messages: List[Dict[str, Any]],
+        tools: List[Dict[str, Any]],
+        tool_choice: Optional[Any],
+        api_key: Optional[str],
+        max_tokens: Optional[int],
+        temperature: Optional[float],
+        retries: int = 5,
+    ) -> ChatResult:
+        """Tool-calling against a custom OpenAI-compatible endpoint.
+
+        Mirrors :meth:`_chat_openai_direct` but passes ``tools`` /
+        ``tool_choice`` and parses ``tool_calls`` from the response.
+        """
+        from openai import OpenAI
+
+        cfg = self.llm_cfg
+        client = OpenAI(
+            api_key=api_key,
+            base_url=cfg.base_url,
+            timeout=180.0,
+            default_headers={
+                "User-Agent": "repoquill/0.1.0 (+https://github.com/SushantGautam/RepoQuill)"
+            },
+        )
+        last_error: Optional[Exception] = None
+        for attempt in range(retries):
+            try:
+                create_kwargs: Dict[str, Any] = {
+                    "model": cfg.model,
+                    "messages": messages,
+                    "max_tokens": max_tokens,
+                    "temperature": temperature,
+                    "tools": tools,
+                }
+                if tool_choice is not None:
+                    create_kwargs["tool_choice"] = tool_choice
+                response = client.chat.completions.create(**create_kwargs)
+                content, tool_calls = _parse_chat_message(
+                    response.choices[0].message)
+                return ChatResult(
+                    content=content, tool_calls=tool_calls,
+                    usage=_usage_to_dict(response),
+                    model=getattr(response, "model", None))
+            except Exception as e:  # noqa: BLE001
+                last_error = e
+                if attempt < retries - 1:
+                    wait = _retry_wait(attempt, e)
+                    print(f"  retry {attempt + 1}/{retries} in {wait:.0f}s ({e})")
+                    time.sleep(wait)
+        raise RuntimeError(
+            f"LLM tool-calling request failed after {retries} attempts: "
+            f"{last_error}"
         ) from last_error
 
     def _chat_openai_direct(

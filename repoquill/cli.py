@@ -1669,6 +1669,29 @@ def _cmd_plan(args) -> int:
     return 0
 
 
+def _make_agentic_client(cfg):
+    """Build the LLM client for the agentic engine.
+
+    Uses the configured provider, honoring any ``llm.agentic`` overrides
+    (model / base_url / api_key_env). When no overrides are set, the
+    enclosing ``llm:`` block is used unchanged, so any LiteLLM or
+    OpenAI-compatible endpoint (including Qwen) works as-is.
+    """
+    from repoquill.config import LLMConfig
+
+    a = cfg.llm.agentic
+    if a.model or a.base_url or a.api_key_env:
+        base = cfg.llm
+        ov = LLMConfig(
+            provider=base.provider,
+            model=a.model or base.model,
+            api_key_env=a.api_key_env or base.api_key_env,
+            base_url=a.base_url or base.base_url,
+        )
+        return LLMClient(ov)
+    return LLMClient(cfg.llm)
+
+
 def _cmd_generate(args) -> int:
     cfg = load_config(args.config)
     if args.source_root:
@@ -1731,6 +1754,10 @@ def _cmd_generate(args) -> int:
             print("  No stored plan found; index will list guides as they appear.")
     else:
         client = LLMClient(cfg.llm)
+        # Agentic mode: `--agentic`/`--no-agentic` (when given) override the
+        # config's `llm.agentic.enabled`. Default (neither given) is config.
+        ag_flag = getattr(args, "agentic", None)
+        agentic_active = ag_flag if ag_flag is not None else cfg.llm.agentic.enabled
         if old_plan and not args.force:
             structure_valid = set(old_hashes.keys()) == set(new_hashes.keys())
             if structure_valid:
@@ -1812,10 +1839,21 @@ def _cmd_generate(args) -> int:
 
         print()
         print("[4/6] Generating narrative pages...")
-        generated = generate_all_pages(
-            pages, source_files, client, cfg, old_hashes, new_hashes,
-            force_slugs=force_slugs,
-        )
+        if agentic_active:
+            print("  mode: agentic (tool-calling documentation engine)")
+            from repoquill.agents import run_agentic_generation
+            aclient = _make_agentic_client(cfg)
+            generated = run_agentic_generation(
+                pages, cfg, aclient, cfg.llm.agentic,
+                old_hashes=old_hashes, new_hashes=new_hashes,
+                force_slugs=force_slugs,
+                verify_each=True,
+            )
+        else:
+            generated = generate_all_pages(
+                pages, source_files, client, cfg, old_hashes, new_hashes,
+                force_slugs=force_slugs,
+            )
 
         stale = cleanup_stale_pages({p["slug"] for p in pages}, cfg.out_guides)
         if stale:
@@ -1851,11 +1889,59 @@ def _cmd_generate(args) -> int:
                   f"{gsummary['findings_before']} findings before, "
                   f"{gsummary['findings_after']} after")
 
-    # Quality gate (deterministic, independent of the writing LLM):
-    # import + symbol checks over every current guide page, plus opt-in
-    # executable-example checks (llm.validate_examples). A failed gate
-    # blocks the site build, prevents those pages from being marked
-    # verified, and exits non-zero — the last known-good site is intact.
+    # --- [5/6] All documentation transformations -----------------------
+    # Every pass that REWRITES guide pages (cross-linking, container-protocol
+    # enrichment, type-claim correction) must complete BEFORE the quality
+    # gate and BEFORE success fingerprints are recorded. Otherwise the gate
+    # would verify content that is later mutated, and the recorded
+    # fingerprint would point at pre-transformation content.
+    print()
+    print("[5/6] Cross-linking guide pages...")
+    cross_link_guides(cfg, pages)
+
+    # Deterministic container-protocol enrichment (E43).
+    # Applied AFTER cross-linking so the "See Also" section rewrite
+    # does not strip the enrichment note.
+    from repoquill.narrative import _enrich_container_protocols
+    n_enriched = 0
+    for page in pages:
+        guide_path = os.path.join(cfg.out_guides, f"{page['slug']}.md")
+        if not os.path.exists(guide_path):
+            continue
+        with open(guide_path) as f:
+            content = f.read()
+        enriched = _enrich_container_protocols(content, cfg.pkg_path)
+        if enriched != content:
+            with open(guide_path, "w") as f:
+                f.write(enriched)
+            n_enriched += 1
+    if n_enriched:
+        print(f"  container-protocol enrichment: {n_enriched} pages updated")
+
+    # Deterministic type-claim verification (E47).
+    from repoquill.verify import fix_type_claims
+    n_type_fixed = 0
+    for page in pages:
+        guide_path = os.path.join(cfg.out_guides, f"{page['slug']}.md")
+        if not os.path.exists(guide_path):
+            continue
+        with open(guide_path) as f:
+            content = f.read()
+        fixed = fix_type_claims(content, cfg.pkg_path)
+        if fixed != content:
+            with open(guide_path, "w") as f:
+                f.write(fixed)
+            n_type_fixed += 1
+    if n_type_fixed:
+        print(f"  type-claim verification: {n_type_fixed} pages corrected")
+
+    # --- Final verification: quality gate (independent of the writer) ---
+    # Deterministic import + symbol checks over every current guide page,
+    # plus opt-in executable-example checks (llm.validate_examples). A
+    # failed gate blocks the site build, prevents those pages from being
+    # marked verified, and exits non-zero — the last known-good site is
+    # intact. (Agentic pages were additionally independently verified —
+    # semantic coverage + executed examples — during generation above.)
     from repoquill.validation import run_gate
     validate_examples = getattr(cfg.llm, "validate_examples", False)
     print()
@@ -1953,53 +2039,6 @@ def _cmd_generate(args) -> int:
         "gate": gate.as_dict(),
         "repairs": repair_results,
     })
-
-    print()
-    print("[5/6] Cross-linking guide pages...")
-    cross_link_guides(cfg, pages)
-
-    # Deterministic container-protocol enrichment (E43).
-    # Applied AFTER cross-linking so the "See Also" section rewrite
-    # does not strip the enrichment note.
-    # The LLM frequently omits iteration/indexing/length behavior for
-    # classes that define __iter__, __getitem__, __len__, etc.
-    # This pass scans each guide for classes with container protocols
-    # and appends a deterministic note if the behavior is not already
-    # documented. Generic: any Python package with collection types.
-    from repoquill.narrative import _enrich_container_protocols
-    n_enriched = 0
-    for page in pages:
-        guide_path = os.path.join(cfg.out_guides, f"{page['slug']}.md")
-        if not os.path.exists(guide_path):
-            continue
-        with open(guide_path) as f:
-            content = f.read()
-        enriched = _enrich_container_protocols(content, cfg.pkg_path)
-        if enriched != content:
-            with open(guide_path, "w") as f:
-                f.write(enriched)
-            n_enriched += 1
-    if n_enriched:
-        print(f"  container-protocol enrichment: {n_enriched} pages updated")
-
-    # Deterministic type-claim verification (E47).
-    # Replaces incorrect type claims in prose with the actual AST type.
-    # No LLM involved — pure AST lookup.  Generic: any Python package.
-    from repoquill.verify import fix_type_claims
-    n_type_fixed = 0
-    for page in pages:
-        guide_path = os.path.join(cfg.out_guides, f"{page['slug']}.md")
-        if not os.path.exists(guide_path):
-            continue
-        with open(guide_path) as f:
-            content = f.read()
-        fixed = fix_type_claims(content, cfg.pkg_path)
-        if fixed != content:
-            with open(guide_path, "w") as f:
-                f.write(fixed)
-            n_type_fixed += 1
-    if n_type_fixed:
-        print(f"  type-claim verification: {n_type_fixed} pages corrected")
 
     print()
     print("[6/6] Assembling MkDocs site...")
@@ -2114,22 +2153,35 @@ def main(argv=None) -> int:
     init.add_argument("-y", "--yes", action="store_true", help="Accept all defaults (non-interactive)")
 
     sub.add_parser("plan", parents=[common], help="Show the page plan")
+    def _add_agentic_flags(p):
+        p.add_argument("--agentic", action="store_true", default=None,
+                       dest="agentic",
+                       help="Author narrative pages with the agentic "
+                            "tool-calling engine instead of the legacy "
+                            "single-shot prompt (overrides config).")
+        p.add_argument("--no-agentic", action="store_false", dest="agentic",
+                       help="Force the legacy generation path even if "
+                            "llm.agentic.enabled is true in config.")
+
     gen = sub.add_parser("generate", parents=[common], help="Generate docs")
     gen.add_argument("--no-llm", action="store_true", help="Skip LLM layer")
     gen.add_argument("--no-scaffold", action="store_true", help="Skip LLM config scaffolding")
     gen.add_argument("--force", action="store_true", help="Full regenerate")
     gen.add_argument("--build", action="store_true", help="Also run mkdocs build")
+    _add_agentic_flags(gen)
 
     build = sub.add_parser("build", parents=[common], help="Generate + mkdocs build")
     build.add_argument("--no-llm", action="store_true", help="Skip LLM layer")
     build.add_argument("--no-scaffold", action="store_true", help="Skip LLM config scaffolding")
     build.add_argument("--force", action="store_true", help="Full regenerate")
+    _add_agentic_flags(build)
 
     serve = sub.add_parser("serve", parents=[common], help="Generate + local preview")
     serve.add_argument("--no-llm", action="store_true", help="Skip LLM layer")
     serve.add_argument("--no-scaffold", action="store_true", help="Skip LLM config scaffolding")
     serve.add_argument("--force", action="store_true", help="Full regenerate")
     serve.add_argument("--port", type=int, default=8000, help="Port (default 8000)")
+    _add_agentic_flags(serve)
 
     args = parser.parse_args(argv)
 

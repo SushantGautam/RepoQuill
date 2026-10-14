@@ -1,0 +1,12 @@
+# Minimal RepoQuill configuration for the MiniUtil fixture package.
+project_name: MiniUtil
+package_dir: miniutil
+output_dir: docs
+
+site:
+  name: MiniUtil Documentation
+  description: A tiny text + math toolkit
+
+llm:
+  provider: openai
+  model: gpt-4o
