@@ -169,17 +169,26 @@ jobs:
         if: steps.pi_engine.outputs.use_pi == 'true'
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          # @earendil-works/pi-coding-agent@1.2.0 declares "engines": node >=22.19.0.
+          # Node 20 installs with only an EBADENGINE warning but the pi binary
+          # then fails at runtime, so pin a satisfying major (latest 22.x).
+          node-version: '22'
 
       - name: Preprovision pinned Pi runtime (Pi engine)
         if: steps.pi_engine.outputs.use_pi == 'true'
         run: |
+          # Mirror repoquill.pi.bootstrap.ensure_pi exactly (cwd-based `npm
+          # install` in the cache dir — a `--prefix` install links the bin
+          # differently and `find_pi()` won't discover it), then verify the
+          # pinned binary runs so we fail here with a clear error instead of
+          # later inside `generate`.
           CACHE="$HOME/.cache/repoquill/pi"
           mkdir -p "$CACHE"
-          printf '{"name":"repoquill-pi-cache","private":true,"version":"0.0.0"}\n' > "$CACHE/package.json"
-          npm install --prefix "$CACHE" --no-audit --no-fund \
-            "@earendil-works/pi-coding-agent@1.2.0"
-          echo "pi version: $("$CACHE/node_modules/.bin/pi" --version 2>/dev/null || echo 'n/a')"
+          [ -f "$CACHE/package.json" ] || \
+            printf '{"name":"repoquill-pi-cache","private":true,"version":"0.0.0"}\n' > "$CACHE/package.json"
+          ( cd "$CACHE" && npm install --no-audit --no-fund \
+              "@earendil-works/pi-coding-agent@1.2.0" )
+          echo "pi version: $("$CACHE/node_modules/.bin/pi" --version)"
 
       - name: Clean previously generated docs
         if: inputs.clean == 'true'

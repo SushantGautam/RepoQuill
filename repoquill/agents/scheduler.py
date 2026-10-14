@@ -686,7 +686,7 @@ def run_pi_generation(
             f"Install the pinned runtime: npm install --prefix "
             f"{pi_contracts.DEFAULT_PI_CACHE_DIR} "
             f"{pi_contracts.PI_PACKAGE}@{pi_contracts.PI_PINNED_VERSION} "
-            "(Node >= 18 required), or point "
+            "(Node >= 22.19.0 required), or point "
             f"{pi_contracts.PI_BIN_ENV} at an existing pi executable. "
             "`repoquill doctor` shows readiness; --no-llm needs no Pi at "
             "all.")
