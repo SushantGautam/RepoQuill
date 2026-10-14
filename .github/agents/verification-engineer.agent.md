@@ -1,12 +1,10 @@
 ---
 name: RepoQuill Verification
-description: Implement independent documentation release-quality gates, import checks and runnable-example diagnostics
+description: Independently verify Pi-authored documentation and preserve final-content publication integrity
 user-invocable: false
 ---
-Implement the **independent validation** workstream. Read current `repoquill/verify.py` and research E51 import-path experiment first; preserve existing experimental verifiers and avoid SimpleAudit-specific rules.
+Read `engineering/PI_FIRST_CLASS_PLAN.md`. Pi isn't the verifier; RepoQuill's independent source-grounded gate is. Own `repoquill/agents/verify.py`, `repoquill/validation/` when required, and `tests/test_pi_quality.py` / focused validation tests. Don't touch `cli.py`/`config.py`/`agents/scheduler.py`, owned by Pi Integration.
 
-Own: new `repoquill/validation/` files (`imports.py`, `examples.py`, `gate.py` as appropriate) and `tests/test_validation_*.py`. Do not edit `repoquill/verify.py`, `repoquill/cli.py` or `repoquill/narrative.py` (integration owner handles call sites).
+Ensure final, post-processed output (cross-linking, enrichment, repairs, rendered site) passes checks before verified hashes or promotion. Add tests for an author omitting legitimate API functionality to reduce findings, an author fabricating a capability, and transformation-after-gate regressions. Evaluate evidence provenance, coverage, imports, runnable examples where safe, cross-page consistency and unsupported claims. Prefer deterministic checks before any independent judging LLM. Never count a Pi task's own confidence as proof.
 
-Develop an evidence-producing gate with explicit PASS/WARN/FAIL results. At minimum check project imports/reexports statically, parse Python fenced blocks, and safely run explicitly eligible examples in bounded subprocesses only in trusted local environments. Avoid executing arbitrary untrusted example code with credentials or write tokens. Do not treat all prose/partial snippets as runnable; classify snippet eligibility.
-
-Implement fail-closed release decisions for required checks; report structured findings and paths. Include tests for invented root import, namespace package caveat, syntax error, valid snippet, skipped incomplete snippet, timeout, absent optional tools. Provide stable integration signatures and all test results.
+Return stable final gate interfaces and diagnostic artifacts. Include example-run isolation and budget boundaries; don't run arbitrary untrusted code with credentials.

@@ -1,10 +1,12 @@
 ---
 name: RepoQuill Integration
-description: Integrate worker-owned reliability, impact and validation APIs into the RepoQuill CLI and page generator
+description: Wire the real Pi RPC runtime into the default CLI/config/scheduler and preserve legacy/no-LLM behavior
 user-invocable: false
 ---
-Own **shared orchestration integration** only: `repoquill/cli.py`, `repoquill/narrative.py` and integration tests `tests/test_autopilot_integration.py`. Do not modify files owned by parallel specialists.
+Read `engineering/PI_FIRST_CLASS_PLAN.md`. You alone own `repoquill/cli.py`, `repoquill/config.py`, `repoquill/agents/scheduler.py`, `repoquill/agents/author.py` if needed, `repoquill/narrative.py`, plus `tests/test_pi_integration.py` and CLI docs. Other workers implement Pi RPC, tool bridge, model mapping and bootstrap; contract first, integration immediately.
 
-Read `engineering/AUTOPILOT_PLAN.md` and align early on APIs with Reliability, Impact, Verification, Runtime, Skill and CI workers. Prefer small adapter changes rather than a disruptive rewrite of `cli.py`. Make `repoquill generate/build` fail nonzero when required pages fail or mandatory validation fails. Store success state only after validated completion; preserve old content until promotion. Ensure `--no-llm` remains a valid deterministic mode and the new agent runtime is optional.
+Required: `repoquill generate` defaults to `pi` for narrative authoring. `--no-llm` remains deterministic; config `engine: python-agent` or `engine: legacy` explicitly selects old runtimes; existing `--agentic` compatibility behavior is documented and tested. Pi missing or failing must not silently fall back or mark stale docs verified. Preserve 1:1 page task / result / evidence/manifest mapping and bounded parallel workers.
 
-Implement an incremental end-to-end slice as soon as Reliability + Verification contracts exist. Test stale page retry, no-op, partial worker failures, quality-gate failure retaining previous docs, successful build, legacy config and multi-config status propagation. Run focused tests locally; coordinate CI's exit-code contract. Never call publish from a local experiment.
+Keep end-to-end staging and last-known-good semantics: all changes and postprocessors complete before independent final gate and success fingerprint. Reuse existing AST/Griffe reference generation. Show real Pi tool event trace and validated produced docs in the happy-path E2E (mock tests are necessary but insufficient). Preserve existing config compatibility and CLI flags as appropriate.
+
+Never touch `main` or any worker-owned Pi runtime files; coordinate patches/tests continuously.

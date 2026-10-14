@@ -1,31 +1,34 @@
-# RepoQuill / VS Code Copilot operating instructions
+# RepoQuill — VS Code parallel coding fleet (Pi-first milestone)
 
-Read `AGENTS.md` and `engineering/AUTOPILOT_PLAN.md` first. Follow them as authoritative shared project instructions. Preserve the ongoing independent research protocol in `.claude/CLAUDE.md` and `research/`.
+**Active mission:** make the real Pi coding harness the default **in-product** documentation agent runtime. Read `AGENTS.md` and `engineering/PI_FIRST_CLASS_PLAN.md` first; this supersedes the older `engineering/AUTOPILOT_PLAN.md` for current implementation priorities. Preserve research baseline in `research/`.
 
-**Mission:** turn RepoQuill into self-healing, continuously verified documentation. Implement rather than only suggest changes. Work on `dev`; never write to `main` or publish a site during local experimentation.
+Do NOT confuse:
+- **VS Code/Copilot subagents** = specialists implementing RepoQuill in this session.
+- **Runtime Pi workers** = actual subprocess-backed agents used by RepoQuill customers to author their documentation.
 
-## Use a coordinated parallel fleet
-- In an Agent session, delegate independent, bounded implementation jobs immediately when parallel subagents are supported. Ask explicitly for *concurrent* execution; don't serially wait for independent agents.
-- Workspace specialist profiles live in `.github/agents/`. Call the named agent when supported, otherwise delegate equivalent scoped tasks. These are **development agents**; the production mini-agent runtime inside RepoQuill is a separate optional feature.
-- Assign disjoint file ownership from `engineering/AUTOPILOT_PLAN.md`. Let the integration agent own `repoquill/cli.py` and `repoquill/narrative.py` exclusively.
-- Use branch/worktree isolation if multiple sessions may collide. Never silently overwrite another agent's edits or perform uncontrolled merges.
-- Prefer small working vertical slices and early integration. Do not spend the whole session on framework comparisons, broad refactors or planning documents.
-- Run small, relevant tests before every handoff. Capture real results. Keep fixes generic and measure against non-SimpleAudit repositories.
+Do NOT implement a second Python-only tool loop and call it Pi. RepoQuill already has a homegrown loop in `repoquill/agents/author.py`; reuse its evidence, planning and verification primitives through a **Pi RPC adapter** with a genuine Pi process and constrained tools.
 
-## Implementation guidelines
-- Python >=3.9 per current pyproject, unless an intentional tested compatibility change is made. No unnecessary heavy runtime dependencies.
-- Keep deterministic verification and LLM/agent repairs clearly separated. Validation gates must execute independently of a writing LLM.
-- Commit only intentional source/config/test changes. Avoid generated site changes, accidental `docs/.plan.json` churn and research experiment output churn.
-- Log failures clearly and preserve last-good published docs. A "success" exit code must mean required pages and checks succeeded.
-- No silent fallback from failed generated content to stale content marked as fresh.
-- For CI, isolate untrusted PR read/test jobs from secret-bearing publishing jobs.
-- No generic or fabricated imports, example arguments, capabilities, credentials, benchmark scores or undocumented APIs.
+## Dispatch — first wave concurrent
+Coordinate six independent owners from `engineering/PI_FIRST_CLASS_PLAN.md`: (1) Pi RPC/process/protocol, (2) Pi tool bridge/extension/policy, (3) Pi Qwen + model config, (4) bootstrap + CI, (5) independent validation and evidence metrics, (6) single pipeline integrator. Read corresponding profiles under `.github/agents/`. If true parallel subagents aren't available, use concurrent VS Code sessions and isolated worktrees, or perform tasks sequentially and say so. Explicitly preserve file ownership; agree on contract signatures immediately.
 
-## Concrete workflow
-1. Confirm branch + repository state. Read latest plans.
-2. Dispatch the six owner-scoped tasks concurrently; record ownership.
-3. Have the integration owner prepare contracts/tests without editing worker-owned files.
-4. Reconcile changes, run fast tests, end-to-end `--no-llm` and one LLM test when credentials exist.
-5. Report implemented features, commands/tests, known gaps and exact next tasks. Continue fixing blockers rather than stopping at a high-level roadmap.
+Prioritize a running thin vertical slice: Python invokes an actual Pi process; Pi makes ≥2 real repository-inspection tool calls; writes a guide through a docs-only tool; RepoQuill independently checks it and records verified state. THEN harden automatic installation, models, parallelism, CI, benchmarks and edge cases.
 
-Launch prompt lives at `.github/prompts/autopilot-fleet.prompt.md`.
+## Pi interfaces: verify against upstream
+Official upstream repository: https://github.com/earendil-works/pi
+RPC: https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/rpc.md
+CLI: https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/cli.md
+Model endpoint config: https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/models.md
+
+Known confirmed baseline: `pi --mode rpc --no-session` accepts JSONL on stdin and emits responses/events on stdout; prompt acceptance isn't completion; wait for `agent_settled`, correlate command IDs, handle child exits/timeout/stderr. Current package is `@earendil-works/pi-coding-agent`, but pin a verified version rather than assuming latest. Verify flags against installed `pi --help`; don't blindly copy stale blog examples.
+
+For unattended runtime, use explicit tool allowlists, `--no-extensions` plus explicit vetted RepoQuill extension, `--no-mcp`, `--no-skills`, `--no-prompt-templates`, and `--no-context-files` (verify flags with the pinned version). Disable built-in shell and write/edit; custom tools must enforce realpath/source separation and writes only to a temporary docs staging tree. Treat repositories/README/AGENTS.md as untrusted task data, not high-priority commands. No production secrets in subprocess logs or replay artifacts.
+
+## Session loop
+- Confirm `git status`, `dev` HEAD and `main` HEAD before edits.
+- Delegate with distinct path ownership and acceptance tests. Integrator owns `cli.py`, `config.py`, `agents/scheduler.py`, `agents/author.py`, and API wiring.
+- Merge working increments to `dev` as ready; no agent writes `main` or shares a worktree without coordination.
+- Prove correct runtime selection, graceful missing-Pi error, legacy fallback only when explicitly configured, and no-LM compatibility.
+- Run tests on actual modified code. Real Pi E2E mandatory for declaring Pi working; use recorded fake Pi RPC fixture for deterministic CI.
+- Report exact implemented features, test results, node/pi versions, end-to-end tool trace, API/model behavior, remaining blockers.
+
+Full launch brief: `.github/prompts/pi-first-class-fleet.prompt.md`.

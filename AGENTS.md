@@ -1,40 +1,35 @@
-# RepoQuill — shared coding-agent contract
+# RepoQuill — coding-agent contract (Pi-first milestone)
 
-RepoQuill is a **generic Python documentation maintenance engine**, not a SimpleAudit-specific tool. Its north star is **continuous, verified documentation with no routine human maintenance**: detect source changes, update only affected docs, validate independently, repair failures within a bounded budget, and never publish an unverified candidate.
+RepoQuill is a generic, continuously maintained documentation system. **Pi is the intended default, first-class narrative authoring runtime**; RepoQuill retains responsibility for planning, deterministic Griffe/AST API reference, source evidence, scoped tools, concurrency, verification, per-page manifests, and last-known-good publishing. The current on-branch agentic engine is a **homegrown Python tool-calling loop**, NOT Pi. Your coding task is to integrate the actual Pi runtime, not rename or wrap existing code while calling it Pi.
 
-## Start here
-- Read `engineering/AUTOPILOT_PLAN.md` for milestones, ownership, interfaces and acceptance criteria.
-- Read `.github/copilot-instructions.md` when running GitHub Copilot in VS Code.
-- Read `research/BEST_KNOWN.md` and `research/NEXT_EXPERIMENT.md` before modifying the documented generation/verification behavior. `.claude/CLAUDE.md` defines the preserved research methodology.
-- Core code: `repoquill/cli.py` (orchestration), `plan.py` (hash cache), `narrative.py` (LLM pages), `reference.py` (AST/Griffe), `verify.py` / `surgical_verify.py` / `grounding.py`, `site.py` (MkDocs/agent skill), `llm.py`.
-- Existing tests: `tests/`. Research evaluations: `research/eval/`.
+## Source of truth / current state
 
-## Execution policy
-1. **Deliver code, not just a plan.** The default is autonomous implementation on `dev` with fast incremental milestones; do not wait for repeated human acknowledgements.
-2. **Parallelize only independent file ownership.** Parent coordinates; specialists own disjoint paths. Never let two agents modify the same file concurrently. Put a task and its tests under one owner. When collisions arise, use worktrees/feature branches or serialize that change.
-3. **Integrate continuously.** Agree on function contracts before implementation, implement thin vertical slices, and run relevant tests at each handoff. Don't defer integration to the end.
-4. **Keep all existing public CLI behavior working.** Preserve `uvx repoquill init`, `repoquill generate`, `build`, `serve`, `plan`, `--no-llm` and existing YAML compatibility unless a tested migration is included.
-5. **Fix urgent correctness before optimization:** failed generation advancing successful hashes; missing quality gate; genericity bug in `build_skill_md`; secure CI publishing.
-6. **Source of truth is implementation + tests.** A generated page is *not* evidence that its own assertions are correct. Do not hardcode for SimpleAudit. Validate on at least one unrelated package when altering factuality behavior.
-7. **Never publish on generation failure.** Use per-page success state, temporary output, independent validation, then atomic publish; retain last-known-good docs when a run fails. Unverified claims must not silently become facts.
-8. **Agent code is opt-in, bounded, and scoped to documentation.** Default fast deterministic path; no arbitrary source-code edits, no secret exposure in logs, no unsafe execution of untrusted PRs with write tokens, no irreversible operations.
-9. **Fast tests are mandatory, exhaustive reruns are not.** Use focused tests during development and full suite + one offline `--no-llm` integration before merging. Report failing tests explicitly, never declare success from unrun tests.
-10. **Do not edit `main`, force-push, or deploy from experiment branches.** Commit coherent, reviewable changes on `dev` (or separate worktrees integrated into `dev`). Keep research outputs and best-known state intact unless measurements justify an update.
+Read in order: `engineering/PI_FIRST_CLASS_PLAN.md` (active engineering mission), `.github/copilot-instructions.md` (VS Code workflow), `engineering/AUTOPILOT_PLAN.md` (completed/partly completed historical milestones), `research/BEST_KNOWN.md` and `.claude/CLAUDE.md` (research baseline).
 
-## Speed + synchronization
-- Launch a **first parallel wave of up to six independent specialists** (reliability, impact, validation, agent-runtime, skill-generator, CI), then a single integration owner for shared orchestration files.
-- Each worker reports: file changes, tests actually run, results, API contract, risks, commit/hash.
-- Use `python -m pytest -q tests/<focused_test>.py` (or `uv run pytest ...` if supported), then `python -m pytest -q`.
-- Parent reports measurable progress by functional milestone, not by number of files.
-- If subagent tooling cannot execute in parallel, use separate VS Code agent sessions/worktrees and merge nonoverlapping work; do not claim parallel execution happened unless verified.
+At the start of this mission (`dev` was at `19cfcd0854ed1b1c0d4ff9673308877c7c5183aa`; recheck latest HEAD):
+- `repoquill/agents/author.py` + `tools.py` + `scheduler.py` + `evidence.py` + `verify.py`: homegrown tool-calling authorship, tools, parallel pages, evidence and checks.
+- `repoquill/agents/repair.py`: older bounded documentation repair, separate from authoring.
+- `repoquill/config.py`: `llm.agentic.enabled` defaults to false; `cli.py` uses `--agentic`/`--no-agentic` and existing LLM client.
+- `repoquill/validation/`, `core/manifest.py`, `core/impact.py`: independent gates, retry state, impact mapping.
+- `tests/test_agentic_e2e.py`, `test_agent_*`, `fixtures/miniutil/`: valuable baseline; preserve them.
 
-## Definition of done for autopilot v1
-- Modified Python API / docs source triggers impact detection and appropriate pages regenerate.
-- A failed page is retried on the next invocation even when source hashes did not change again.
-- A failed validator or build prevents publishing; last-known-good site remains intact.
-- Examples/imports are checked, with bounded, evidence-backed automated repair; unknown behavior is flagged rather than invented.
-- A generated `SKILL.md` makes no domain-specific claims about an unrelated package.
-- Tests cover failures/recovery, incremental no-op, CI permissions, and one cross-repository case.
-- `uvx` CLI remains backward compatible; regular runs need not use the agent subsystem.
+## Non-negotiable product contract
+1. Running `uvx repoquill generate` should select **Pi** by default for agent-authored narratives, not the existing homegrown tool loop and not one-shot LLM prompts.
+2. Pi actually runs: spawn Pi in `--mode rpc --no-session`, send RPC JSONL commands, observe tool events and `agent_settled`, and consume the staged artifact. Mock-only code does not satisfy this.
+3. Keep `--no-llm` deterministic reference generation. Explicit `engine: python-agent` or `engine: legacy` can opt out; older `--agentic` flags are compatibility aliases or clearly migrated. Never silently fall back from Pi failure to another engine.
+4. Keep the Python `uvx` entry point and no Node dependency for deterministic modes. For Pi mode, manage/discover/version-pin the required runtime, diagnose missing Node/Pi cleanly, and provision Pi in CI. No unreviewed installation script or silent global upgrade.
+5. Reuse the existing Python evidence, ToolRegistry semantics, AST/Griffe extraction, verification, scheduling, and manifest. Do not reimplement a second documentation engine around Pi.
+6. Pi is a coding harness, but documentation tasks are **docs-only**. Do NOT grant its default `bash`, `edit`, or `write` tools in ordinary unattended runs. Explicitly disable discovered/user/project extensions, skills, prompts, MCP and contexts where possible; load only RepoQuill's vetted extension bridging allowlisted tools, with source read-only and writes limited to staged documentation. Defense in depth: isolated filesystem/process credentials, not merely tool-name filtering. Example execution is opt-in, resource-limited, isolated and credential-free.
+7. Pi's model inherits RepoQuill `llm.provider` / `model` / `base_url` / `api_key_env` where representable. Support self-hosted OpenAI-compatible Qwen using a generated temporary Pi provider configuration with environment references (not credentials embedded in tracked files). Match tested endpoint behavior; do not assume every OpenAI-compatible endpoint supports native tool calls or identical sampling.
+8. Independent final verification must run **after all transformations** (cross-links, enrichments, repairs, index/site generation as applicable), and record fingerprints only for final verified output. Never publish incomplete, hallucinated or failed work. Retain last-good artifacts.
+9. Preserve existing public CLI/config/reusable-workflow behavior or add documented, tested migration. Do not hardcode SimpleAudit; validate RepoQuill, `fixtures/miniutil` and one unrelated package.
+10. During implementation, work on `dev` ONLY. Don't force-push, update `main`, or deploy without explicit user instruction. The old branch was accidentally merged early; never repeat that.
 
-See `engineering/AUTOPILOT_PLAN.md` for precise worker assignments and integration gates.
+## Parallel coding policy
+Delegate **genuinely independent** work concurrently to: Pi RPC, Pi Tool Bridge, Pi Models, Pi Bootstrap/CI, Pi Quality, Pi Integration. Profile instructions in `.github/agents/` and exact write ownership in `engineering/PI_FIRST_CLASS_PLAN.md` override earlier Autopilot ownership (which is historical). Integration owner alone touches `repoquill/cli.py`, `config.py`, `agents/scheduler.py` and existing `agents/author.py`. Never have independent agents edit overlapping files. Use separate worktrees/branches for concurrent commits and integrate continuously after agreeing on types and failure semantics.
+
+Implement production-thin end-to-end first, not a framework comparison or documentation-only plan. Run focused tests, full `python -m pytest -q tests/`, then a **real Pi RPC tool-calling E2E** against a disposable fixture with controlled model endpoint when available. Fake models test protocol and failures; real Pi is required for claiming integration. Avoid expensive repeated model benchmarks in the inner loop.
+
+Every worker reports owned files, contract, actual test commands/results, risks, and commit. Parent reports implemented vs planned honestly. Keep research baseline unchanged unless measured evidence supports updates. Never claim elapsed time, tests, or parallel execution that did not occur.
+
+For the immediately executable brief use `.github/prompts/pi-first-class-fleet.prompt.md`.
