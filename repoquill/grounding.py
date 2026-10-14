@@ -10,6 +10,27 @@ import sys
 from typing import Dict, List
 
 
+def _find_eval_script(script_name: str) -> str:
+    """Locate an eval checker script across supported repo layouts.
+
+    The checkers historically lived in <repo>/eval/ and were later
+    consolidated into <repo>/research/eval/. Check both, relative to this
+    package and to the CWD.
+    """
+    here = os.path.dirname(os.path.abspath(__file__))
+    candidates = [
+        os.path.join(here, "..", "eval", script_name),
+        os.path.join(here, "..", "research", "eval", script_name),
+        os.path.join(os.getcwd(), "eval", script_name),
+        os.path.join(os.getcwd(), "research", "eval", script_name),
+    ]
+    for c in candidates:
+        c = os.path.normpath(c)
+        if os.path.exists(c):
+            return c
+    return candidates[0]  # return first for a clear error message
+
+
 def run_grounding_pass(
     guides_dir: str,
     pkg_path: str,
@@ -36,11 +57,7 @@ def run_grounding_pass(
             pages_fixed: number of pages that were rewritten
     """
     # Run prose checker to get findings
-    checker = os.path.join(os.path.dirname(__file__), "..", "eval", "prose_api_semantics_check.py")
-    checker = os.path.normpath(checker)
-    if not os.path.exists(checker):
-        # Try alternate location
-        checker = os.path.join(os.getcwd(), "eval", "prose_api_semantics_check.py")
+    checker = _find_eval_script("prose_api_semantics_check.py")
 
     out_json = os.path.join(guides_dir, ".prose_check_grounding.json")
     try:
@@ -61,10 +78,7 @@ def run_grounding_pass(
     findings = check_data.get("findings", [])
 
     # Also run the semantic value checker (E20) and merge its findings
-    sem_checker = os.path.join(os.path.dirname(__file__), "..", "eval", "semantic_value_check.py")
-    sem_checker = os.path.normpath(sem_checker)
-    if not os.path.exists(sem_checker):
-        sem_checker = os.path.join(os.getcwd(), "eval", "semantic_value_check.py")
+    sem_checker = _find_eval_script("semantic_value_check.py")
     sem_out_json = os.path.join(guides_dir, ".semantic_check_grounding.json")
     try:
         result = subprocess.run(
