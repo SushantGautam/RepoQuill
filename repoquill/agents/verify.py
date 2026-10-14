@@ -34,7 +34,7 @@ from repoquill.agents.contracts import (
     VerificationResult,
 )
 from repoquill.validation.examples import run_page_examples
-from repoquill.validation.imports import check_page_imports
+from repoquill.validation.imports import check_page_imports, _local_package_tops
 from repoquill.validation.symbols import check_page_symbols
 from repoquill.verify import build_index
 
@@ -134,7 +134,8 @@ def verify_page(
             )
 
         symbol_findings = check_page_symbols(tmp_page, idx)
-        import_findings = check_page_imports(tmp_page, idx)
+        local_tops = _local_package_tops(ctx.pkg_path)
+        import_findings = check_page_imports(tmp_page, idx, local_tops=local_tops)
 
         example_findings: List[Dict] = []
         if run_examples:

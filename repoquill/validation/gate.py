@@ -23,7 +23,7 @@ from typing import List, Optional
 
 from repoquill.verify import build_index
 from repoquill.validation.examples import run_page_examples
-from repoquill.validation.imports import check_page_imports
+from repoquill.validation.imports import check_page_imports, _local_package_tops
 from repoquill.validation.symbols import check_page_symbols
 
 #: Checks that must run (and pass) for the gate to pass.
@@ -102,49 +102,6 @@ class GateResult:
 
 def _pages(guides_dir: str) -> List[str]:
     return sorted(f for f in os.listdir(guides_dir) if f.endswith(".md"))
-
-
-def _local_package_tops(pkg_path: str) -> set:
-    """Top-level Python package/dir names in the source repository root.
-
-    The documented package is verified against the symbol index; sibling
-    top-level packages of the source repo (e.g. its ``tests`` package) are
-    part of the repo but absent from the index. Returning their top-level
-    names lets the import check treat them as in-scope (out-of-scope-for-
-    verification) instead of flagging them as missing third-party libraries.
-
-    The root is located by walking up from the package to the nearest
-    directory containing ``pyproject.toml`` / ``setup.py`` / ``.git``
-    (handles ``src/`` layouts). Bounded to 5 levels.
-    """
-    start = os.path.dirname(os.path.abspath(pkg_path))
-    cur = start
-    root = start
-    for _ in range(5):
-        if (os.path.exists(os.path.join(cur, "pyproject.toml"))
-                or os.path.exists(os.path.join(cur, "setup.py"))
-                or os.path.isdir(os.path.join(cur, ".git"))):
-            root = cur
-            break
-        parent = os.path.dirname(cur)
-        if parent == cur:
-            break
-        cur = parent
-    tops: set = set()
-    if os.path.isdir(root):
-        for entry in os.listdir(root):
-            if entry.startswith("."):
-                continue
-            d = os.path.join(root, entry)
-            if not os.path.isdir(d):
-                continue
-            try:
-                has_py = any(f.endswith(".py") for f in os.listdir(d))
-            except OSError:
-                has_py = False
-            if has_py:
-                tops.add(entry)
-    return tops
 
 
 def run_gate(guides_dir: str, pkg_path: str,

@@ -8,7 +8,7 @@ import os
 import textwrap
 
 from repoquill.validation import run_gate
-from repoquill.validation.gate import _local_package_tops
+from repoquill.validation.imports import _local_package_tops
 
 
 def _setup(tmp_path):
