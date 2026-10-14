@@ -18,8 +18,9 @@ from __future__ import annotations
 import json
 import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Dict, List
+from typing import Dict, List, Optional
 
+from repoquill.core.manifest import record_page_failure, record_page_success
 from repoquill.llm import strip_code_fences
 from repoquill.plan import page_needs_regeneration
 from repoquill.reference import (
@@ -570,8 +571,10 @@ def _generate_single_page(
         content = generate_page(page, source_files, client, cfg)
         with open(out_path, "w") as f:
             f.write(content)
+        record_page_success(page, out_path)
         return (slug, True, f"OK ({len(content)} chars)")
     except Exception as e:  # noqa: BLE001
+        record_page_failure(page, f"{type(e).__name__}: {e}")
         return (slug, False, f"FAILED: {e}")
 
 
@@ -582,10 +585,16 @@ def generate_all_pages(
     cfg,
     old_hashes: Dict[str, str],
     new_hashes: Dict[str, str],
+    force_slugs: Optional[set] = None,
 ) -> List[str]:
     """Generate all narrative pages that need regeneration.
 
     Uses parallel execution when cfg.llm.max_concurrent > 1.
+
+    Per-page outcomes are recorded on each page dict via the manifest
+    (``status`` ok/failed + content hash) so the caller can persist
+    retry-safe state; a failed page is re-attempted on the next run
+    even when no source hashes changed.
 
     Args:
         pages: List of page dicts.
@@ -594,9 +603,11 @@ def generate_all_pages(
         cfg: A :class:`repoquill.config.RepoQuillConfig`.
         old_hashes: Hashes from the previous plan.
         new_hashes: Hashes of the current source files.
+        force_slugs: Optional set of slugs to regenerate regardless of
+            hash comparison (e.g. affected-page mapping from an AST diff).
 
     Returns:
-        List of slugs that were (re)generated.
+        List of slugs that were (re)generated successfully.
     """
     os.makedirs(cfg.out_guides, exist_ok=True)
     
@@ -607,13 +618,17 @@ def generate_all_pages(
         title = page["title"]
         out_path = os.path.join(cfg.out_guides, f"{slug}.md")
 
-        if not page_needs_regeneration(page, old_hashes, new_hashes, out_path):
+        forced = force_slugs is not None and slug in force_slugs
+        if not forced and not page_needs_regeneration(page, old_hashes, new_hashes, out_path):
             print(f"  [{i + 1}/{len(pages)}] {title} — SKIP (source unchanged)")
             continue
 
         changed = [f for f in page.get("source_files", [])
                    if old_hashes.get(f) != new_hashes.get(f)]
-        reason = f"changed: {', '.join(changed)}" if changed else "new page"
+        if forced:
+            reason = "forced (cross-file impact)"
+        else:
+            reason = f"changed: {', '.join(changed)}" if changed else "new page"
         to_generate.append((i, page, reason))
 
     if not to_generate:

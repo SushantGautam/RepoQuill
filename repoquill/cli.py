@@ -37,7 +37,6 @@ from repoquill.plan import (
     cleanup_stale_pages,
     compute_file_hashes,
     load_plan,
-    store_plan,
 )
 from repoquill.reference import build_api_reference, get_source_files
 from repoquill.source_link import run_mkdocs
@@ -50,6 +49,33 @@ from repoquill.site import (
     build_skill_md,
     cross_link_guides,
 )
+
+
+def _surface_to_json(surface) -> dict:
+    """Serialize an ``ApiSurface`` for storage in ``.plan.json`` (sets → lists)."""
+    modules = {}
+    for mod, m in surface.modules.items():
+        modules[mod] = {
+            "functions": dict(m.get("functions", {})),
+            "classes": {k: dict(v) for k, v in m.get("classes", {}).items()},
+            "reexports": sorted(m.get("reexports", ())),
+            "imports": sorted(m.get("imports", ())),
+        }
+    return modules
+
+
+def _surface_from_json(stored) -> "ApiSurface":
+    """Rebuild an ``ApiSurface`` from the ``api_surface`` block of a plan."""
+    from repoquill.core.impact import ApiSurface
+    modules = {}
+    for mod, m in (stored or {}).items():
+        m = dict(m)
+        m["reexports"] = set(m.get("reexports", ()))
+        m["imports"] = set(m.get("imports", ()))
+        m.setdefault("functions", {})
+        m.setdefault("classes", {})
+        modules[mod] = m
+    return ApiSurface(modules=modules, errors=[])
 
 
 def _get_trackable_files(cfg) -> dict:
@@ -135,15 +161,38 @@ def _cleanup_mkdocs_yml(cfg) -> None:
 
 
 def _run_mkdocs_build(cfg, skill_content: str | None = None) -> None:
-    """Run `mkdocs build` in the correct directory."""
+    """Run `mkdocs build` in the correct directory.
+
+    The previously built site is preserved as ``<site_dir>.last-good``
+    during the build: if the build fails, the last known-good site is
+    restored so a failed run never leaves a broken/partial site behind.
+    """
     print("\n[build] Running mkdocs build...")
-    run_mkdocs("build", cwd=_mkdocs_cwd(cfg))
     site_dir = cfg.build.get("site_dir", "site_repoquill")
     # With output_dir, build_mkdocs_yml rewrites a relative site_dir to a
     # sibling of the output dir (a relative path would land inside docs_dir).
     if cfg.raw.get("output_dir") and not os.path.isabs(site_dir):
         site_dir = os.path.join(os.path.dirname(cfg.site_src), site_dir)
     site_path = os.path.join(_mkdocs_cwd(cfg), site_dir)
+    last_good = site_path + ".last-good"
+
+    if os.path.isdir(site_path):
+        if os.path.exists(last_good):
+            shutil.rmtree(last_good, ignore_errors=True)
+        os.replace(site_path, last_good)
+
+    try:
+        run_mkdocs("build", cwd=_mkdocs_cwd(cfg))
+    except BaseException:
+        # Build failed — restore the last known-good site, if any.
+        shutil.rmtree(site_path, ignore_errors=True)
+        if os.path.isdir(last_good):
+            os.replace(last_good, site_path)
+            print(f"  Build failed — restored last known-good site from {last_good}")
+        raise
+    else:
+        if os.path.exists(last_good):
+            shutil.rmtree(last_good, ignore_errors=True)
 
     # Write SKILL.md as a raw plain-text file into the site output.
     # We don't put it in site_src because MkDocs would render it to HTML.
@@ -1653,6 +1702,7 @@ def _cmd_generate(args) -> int:
     old_plan = None if args.force else load_plan(cfg.plan_file)
     old_hashes = old_plan.get("file_hashes", {}) if old_plan else {}
 
+    failed_slugs: set = set()
     if args.no_llm:
         print("[3/6] Narrative pages — SKIPPED (--no-llm)")
         pages = old_plan.get("pages", []) if old_plan else []
@@ -1686,10 +1736,57 @@ def _cmd_generate(args) -> int:
                 print(f"    - {p['title']} ({p['slug']})")
             old_hashes = {}
 
+        # Cross-file impact detection (autopilot M2): AST API diff of the
+        # current source surface against the surface stored in the last
+        # plan. Pages affected by a rename/removal/signature/reexport
+        # change are force-regenerated even when their own tracked files
+        # did not change. The mapping is conservative: unknowns count as
+        # affected, never as safe.
+        force_slugs = None
+        current_surface: dict = {}
+        try:
+            from repoquill.core.impact import (
+                diff_surfaces,
+                extract_api_surface,
+            )
+            new_surf = extract_api_surface(source_files)
+            current_surface = _surface_to_json(new_surf)
+            if (old_plan is not None and not args.force
+                    and old_plan.get("api_surface")):
+                old_surf = _surface_from_json(old_plan["api_surface"])
+                diff = diff_surfaces(old_surf, new_surf)
+                if not diff.is_empty():
+                    from repoquill.core.dependencies import (
+                        affected_slugs,
+                        build_page_dependencies,
+                    )
+                    module_symbols = {
+                        mod: (set(m.get("functions", {}))
+                              | set(m.get("classes", {}))
+                              | {s for c in m.get("classes", {}).values()
+                                 for s in c.get("methods", {})})
+                        for mod, m in new_surf.modules.items()
+                    }
+                    deps = build_page_dependencies(
+                        pages, cfg.out_guides, module_symbols)
+                    affected = affected_slugs(
+                        diff, deps, [p["slug"] for p in pages])
+                    if affected:
+                        force_slugs = set(affected)
+                        print(f"[3b] Cross-file API impact: "
+                              f"{len(affected)} page(s) affected")
+                        for s in sorted(affected)[:10]:
+                            print(f"    - {s}: {'; '.join(affected[s][:3])}")
+        except Exception as e:  # noqa: BLE001
+            # Analysis bug: never crash the run; the hash cache still
+            # covers same-file changes.
+            print(f"  impact analysis skipped (hash cache only): {e}")
+
         print()
         print("[4/6] Generating narrative pages...")
         generated = generate_all_pages(
-            pages, source_files, client, cfg, old_hashes, new_hashes
+            pages, source_files, client, cfg, old_hashes, new_hashes,
+            force_slugs=force_slugs,
         )
 
         stale = cleanup_stale_pages({p["slug"] for p in pages}, cfg.out_guides)
@@ -1726,7 +1823,93 @@ def _cmd_generate(args) -> int:
                   f"{gsummary['findings_before']} findings before, "
                   f"{gsummary['findings_after']} after")
 
-        store_plan(cfg.plan_file, pages, new_hashes)
+    # Quality gate (deterministic, independent of the writing LLM):
+    # import + symbol checks over every current guide page, plus opt-in
+    # executable-example checks (llm.validate_examples). A failed gate
+    # blocks the site build, prevents those pages from being marked
+    # verified, and exits non-zero — the last known-good site is intact.
+    from repoquill.validation import run_gate
+    validate_examples = getattr(cfg.llm, "validate_examples", False)
+    print()
+    print("[gate] Quality gate (import + symbol checks)...")
+    gate = run_gate(
+        cfg.out_guides, cfg.pkg_path,
+        pkg_name=cfg.package_dir or None,
+        run_examples=validate_examples,
+    )
+    if not gate.passed:
+        print(f"  gate: FAILED — {gate.summary()}")
+        if not args.no_llm and getattr(cfg.llm, "repair", False):
+            # Opt-in bounded, docs-only repair, then independent re-check.
+            from repoquill.agents import repair_pages
+            print("  repair: bounded docs-only repair (opt-in)...")
+            rresults = repair_pages(cfg.out_guides, cfg.pkg_path, client=client)
+            for rr in rresults:
+                print(f"    {os.path.basename(rr.page_path)}: {rr.status} "
+                      f"(attempts={rr.attempts}, llm_calls={rr.llm_calls})")
+            print("  gate: re-validating repaired pages...")
+            gate = run_gate(
+                cfg.out_guides, cfg.pkg_path,
+                pkg_name=cfg.package_dir or None,
+                run_examples=validate_examples,
+            )
+            if not gate.passed:
+                print(f"  gate: still FAILED — {gate.summary()}")
+            else:
+                print("  gate: passed after repair")
+    else:
+        skipped = (f", skipped: {', '.join(gate.checks_skipped)}"
+                   if gate.checks_skipped else "")
+        print(f"  gate: passed (checks: {', '.join(gate.checks_run)}{skipped})")
+
+    gate_bad_pages = {f.page for f in gate.findings if f.page not in ("*", "")}
+    gate_global_failure = (not gate.passed) and (
+        any(f.page in ("*", "") for f in gate.findings) or not gate_bad_pages
+    )
+
+    if not args.no_llm:
+        # Retry-safe per-page state (autopilot P0-1/P0-2): after the gate,
+        # refresh the success fingerprint of every page that is currently
+        # good (verification passes above may have rewritten content),
+        # mark it verified against the current source hashes, and persist
+        # the plan atomically — including the current API surface so the
+        # next run can diff it. Pages that failed generation or the gate
+        # keep (or get) status="failed", so the next run re-attempts them
+        # even when no source hash changed.
+        from repoquill.core.manifest import (
+            mark_verified,
+            record_page_failure,
+            record_page_success,
+            store_plan_atomic,
+        )
+        failed_slugs = {p["slug"] for p in pages if p.get("status") == "failed"}
+        for p in pages:
+            if p["slug"] in failed_slugs:
+                continue
+            if p["slug"] in gate_bad_pages:
+                find = [f for f in gate.findings if f.page == p["slug"]]
+                detail = "; ".join(f"{f.check}: {f.detail}" for f in find[:3])
+                record_page_failure(p, f"quality gate: {detail}")
+            elif gate_global_failure:
+                record_page_failure(p, "quality gate: global failure")
+            else:
+                out = os.path.join(cfg.out_guides, f"{p['slug']}.md")
+                if not os.path.exists(out):
+                    continue
+                record_page_success(p, out)
+                mark_verified(p, new_hashes)
+        failed_slugs = {p["slug"] for p in pages if p.get("status") == "failed"}
+
+        store_plan_atomic(cfg.plan_file, {
+            "pages": pages,
+            "file_hashes": new_hashes,
+            "api_surface": current_surface,
+        })
+        if failed_slugs:
+            print(f"\n  FAILED for {len(failed_slugs)} page(s): "
+                  f"{', '.join(sorted(failed_slugs))}")
+            print("  State was NOT advanced for these pages; they will be "
+                  "retried on the next run.")
 
     print()
     print("[5/6] Cross-linking guide pages...")
@@ -1798,6 +1981,21 @@ def _cmd_generate(args) -> int:
     n_guides = len([f for f in os.listdir(cfg.out_guides) if f.endswith(".md")])
     n_ref = len([f for f in os.listdir(cfg.ref_dir) if f.endswith(".md")])
     print(f"\nDone. {n_guides} guide pages + {n_ref} reference pages in {cfg.site_src}")
+
+    # Fail closed: if any required page failed to generate or the quality
+    # gate failed, do NOT build the site (the last known-good site stays
+    # intact) and signal failure so CI/automation treats the run as
+    # failed. Unverified pages' state was not advanced, so the next run
+    # retries them.
+    if failed_slugs or not gate.passed:
+        why = []
+        if failed_slugs:
+            why.append(f"{len(failed_slugs)} page(s) failed generation")
+        if not gate.passed:
+            why.append("quality gate failed")
+        print(f"\nFAILED: {' and '.join(why)} — skipping site build; "
+              f"last known-good site preserved.")
+        return 1
 
     if args.build:
         _run_mkdocs_build(cfg, skill_content)

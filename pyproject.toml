@@ -46,8 +46,18 @@ dev = [
 [project.scripts]
 repoquill = "repoquill.cli:main"
 
+[tool.pytest.ini_options]
+# Keep collection inside tests/ — research/ contains smoke scripts that
+# exit at import time.
+testpaths = ["tests"]
+
 [tool.setuptools]
-packages = ["repoquill"]
+packages = [
+    "repoquill",
+    "repoquill.core",
+    "repoquill.validation",
+    "repoquill.agents",
+]
 
 [tool.setuptools.package-data]
 repoquill = ["*.yml", "*.yaml"]

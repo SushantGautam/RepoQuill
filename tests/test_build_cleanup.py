@@ -74,11 +74,11 @@ def test_run_mkdocs_build_cleans_up(tmp_path, monkeypatch):
 
     def fake_run(cmd, **kw):
         calls.append((cmd, kw))
-        # Simulate mkdocs producing a site/ dir
+        # Simulate mkdocs producing a site dir
         site = os.path.join(kw["cwd"], "site")
         os.makedirs(site, exist_ok=True)
 
-    monkeypatch.setattr("repoquill.cli.subprocess.run", fake_run)
+    monkeypatch.setattr("repoquill.cli.run_mkdocs", fake_run)
     _run_mkdocs_build(cfg)
     assert calls, "mkdocs build was not invoked"
     assert not os.path.exists(mkdocs)
@@ -94,7 +94,7 @@ def test_run_mkdocs_build_failure_keeps_mkdocs_yml(tmp_path, monkeypatch):
     def fake_run(cmd, **kw):
         raise RuntimeError("mkdocs build failed")
 
-    monkeypatch.setattr("repoquill.cli.subprocess.run", fake_run)
+    monkeypatch.setattr("repoquill.cli.run_mkdocs", fake_run)
     with pytest.raises(RuntimeError):
         _run_mkdocs_build(cfg)
     assert os.path.exists(mkdocs)
