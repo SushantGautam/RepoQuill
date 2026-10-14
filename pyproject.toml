@@ -57,7 +57,12 @@ packages = [
     "repoquill.core",
     "repoquill.validation",
     "repoquill.agents",
+    "repoquill.pi",
 ]
 
 [tool.setuptools.package-data]
-repoquill = ["*.yml", "*.yaml"]
+# `pi/extension.ts` is the Pi runtime's constrained-tool extension, loaded at
+# runtime relative to the package; it must ship inside the wheel or the Pi
+# engine is unusable when RepoQuill is built/installed (uvx, pip, PyPI) rather
+# than run from source.
+repoquill = ["*.yml", "*.yaml", "pi/extension.ts"]
