@@ -361,7 +361,8 @@ def build_pi_system_prompt(
 
     *siblings*: iterable of ``(slug, title)`` for the OTHER pages of
     this documentation site (used for the mandatory "Where to go next"
-    section; site links use the ``guides/<slug>.md`` convention).
+    section; sibling cross-links use the page-relative ``<slug>.md``
+    form, because every guide lives in the same ``docs/guides/`` dir).
     """
     tools = ("list_files, read_file, search_code, inspect_api, "
              "inspect_tests, write_doc")
@@ -373,8 +374,11 @@ def build_pi_system_prompt(
         listing = "; ".join(
             f"'{s}' ({t})" for s, t in siblings if s)
         siblings_note = (
-            "\n- SIBLING PAGES of this site (cross-link with relative "
-            f"links of the form `guides/<slug>.md`): {listing}.\n")
+            "\n- SIBLING PAGES of this site (cross-link with "
+            "page-relative links of the form `<slug>.md` — e.g. link to "
+            "the sibling slug 'quickstart' as `quickstart.md`, NOT "
+            "`guides/quickstart.md`; this page and every sibling live in "
+            f"the same directory): {listing}.\n")
     return (
         "You are a documentation author working on exactly one page of a "
         "documentation site.\n\n"

@@ -508,6 +508,15 @@ def cross_link_guides(cfg, pages: List[dict]) -> int:
         with open(info["path"]) as f:
             content = f.read()
 
+        # Sibling guides must be page-relative: this page and every sibling
+        # live in docs/guides/, so a cross-link is `<slug>.md`, never
+        # `guides/<slug>.md` (which 404s as docs/guides/guides/<slug>.md).
+        # Normalize any agent-emitted `guides/<slug>.md` link to a known
+        # sibling to its correct page-relative form.
+        for tgt in sorted((s + ".md" for s in pages_info), key=len,
+                          reverse=True):
+            content = content.replace(f"](guides/{tgt})", f"]({tgt})")
+
         content = re.sub(
             r"\n### See Also\n[\s\S]*?(?=\n## |\Z)",
             "",
