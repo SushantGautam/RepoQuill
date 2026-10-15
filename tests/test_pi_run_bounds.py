@@ -384,6 +384,118 @@ def test_orbit_page_retried_once(tmp_path, monkeypatch, capsys):
     assert "over-explored/orbiting" in out
 
 
+def test_verification_failure_retries_with_feedback(tmp_path, monkeypatch,
+                                                    capsys):
+    """A draft that fails independent verification is re-authored ONCE with
+    the specific findings fed back into the task, and the corrected
+    (passing) page is published. Without feedback, a fresh-context retry
+    would re-hallucinate the same symbol (measured on installation)."""
+    from types import SimpleNamespace
+    import repoquill.agents.verify as agent_verify
+
+    class TwoRunBackend(FakeSequenceBackend):
+        def install(self, monkeypatch):
+            super().install(monkeypatch)
+            rpc = sys.modules["repoquill.pi.rpc"]
+            inner = rpc.PiRpcBackend
+            outer = self
+
+            def run(self, task):
+                outer.calls += 1
+                # The feedback retry's task carries the specific findings.
+                if outer.calls == 2:
+                    assert "FAILED INDEPENDENT VERIFICATION" in task.evidence
+                    assert "do NOT reference it" in task.evidence
+                with open(task.expected_output_path, "w") as f:
+                    f.write(f"attempt {outer.calls}\n")
+                return _result(slug=task.slug, completed=True,
+                               output_path=task.expected_output_path)
+
+            inner.run = run
+
+    vres_calls = {"n": 0}
+
+    def fake_verify_page_file(slug, staged, task, ctx, **kw):
+        vres_calls["n"] += 1
+        passed = vres_calls["n"] >= 2
+        return SimpleNamespace(
+            passed=passed,
+            summary=("1 symbol finding; references nonexistent class "
+                     "'MissingApiKeyError' (severity: high)")
+            if not passed else "coverage 1/1; 0 findings")
+
+    monkeypatch.setattr(agent_verify, "verify_page_file",
+                        fake_verify_page_file)
+    fake = TwoRunBackend([{"ok": True}, {"ok": True}])
+    fake.install(monkeypatch)
+    cfg = load_config(str(_make_repo(tmp_path)))
+    cfg.llm.base_url = "http://127.0.0.1:9/v1"  # Pi needs an explicit endpoint
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")  # provider validation
+    cfg.out_guides = str(tmp_path / "docs" / "guides")
+    os.makedirs(cfg.out_guides, exist_ok=True)
+    ok = scheduler.run_pi_generation(
+        [dict(p) for p in PAGES], cfg,
+        old_hashes={}, new_hashes={"datefmt/parser.py": "x"},
+        force_slugs={"alpha"}, verify_each=True,
+    )
+    out = capsys.readouterr().out
+    assert ok == ["alpha"]
+    assert fake.calls == 2  # original + exactly one feedback retry
+    assert vres_calls["n"] == 2
+    assert "one retry with verification feedback" in out
+    # The published page is the feedback retry's content, not the first.
+    content = open(os.path.join(cfg.out_guides, "alpha.md")).read()
+    assert content == "attempt 2\n"
+
+
+def test_verification_feedback_retry_still_fails_bounded(tmp_path, monkeypatch,
+                                                         capsys):
+    """If the feedback retry ALSO fails verification, the page is dropped —
+    exactly one feedback retry, no unbounded loop."""
+    from types import SimpleNamespace
+    import repoquill.agents.verify as agent_verify
+
+    class AlwaysAuthor(FakeSequenceBackend):
+        def install(self, monkeypatch):
+            super().install(monkeypatch)
+            rpc = sys.modules["repoquill.pi.rpc"]
+            inner = rpc.PiRpcBackend
+            outer = self
+
+            def run(self, task):
+                outer.calls += 1
+                with open(task.expected_output_path, "w") as f:
+                    f.write(f"attempt {outer.calls}\n")
+                return _result(slug=task.slug, completed=True,
+                               output_path=task.expected_output_path)
+
+            inner.run = run
+
+    def fake_verify_page_file(slug, staged, task, ctx, **kw):
+        return SimpleNamespace(
+            passed=False,
+            summary="1 symbol finding; references nonexistent class 'X'")
+
+    monkeypatch.setattr(agent_verify, "verify_page_file",
+                        fake_verify_page_file)
+    fake = AlwaysAuthor([{"ok": True}, {"ok": True}])
+    fake.install(monkeypatch)
+    cfg = load_config(str(_make_repo(tmp_path)))
+    cfg.llm.base_url = "http://127.0.0.1:9/v1"  # Pi needs an explicit endpoint
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")  # provider validation
+    cfg.out_guides = str(tmp_path / "docs" / "guides")
+    os.makedirs(cfg.out_guides, exist_ok=True)
+    ok = scheduler.run_pi_generation(
+        [dict(p) for p in PAGES], cfg,
+        old_hashes={}, new_hashes={"datefmt/parser.py": "x"},
+        force_slugs={"alpha"}, verify_each=True,
+    )
+    assert ok == []
+    assert fake.calls == 2  # original + exactly one feedback retry, no loop
+    assert not os.path.isfile(
+        str(tmp_path / "docs" / "guides" / "alpha.md"))
+
+
 # --------------------------------------------------------------------------- #
 # Transient endpoint failure predicate
 # --------------------------------------------------------------------------- #

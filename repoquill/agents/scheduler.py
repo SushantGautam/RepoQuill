@@ -837,13 +837,17 @@ def run_pi_generation(
             pack = evidence_by_slug.get(slug)
             evidence_text = _evidence_to_text(pack, pkg_prefix=pkg_prefix)
 
-            def _attempt(retry: bool = False):
+            def _attempt(retry: bool = False, feedback: str = ""):
                 """Spawn one Pi process for this page; (result, error).
 
                 ``retry=True`` builds the UPGRADED retry task: the same
                 evidence plus pre-loaded source excerpts, so a retry
                 after a budget/timeout failure needs far fewer tool
-                calls than the attempt it replaces.
+                calls than the attempt it replaces. ``feedback`` (when a
+                previous draft failed independent verification) is appended
+                to the evidence so the author is told EXACTLY which symbols
+                / coverage items were wrong and can ground them in source
+                instead of re-inventing them.
                 """
                 evidence = evidence_text
                 if retry:
@@ -851,6 +855,8 @@ def run_pi_generation(
                         task, pack, pkg_prefix, cfg.root, cfg.pkg_path)
                     if excerpts:
                         evidence = (evidence_text + "\n\n" + excerpts)
+                if feedback:
+                    evidence = (evidence + "\n\n" + feedback)
                 pi_task = PiTask(
                     slug=slug,
                     title=task.title,
@@ -984,9 +990,49 @@ def run_pi_generation(
                 except Exception as e:  # noqa: BLE001
                     return slug, False, f"verifier error: {e}"
                 if not vres.passed:
-                    return slug, False, (
-                        "independent verification failed: "
-                        + vres.summary)
+                    # Bounded retry WITH verification feedback: re-author
+                    # once, telling the author exactly which symbols /
+                    # coverage items were wrong so it grounds them in source
+                    # instead of re-inventing. (Measured: a fresh-context
+                    # retry re-hallucinates the same symbol; a feedback
+                    # retry corrects it.)
+                    feedback = (
+                        "YOUR PREVIOUS DRAFT OF THIS PAGE FAILED "
+                        "INDEPENDENT VERIFICATION:\n"
+                        + vres.summary
+                        + "\nRe-write the page and fix EVERY item above. "
+                        "Any API symbol flagged as nonexistent does NOT "
+                        "exist in this source: do NOT reference it. Find "
+                        "the real symbol via inspect_api / inspect_tests "
+                        "and the files you read, or omit the claim. Cover "
+                        "every checklist item.")
+                    print(f"    {slug}: verification failed "
+                          f"— one retry with verification feedback")
+                    result2, run_error2 = _attempt(retry=True,
+                                                   feedback=feedback)
+                    if run_error2 is not None:
+                        return slug, False, (
+                            "independent verification failed "
+                            f"(retry errored): {run_error2}")
+                    staged2 = result2.output_path or staged_path
+                    if not result2.ok or not os.path.isfile(staged2):
+                        return slug, False, (
+                            "independent verification failed "
+                            "(retry produced no page): "
+                            + vres.summary)
+                    try:
+                        vres2 = agent_verify.verify_page_file(
+                            slug, staged2, task, ctx,
+                            run_examples=execute_examples,
+                            coverage_threshold=ag.coverage_threshold)
+                    except Exception as e:  # noqa: BLE001
+                        return slug, False, f"verifier error: {e}"
+                    if not vres2.passed:
+                        return slug, False, (
+                            "independent verification failed "
+                            "(after feedback retry): " + vres2.summary)
+                    # The feedback retry produced a verified page: use it.
+                    staged = staged2
 
             shutil.copyfile(staged, out_path)
             return slug, True, ""
