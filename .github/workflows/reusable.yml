@@ -206,7 +206,21 @@ jobs:
           fi
           RAG=""
           if [ "${{ inputs.install_rag }}" = "true" ]; then RAG="[rag]"; fi
+          # Restore the last-good plan (committed under a non-hidden name) so
+          # verify-passed pages whose source is unchanged are REUSED (skipped),
+          # not re-authored. Without it, every run re-rolls all narrative pages
+          # from scratch and the non-deterministic model + strict verifier
+          # reject a different 2 each time (whack-a-mole).
+          if [ -f docs/repoquill.plan.json ]; then
+            cp docs/repoquill.plan.json docs/.plan.json
+          fi
           uvx --from "./_repoquill${RAG}" repoquill generate $NO_LLM_FLAG --config ${{ inputs.config }} --build
+          # Persist the updated plan under a non-hidden name: dotfiles are
+          # unreliable across the upload-artifact boundary, and the product
+          # writes the plan to docs/.plan.json. The next run restores it above.
+          if [ -f docs/.plan.json ]; then
+            mv docs/.plan.json docs/repoquill.plan.json
+          fi
 
       - name: Upload docs artifact
         uses: actions/upload-artifact@v4
@@ -250,6 +264,13 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add docs/ "$CFG"
+          # Preserve the last-good/verified plan (docs/repoquill.plan.json, a
+          # non-hidden copy of docs/.plan.json made by the validate job) so
+          # already-passing narrative pages are reused next run, not
+          # re-authored. Belt-and-suspenders on top of `git add docs/`.
+          if [ -f docs/repoquill.plan.json ]; then
+            git add docs/repoquill.plan.json
+          fi
           if ! git diff --cached --quiet; then
             git commit -m "docs: regenerate [skip ci]" && git push
           fi
