@@ -555,6 +555,24 @@ def _is_deadline_exhaustion(error_text: str) -> bool:
     return "did not reach agent_settled" in (error_text or "")
 
 
+def _is_over_exploration_failure(errors) -> bool:
+    """True when a run died by over-exploring without producing a page.
+
+    Two measured failure classes: the tool-call budget running out
+    ("tool-call budget of N exceeded") and the repeat-call orbit breaker
+    ("the agent is orbiting", fired when the identical tool call is issued
+    ``max_repeat_calls`` times). Both mean the page was not written, and a
+    fresh-context retry with source excerpts pre-loaded (so the retry needs
+    far fewer tool calls and is less likely to re-loop) is cheap and wins
+    often. Endpoint / deadline / verification failures are NOT over-
+    exploration and are handled by their own branches.
+    """
+    for e in errors or []:
+        if "tool-call budget" in e or "orbiting" in e:
+            return True
+    return False
+
+
 #: Per-file / total caps for the retry's pre-loaded source excerpts:
 #: enough to write the page from, small enough to stay in the prompt.
 _RETRY_EXCERPT_FILES = 6
@@ -925,15 +943,16 @@ def run_pi_generation(
                             + " (after retry) [%s]"
                               % _pi_activity_summary(
                                   result))
-                elif any("tool-call budget" in e for e in result.errors):
-                    # Budget-exhausted failure: the agent over-explored
-                    # (e.g. re-reading the same files around compaction).
-                    # One retry from a fresh context, UPGRADED: the
-                    # source excerpts are pre-loaded into the retry's
-                    # task prompt so it needs far fewer tool calls
-                    # (measured: retries win easily — quickstart
-                    # succeeded on retry at 18/24 calls).
-                    print(f"    {slug}: tool-call budget exhausted "
+                elif _is_over_exploration_failure(result.errors):
+                    # Over-exploration failure: the tool-call budget ran
+                    # out, or the repeat-call orbit breaker fired (the
+                    # agent looped on an identical call). One retry from a
+                    # fresh context, UPGRADED: the source excerpts are
+                    # pre-loaded into the retry's task prompt so it needs
+                    # far fewer tool calls and is less likely to re-loop on
+                    # the same read (measured: quickstart succeeded on
+                    # budget retry at 18/24 calls).
+                    print(f"    {slug}: over-explored/orbiting "
                           f"— one retry with pre-loaded source excerpts")
                     result, run_error = _attempt(retry=True)
                     if run_error is not None:
@@ -945,7 +964,7 @@ def run_pi_generation(
                         return slug, False, (
                             ("; ".join(result.errors)
                              or "pi run did not complete")
-                            + " (after budget retry) [%s]"
+                            + " (after over-exploration retry) [%s]"
                               % _pi_activity_summary(result))
                 else:
                     return slug, False, detail

@@ -343,9 +343,63 @@ def test_budget_retry_failing_still_fails(tmp_path, monkeypatch):
         str(tmp_path / "docs" / "guides" / "alpha.md"))
 
 
+class OrbitRetryBackend(FakeSequenceBackend):
+    """First attempt: aborted by the repeat-call orbit breaker (no file).
+    Second: a normal successful run."""
+
+    def install(self, monkeypatch):
+        super().install(monkeypatch)
+        rpc = sys.modules["repoquill.pi.rpc"]
+        inner = rpc.PiRpcBackend
+        outer = self
+
+        def run(self, task):
+            outer.calls += 1
+            if outer.calls == 1:
+                return _result(
+                    slug=task.slug, completed=False, aborted=True,
+                    errors=["repeated tool call aborted: the identical "
+                            "call (read_file {\"path\": \"x.py\"}) was "
+                            "issued 6 times — the agent is orbiting; "
+                            "write the page with what has been gathered"])
+            with open(task.expected_output_path, "w") as f:
+                f.write("ok\n")
+            return _result(slug=task.slug, completed=True,
+                           output_path=task.expected_output_path)
+
+        inner.run = run
+
+
+def test_orbit_page_retried_once(tmp_path, monkeypatch, capsys):
+    """Regression: an orbit-breaker abort (identical tool call repeated
+    ``max_repeat_calls`` times) used to fall through with NO retry, so the
+    page was dropped. It now gets one fresh-context retry with source
+    excerpts pre-loaded (so the retry needs fewer calls and is less likely
+    to re-loop on the same read)."""
+    fake = OrbitRetryBackend([{"ok": False}, {"ok": True}])
+    ok = _run(tmp_path, fake, monkeypatch)
+    out = capsys.readouterr().out
+    assert ok == ["alpha"]
+    assert fake.calls == 2  # original + exactly one over-exploration retry
+    assert "over-explored/orbiting" in out
+
+
 # --------------------------------------------------------------------------- #
 # Transient endpoint failure predicate
 # --------------------------------------------------------------------------- #
+def test_over_exploration_predicate():
+    from repoquill.agents.scheduler import _is_over_exploration_failure as t
+    assert t(["tool-call budget of 250 exceeded — agent aborted"])
+    assert t(["the agent is orbiting; write the page with what has been gathered"])
+    assert t(["unrelated", "repeated tool call aborted ... orbiting"])
+    # Endpoint / verification / deadline failures are NOT over-exploration.
+    assert not t(["provider request failed: HTTP 502"])
+    assert not t(["independent verification failed: 1 symbol finding"])
+    assert not t(["did not reach agent_settled within 900.0s"])
+    assert not t([])
+    assert not t(None)
+
+
 def _fake_result(tool_calls=(), total_tokens=0):
     from types import SimpleNamespace
     return SimpleNamespace(
@@ -487,7 +541,10 @@ def test_pi_system_prompt_hardened(tmp_path):
     # convention.
     assert "Where to go next" in p
     assert "SIBLING PAGES" in p
-    assert "guides/<slug>.md" in p
+    # Sibling links are page-relative (<slug>.md), never guides/<slug>.md
+    # (a page in docs/guides/ resolves guides/<slug>.md to a 404).
+    assert "page-relative links of the form `<slug>.md`" in p
+    assert "NOT `guides/quickstart.md`" in p
     assert "'other-page' (Other Page)" in p
     # One canonical page per topic.
     assert "Do not duplicate another page's primary topic" in p
